@@ -1,0 +1,169 @@
+/* BlockNote样式覆盖 - 修复代码块布局问题 */
+
+/* 确保整个编辑器容器有正确的宽度限制 */
+.task-editor-container .bn-container {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* 代码块的样式修复 */
+.task-editor-container .bn-container pre {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+  /* 添加水平滚动条当内容超宽时 */
+  scrollbar-width: thin;
+}
+
+/* 确保代码块内的代码不会撑开容器 */
+.task-editor-container .bn-container pre code {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+  display: block !important;
+  box-sizing: border-box !important;
+}
+
+/* 确保所有块级元素都有正确的宽度限制 */
+.task-editor-container .bn-container .ProseMirror > * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* 修复表格等其他可能撑开容器的元素 */
+.task-editor-container .bn-container table {
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  word-wrap: break-word !important;
+}
+
+/* 修复图片等媒体元素 */
+.task-editor-container .bn-container img {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* 长链接或长文本的处理 */
+.task-editor-container .bn-container a {
+  word-break: break-all !important;
+  overflow-wrap: break-word !important;
+}
+
+/* 确保BlockNote的编辑器内容区域不会超出父容器 */
+.task-editor-container .ProseMirror {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  word-wrap: break-word !important;
+}
+
+/* 特别针对代码高亮的处理 */
+.task-editor-container .bn-container .hljs {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-x: auto !important;
+  max-width: 100% !important;
+}
+
+/* 处理非常长的单词或代码行 */
+.task-editor-container .bn-container [data-content-type="codeBlock"] {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+}
+
+/* 自定义滚动条样式 */
+.task-editor-container .bn-container pre::-webkit-scrollbar {
+  height: 6px;
+}
+
+.task-editor-container .bn-container pre::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.task-editor-container .bn-container pre::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.task-editor-container .bn-container pre::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 优化文本选择性能 */
+.task-editor-container .ProseMirror {
+  /* 启用硬件加速 */
+  transform: translateZ(0);
+  /* 优化文本选择渲染 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* 优化光标和选择性能 */
+  will-change: contents;
+}
+
+/* 减少重排和重绘 */
+.task-editor-container .bn-container {
+  contain: layout style;
+}
+
+/* 优化选择高亮的性能 */
+.task-editor-container .ProseMirror ::selection {
+  background-color: rgba(59, 130, 246, 0.3);
+}
+
+.task-editor-container .ProseMirror ::-moz-selection {
+  background-color: rgba(59, 130, 246, 0.3);
+}
+
+/* 修复建议菜单被遮挡的问题 */
+.task-editor-container .bn-container .bn-suggestion-menu,
+.task-editor-container .bn-container [data-suggestion-menu],
+.task-editor-container .bn-container .ProseMirror-menubar,
+.task-editor-container .bn-container .bn-slash-menu,
+.task-editor-container .bn-container .bn-formatting-toolbar {
+  z-index: 9999 !important;
+  position: fixed !important;
+}
+
+/* 确保建议菜单容器有足够的层级 */
+.task-editor-container .bn-container {
+  position: relative;
+  z-index: 1;
+}
+
+/* 特别处理 BlockNote 的下拉菜单和弹出层 */
+.task-editor-container .bn-container .tippy-box,
+.task-editor-container .bn-container [data-tippy-root] {
+  z-index: 10000 !important;
+}
+
+/* 确保编辑器容器不会裁剪弹出内容 */
+.task-editor-container {
+  overflow: visible !important;
+}
+
+/* 修复可能的定位问题 */
+.task-editor-container .bn-container .ProseMirror {
+  position: relative;
+  z-index: auto;
+}
+
+/* 特别修复斜杠命令菜单 */
+.bn-suggestion-menu {
+  z-index: 10001 !important;
+  position: fixed !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 修复所有可能的 BlockNote 弹出层 */
+[data-bn-type="suggestionMenu"],
+[data-bn-type="slashMenu"],
+.bn-slash-menu {
+  z-index: 10001 !important;
+  position: fixed !important;
+} 
