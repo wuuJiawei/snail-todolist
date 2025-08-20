@@ -7,17 +7,13 @@ import { Loader2 } from "lucide-react";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useTasksFilter } from "@/hooks/useTasksFilter";
+import { useTaskFilter } from "@/hooks/useTaskFilter";
 import { cn } from "@/lib/utils";
 import ProjectSelector from "@/components/tasks/ProjectSelector";
 import { TODAY_TASKS_FILTERS_KEY, RECENT_TASKS_FILTERS_KEY } from "@/constants/storage-keys";
 import { Icon } from "@/components/ui/icon-park";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import TaskFilter, { TaskFilterOptions } from "@/components/tasks/TaskFilter";
 
 // Import the extracted components
 import TaskHeader from "./TaskHeader";
@@ -34,6 +30,13 @@ const TaskList: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { collapsed, setCollapsed } = useSidebar();
   const [filteredProjects, setFilteredProjects] = useState<string[]>([]);
+  
+  // 任务筛选状态
+  const [taskFilters, setTaskFilters] = useState<TaskFilterOptions>({
+    status: [],
+    deadline: [],
+    hasAttachments: null,
+  });
 
   // 根据当前视图选择合适的存储键
   const getStorageKey = () => {
@@ -56,6 +59,12 @@ const TaskList: React.FC = () => {
     pendingTasks,
     isSpecialView
   } = useTasksFilter(tasks, selectedProject, filteredProjects);
+
+  // 应用任务筛选
+  const { filteredTasks: filteredPendingTasks, activeFilterCount } = useTaskFilter(pendingTasks || [], taskFilters);
+  const { filteredTasks: filteredCompletedTasks } = useTaskFilter(completedTasks || [], taskFilters);
+  const { filteredTasks: filteredExpiredTasks } = useTaskFilter(expiredTasks || [], taskFilters);
+  const { filteredTasks: filteredPendingTasksByDate } = useTaskFilter(pendingTasksByDate || {}, taskFilters);
 
   // Find the project and its details corresponding to the selected project ID
   const projectDetails = (() => {
@@ -171,25 +180,11 @@ const TaskList: React.FC = () => {
         icon={projectDetails.icon}
         iconColor={projectDetails.color}
         actions={
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 px-2">
-                <Icon icon="more" size="16" className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>
-                <Icon icon="sort" size="16" className="mr-2 h-4 w-4" />
-                <span>排序任务</span>
-              </DropdownMenuItem>
-              {allowSorting && (
-                <DropdownMenuItem>
-                  <Icon icon="filter" size="16" className="mr-2 h-4 w-4" />
-                  <span>筛选任务</span>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <TaskFilter
+            filters={taskFilters}
+            onFiltersChange={setTaskFilters}
+            activeCount={activeFilterCount}
+          />
         }
       />
 
@@ -221,21 +216,21 @@ const TaskList: React.FC = () => {
             {isSpecialView ? (
               <>
                 <TasksExpired
-                  tasks={expiredTasks}
+                  tasks={filteredExpiredTasks}
                   renderTask={renderTask}
                 />
 
                 <TasksByDate
-                  tasksByDate={pendingTasksByDate}
+                  tasksByDate={filteredPendingTasksByDate as { [key: string]: Task[] }}
                   renderTask={renderTask}
-                  showEmptyMessage={expiredTasks.length === 0}
+                  showEmptyMessage={filteredExpiredTasks.length === 0}
                 />
                 
                 {/* 特殊视图中显示已完成任务的旧样式 */}
-                {completedTasks.length > 0 && (
+                {filteredCompletedTasks.length > 0 && (
                   <div className="mt-4">
                     <TasksCompleted
-                      tasks={completedTasks}
+                      tasks={filteredCompletedTasks}
                       renderTask={renderTask}
                       allowSorting={allowSorting}
                     />
@@ -244,7 +239,7 @@ const TaskList: React.FC = () => {
               </>
             ) : (
               <>
-                {pendingTasks && pendingTasks.length > 0 ? (
+                {filteredPendingTasks && filteredPendingTasks.length > 0 ? (
                   <Droppable droppableId="pending-tasks" isDropDisabled={!allowSorting}>
                     {(provided, snapshot) => (
                       <div
@@ -255,7 +250,7 @@ const TaskList: React.FC = () => {
                           snapshot.isDraggingOver && allowSorting && "bg-gray-50 rounded-md"
                         )}
                       >
-                        {pendingTasks.map((task, index) => (
+                        {filteredPendingTasks.map((task, index) => (
                           <div className="px-4" key={task.id}>
                             {renderTask(task, index, allowSorting)}
                           </div>
@@ -266,7 +261,7 @@ const TaskList: React.FC = () => {
                   </Droppable>
                 ) : (
                   <div className="text-center p-4 text-gray-500">
-                    暂无待办任务
+                    {activeFilterCount > 0 ? "没有符合筛选条件的任务" : "暂无待办任务"}
                   </div>
                 )}
               </>
