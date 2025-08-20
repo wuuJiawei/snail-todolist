@@ -1,4 +1,42 @@
-# 🐌 蜗牛待办 (Snail TodoList)
+<div align="center">
+  <img src="./public/logo.png" alt="Snail TodoList Logo" width="120" height="120" />
+  
+  # 🐌 蜗牛待办 (Snail TodoList)
+  
+  <p align="center">
+    <strong>一个完全由 AI 驱动开发的现代化待办事项管理应用</strong>
+  </p>
+  
+  <p align="center">
+    <img src="https://img.shields.io/badge/AI%20Generated-100%25-brightgreen?style=for-the-badge&logo=robot" alt="100% AI Generated" />
+    <img src="https://img.shields.io/badge/Vibe%20Coding-Powered-blue?style=for-the-badge&logo=magic" alt="Vibe Coding" />
+  </p>
+  
+  <p align="center">
+    <img src="https://img.shields.io/badge/Built%20with-Cursor-000000?style=flat-square&logo=cursor&logoColor=white" alt="Built with Cursor" />
+    <img src="https://img.shields.io/badge/Powered%20by-Claude%20Code-FF6B6B?style=flat-square&logo=anthropic&logoColor=white" alt="Powered by Claude Code" />
+    <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=white" alt="React 18" />
+    <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+    <img src="https://img.shields.io/badge/Supabase-Database-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
+    <img src="https://img.shields.io/badge/Vercel-Deployed-000000?style=flat-square&logo=vercel&logoColor=white" alt="Deployed on Vercel" />
+  </p>
+</div>
+
+## 🤖 AI 驱动的 Vibe Coding 产物
+
+这是一个**完全由人工智能生成**的项目，展示了 AI 驱动开发的强大能力：
+
+- 🎯 **100% AI 生成**: 没有任何人工编写的代码，完全通过 AI 对话生成
+- 🧠 **Vibe Coding**: 通过自然语言描述和需求对话，让 AI 理解并实现功能
+- 🔧 **Cursor + Claude Code**: 主要开发工具，提供智能代码生成和项目管理
+- ⚡ **快速迭代**: 从概念到完整应用，展示 AI 辅助开发的高效性
+
+### 🛠️ 开发工具链
+
+- **主要 IDE**: [Cursor](https://cursor.sh/) - AI 原生代码编辑器
+- **AI 助手**: [Claude Code](https://claude.ai/code) - Anthropic 的编程专用 AI
+- **开发方式**: Vibe Coding - 通过自然语言对话驱动代码生成
+- **设计理念**: AI-First Development - 让 AI 理解需求并自主实现
 
 一个现代化、功能丰富的待办事项管理应用，支持项目分组、任务排序、协作共享等功能。
 
@@ -27,7 +65,7 @@
 
 1. **克隆项目**
 ```bash
-git clone https://github.com/your-username/snail-todolist.git
+git clone https://github.com/wuuJiawei/snail-todolist.git
 cd snail-todolist
 ```
 
@@ -157,11 +195,31 @@ src/
 - 🎯 **简约高效** - 界面简洁但功能强大
 - 🤝 **协作友好** - 支持团队协作和知识共享
 
+## 🤖 AI 开发历程
+
+这个项目完全通过 AI 驱动的 Vibe Coding 方式开发，展现了人工智能在软件开发领域的巨大潜力：
+
+### 开发过程
+1. **需求对话**: 通过自然语言描述功能需求
+2. **AI 理解**: Claude Code 理解并规划技术实现
+3. **代码生成**: 自动生成完整的组件、服务和配置
+4. **迭代优化**: 通过对话持续改进和新增功能
+5. **部署配置**: AI 自动配置 CI/CD 和生产环境
+
+### 技术亮点
+- 🏗️ **完整架构设计**: 从前端到后端的全栈架构
+- 🔒 **安全最佳实践**: 自动集成安全配置和环境变量管理
+- 📱 **响应式设计**: 自适应各种设备的现代化 UI
+- 🚀 **性能优化**: 代码分割、懒加载等性能优化策略
+- 🧪 **质量保证**: 类型安全、错误处理和用户体验优化
+
+这证明了 AI 不仅能写代码，更能进行系统性的软件工程思考和实践。
+
 ## 📞 联系
 
-- 项目主页: [GitHub Repository](https://github.com/your-username/snail-todolist)
-- 问题反馈: [Issues](https://github.com/your-username/snail-todolist/issues)
-- 功能建议: [Discussions](https://github.com/your-username/snail-todolist/discussions)
+- 项目主页: [GitHub Repository](https://github.com/wuuJiawei/snail-todolist)
+- 问题反馈: [Issues](https://github.com/wuuJiawei/snail-todolist/issues)
+- 功能建议: [Discussions](https://github.com/wuuJiawei/snail-todolist/discussions)
 
 ---
 
