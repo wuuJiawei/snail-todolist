@@ -40,6 +40,13 @@
 
 一个现代化、功能丰富的待办事项管理应用，支持项目分组、任务排序、协作共享等功能。
 
+## 📸 应用预览
+
+<div align="center">
+  <img src="./docs/screenshots/snailtodo-screenshot-1.png" alt="蜗牛待办应用界面预览" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />
+  <p><em>蜗牛待办主界面 - 展示项目管理、任务编辑和富文本支持功能</em></p>
+</div>
+
 ## ✨ 特性
 
 - 📝 **智能任务管理** - 创建、编辑、完成、放弃任务
