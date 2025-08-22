@@ -6,7 +6,7 @@ import { Icon } from "@/components/ui/icon-park";
 import ProjectIcon from "@/components/ui/project-icon";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Task } from "@/types/task";
-import { format, isToday, isTomorrow, isYesterday, isValid, parseISO, isBefore, startOfDay } from "date-fns";
+import { format, isToday, isTomorrow, isYesterday, isValid, parseISO, isBefore, startOfDay, addDays, subDays } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -19,6 +19,8 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
+import { Button } from "@/components/ui/button";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Draggable } from "@hello-pangea/dnd";
 import TaskOperationProgress from "@/components/ui/task-operation-progress";
 import { useTaskOperation } from "@/hooks/useTaskOperation";
@@ -244,6 +246,174 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   };
 
 
+  // 从 task.date 解析当前选择日期
+  const getSelectedDate = (): Date | undefined => {
+    try {
+      if (!task.date) return undefined;
+      const parsed = parseISO(task.date);
+      return isValid(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  // 右键菜单内设置/清除截止日期
+  const handleContextMenuDateChange = async (date: Date | undefined) => {
+    await startOperation("update", async () => {
+      let dateString: string | undefined = undefined;
+      if (date) {
+        const normalizedDate = new Date(date);
+        normalizedDate.setHours(0, 0, 0, 0);
+        dateString = normalizedDate.toISOString();
+      }
+      await updateTask(task.id, { date: dateString });
+      setIsContextMenuOpen(false);
+    });
+  };
+
+  const renderDueDateSubmenu = () => {
+    const selectedDate = getSelectedDate();
+    return (
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <Icon icon="calendar" size="16" className="h-4 w-4 mr-2" />
+          设置截止日期
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent sideOffset={-4} alignOffset={-2}>
+          <div className="p-2 flex flex-row gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleContextMenuDateChange(new Date())}
+              className="justify-start"
+            >
+              今天
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleContextMenuDateChange(addDays(new Date(), 1))}
+              className="justify-start"
+            >
+              明天
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleContextMenuDateChange(subDays(new Date(), 1))}
+              className="justify-start"
+            >
+              昨天
+            </Button>
+            {selectedDate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleContextMenuDateChange(undefined)}
+                className="justify-start text-red-500 hover:text-red-600"
+              >
+                移除截止日期
+              </Button>
+            )}
+          </div>
+          <CalendarComponent
+            mode="single"
+            selected={selectedDate}
+            onSelect={(d) => handleContextMenuDateChange(d as Date | undefined)}
+            className="rounded-md border"
+            locale={zhCN}
+          />
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+    );
+  };
+
+  const renderContextMenuContent = () => (
+    <>
+      {!task.completed && !task.abandoned && (
+        <>
+          <ContextMenuItem onClick={handleMarkAsCompleted}>
+            <Icon icon="check-one" size="16" className="h-4 w-4 mr-2" />
+            标记为完成
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handleAbandonTask}>
+            <Icon icon="close-one" size="16" className="h-4 w-4 mr-2" />
+            放弃
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+        </>
+      )}
+
+      {renderDueDateSubmenu()}
+      <ContextMenuSeparator />
+
+      {getAvailableProjects().length > 0 && (
+        <>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
+              <Icon icon="arrow-circle-right" size="16" className="h-4 w-4 mr-2" />
+              移动到
+            </ContextMenuSubTrigger>
+            <ContextMenuSubContent>
+              {getAvailableProjects().map((project) => (
+                <ContextMenuItem
+                  key={project.id || "inbox"}
+                  onClick={() => handleMoveToProject(project.id)}
+                >
+                  {project.id === null ? (
+                    <Icon icon="inbox" size="16" className="h-4 w-4 mr-2" />
+                  ) : (
+                    <ProjectIcon 
+                      icon={project.icon} 
+                      color="#666"
+                      size={16} 
+                      className="h-4 w-4 mr-2" 
+                    />
+                  )}
+                  {project.name}
+                </ContextMenuItem>
+              ))}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+          <ContextMenuSeparator />
+        </>
+      )}
+
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <Icon icon="copy" size="16" className="h-4 w-4 mr-2" />
+          复制到
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          {getAvailableProjectsForCopy().map((project) => (
+            <ContextMenuItem
+              key={project.id || "inbox"}
+              onClick={() => handleCopyToProject(project.id)}
+            >
+              {project.id === null ? (
+                <Icon icon="inbox" size="16" className="h-4 w-4 mr-2" />
+              ) : (
+                <ProjectIcon 
+                  icon={project.icon} 
+                  color="#666"
+                  size={16} 
+                  className="h-4 w-4 mr-2" 
+                />
+              )}
+              {project.name}
+            </ContextMenuItem>
+          ))}
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={handleDeleteTask} className="text-red-600">
+        <Icon icon="delete" size="16" className="h-4 w-4 mr-2" />
+        删除任务
+      </ContextMenuItem>
+    </>
+  );
+
+
 
   // 获取可移动的目标项目列表
   const getAvailableProjects = () => {
@@ -405,82 +575,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
               <ContextMenuTrigger>
                 {renderTaskContent(provided.dragHandleProps, snapshot.isDragging)}
               </ContextMenuTrigger>
-                    <ContextMenuContent>
-        {!task.completed && !task.abandoned && (
-          <>
-            <ContextMenuItem onClick={handleMarkAsCompleted}>
-              <Icon icon="check-one" size="16" className="h-4 w-4 mr-2" />
-              标记为完成
-            </ContextMenuItem>
-            <ContextMenuItem onClick={handleAbandonTask}>
-              <Icon icon="close-one" size="16" className="h-4 w-4 mr-2" />
-              放弃
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-          </>
-                )}
-        {getAvailableProjects().length > 0 && (
-                  <>
-                    <ContextMenuSub>
-                      <ContextMenuSubTrigger>
-                        <Icon icon="arrow-circle-right" size="16" className="h-4 w-4 mr-2" />
-                        移动到
-                      </ContextMenuSubTrigger>
-                      <ContextMenuSubContent>
-                        {getAvailableProjects().map((project) => (
-                          <ContextMenuItem
-                            key={project.id || "inbox"}
-                            onClick={() => handleMoveToProject(project.id)}
-                          >
-                            {project.id === null ? (
-                              <Icon icon="inbox" size="16" className="h-4 w-4 mr-2" />
-                            ) : (
-                              <ProjectIcon 
-                                icon={project.icon} 
-                                color="#666"
-                                size={16} 
-                                className="h-4 w-4 mr-2" 
-                              />
-                            )}
-                            {project.name}
-                          </ContextMenuItem>
-                        ))}
-                      </ContextMenuSubContent>
-                    </ContextMenuSub>
-                    <ContextMenuSeparator />
-                  </>
-                )}
-                <ContextMenuSub>
-                  <ContextMenuSubTrigger>
-                    <Icon icon="copy" size="16" className="h-4 w-4 mr-2" />
-                    复制到
-                  </ContextMenuSubTrigger>
-                  <ContextMenuSubContent>
-                    {getAvailableProjectsForCopy().map((project) => (
-                      <ContextMenuItem
-                        key={project.id || "inbox"}
-                        onClick={() => handleCopyToProject(project.id)}
-                      >
-                        {project.id === null ? (
-                          <Icon icon="inbox" size="16" className="h-4 w-4 mr-2" />
-                        ) : (
-                          <ProjectIcon 
-                            icon={project.icon} 
-                            color="#666"
-                            size={16} 
-                            className="h-4 w-4 mr-2" 
-                          />
-                        )}
-                        {project.name}
-                      </ContextMenuItem>
-                    ))}
-                  </ContextMenuSubContent>
-                </ContextMenuSub>
-                <ContextMenuSeparator />
-                <ContextMenuItem onClick={handleDeleteTask} className="text-red-600">
-                  <Icon icon="delete" size="16" className="h-4 w-4 mr-2" />
-                  删除任务
-                </ContextMenuItem>
+              <ContextMenuContent>
+                {renderContextMenuContent()}
               </ContextMenuContent>
             </ContextMenu>
           </div>
@@ -496,81 +592,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
         {renderTaskContent()}
       </ContextMenuTrigger>
       <ContextMenuContent>
-        {!task.completed && !task.abandoned && (
-          <>
-            <ContextMenuItem onClick={handleMarkAsCompleted}>
-              <Icon icon="check-one" size="16" className="h-4 w-4 mr-2" />
-              标记为完成
-            </ContextMenuItem>
-            <ContextMenuItem onClick={handleAbandonTask}>
-              <Icon icon="close-one" size="16" className="h-4 w-4 mr-2" />
-              放弃
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-          </>
-        )}
-        {getAvailableProjects().length > 0 && (
-          <>
-            <ContextMenuSub>
-              <ContextMenuSubTrigger>
-                <Icon icon="arrow-circle-right" size="16" className="h-4 w-4 mr-2" />
-                移动到
-              </ContextMenuSubTrigger>
-              <ContextMenuSubContent>
-                              {getAvailableProjects().map((project) => (
-                <ContextMenuItem
-                  key={project.id || "inbox"}
-                  onClick={() => handleMoveToProject(project.id)}
-                >
-                  {project.id === null ? (
-                    <Icon icon="inbox" size="16" className="h-4 w-4 mr-2" />
-                  ) : (
-                    <ProjectIcon 
-                      icon={project.icon} 
-                      color="#666"
-                      size={16} 
-                      className="h-4 w-4 mr-2" 
-                    />
-                  )}
-                  {project.name}
-                </ContextMenuItem>
-              ))}
-              </ContextMenuSubContent>
-            </ContextMenuSub>
-            <ContextMenuSeparator />
-          </>
-        )}
-        <ContextMenuSub>
-          <ContextMenuSubTrigger>
-            <Icon icon="copy" size="16" className="h-4 w-4 mr-2" />
-            复制到
-          </ContextMenuSubTrigger>
-          <ContextMenuSubContent>
-            {getAvailableProjectsForCopy().map((project) => (
-              <ContextMenuItem
-                key={project.id || "inbox"}
-                onClick={() => handleCopyToProject(project.id)}
-              >
-                {project.id === null ? (
-                  <Icon icon="inbox" size="16" className="h-4 w-4 mr-2" />
-                ) : (
-                  <ProjectIcon 
-                    icon={project.icon} 
-                    color="#666"
-                    size={16} 
-                    className="h-4 w-4 mr-2" 
-                  />
-                )}
-                {project.name}
-              </ContextMenuItem>
-            ))}
-          </ContextMenuSubContent>
-        </ContextMenuSub>
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={handleDeleteTask} className="text-red-600">
-          <Icon icon="delete" size="16" className="h-4 w-4 mr-2" />
-          删除任务
-        </ContextMenuItem>
+        {renderContextMenuContent()}
       </ContextMenuContent>
     </ContextMenu>
   );
