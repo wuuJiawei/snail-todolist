@@ -6,8 +6,9 @@ import { Icon } from "@/components/ui/icon-park";
 import ProjectIcon from "@/components/ui/project-icon";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Task } from "@/types/task";
-import { format, isToday, isTomorrow, isYesterday, isValid, parseISO, isBefore, startOfDay, addDays, subDays } from "date-fns";
+import { format, isValid, parseISO, isBefore, startOfDay } from "date-fns";
 import { zhCN } from "date-fns/locale";
+import { formatDateText as formatDateTextUtil } from "@/utils/taskUtils";
 import { useToast } from "@/hooks/use-toast";
 import {
   ContextMenu,
@@ -19,8 +20,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
-import { Button } from "@/components/ui/button";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import DueDatePickerContent from "./DueDatePickerContent";
 import { Draggable } from "@hello-pangea/dnd";
 import TaskOperationProgress from "@/components/ui/task-operation-progress";
 import { useTaskOperation } from "@/hooks/useTaskOperation";
@@ -145,18 +145,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const formatDateText = (dateStr: string) => {
     try {
       const date = parseISO(dateStr);
-      if (!isValid(date)) {
-        console.error('Invalid date:', dateStr);
-        return "日期无效";
-      }
-
-      if (isToday(date)) return "今天";
-      if (isTomorrow(date)) return "明天";
-      if (isYesterday(date)) return "昨天";
-
-      return format(date, "M月d日", { locale: zhCN });
+      if (!isValid(date)) return "日期无效";
+      return formatDateTextUtil(date);
     } catch (error) {
-      console.error('Error formatting date:', error);
       return "日期无效";
     }
   };
@@ -280,48 +271,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
           设置截止日期
         </ContextMenuSubTrigger>
         <ContextMenuSubContent sideOffset={-4} alignOffset={-2}>
-          <div className="p-2 flex flex-row gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleContextMenuDateChange(new Date())}
-              className="justify-start"
-            >
-              今天
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleContextMenuDateChange(addDays(new Date(), 1))}
-              className="justify-start"
-            >
-              明天
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleContextMenuDateChange(subDays(new Date(), 1))}
-              className="justify-start"
-            >
-              昨天
-            </Button>
-            {selectedDate && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleContextMenuDateChange(undefined)}
-                className="justify-start text-red-500 hover:text-red-600"
-              >
-                移除截止日期
-              </Button>
-            )}
-          </div>
-          <CalendarComponent
-            mode="single"
-            selected={selectedDate}
-            onSelect={(d) => handleContextMenuDateChange(d as Date | undefined)}
-            className="rounded-md border"
-            locale={zhCN}
+          <DueDatePickerContent
+            selectedDate={selectedDate}
+            onChange={handleContextMenuDateChange}
+            removeLabel="移除截止日期"
           />
         </ContextMenuSubContent>
       </ContextMenuSub>

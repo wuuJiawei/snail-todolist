@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Calendar as CalendarIcon, X, MoreHorizontal, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
+import DueDatePickerContent from "./DueDatePickerContent";
 import {
   Popover,
   PopoverContent,
@@ -21,8 +21,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { format, addDays, subDays, isToday, isTomorrow, isYesterday, parseISO, isValid } from "date-fns";
+import { format, parseISO, isValid } from "date-fns";
 import { zhCN } from "date-fns/locale";
+import { formatDateText } from "@/utils/taskUtils";
 import SimpleTaskEditor from "./SimpleTaskEditor";
 import TaskAttachments from "./TaskAttachments";
 import { useDebouncedCallback } from 'use-debounce';
@@ -252,15 +253,7 @@ const TaskDetail = () => {
     }
   };
 
-  const formatDateText = (date: Date | undefined) => {
-    if (!date) return "添加截止日期";
-
-    if (isToday(date)) return "今天";
-    if (isTomorrow(date)) return "明天";
-    if (isYesterday(date)) return "昨天";
-
-    return format(date, "M月d日", { locale: zhCN });
-  };
+  
 
   const formatCompletedAt = () => {
     if (!selectedTask?.completed_at) return "";
@@ -365,50 +358,12 @@ const TaskDetail = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-              <div className="p-2 flex flex-row gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDateChange(new Date())}
-                  className="justify-start"
-                >
-                  今天
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDateChange(addDays(new Date(), 1))}
-                  className="justify-start"
-                >
-                  明天
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDateChange(subDays(new Date(), 1))}
-                  className="justify-start"
-                >
-                  昨天
-                </Button>
-                {selectedDate && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDateChange(undefined)}
-                    className="justify-start text-red-500 hover:text-red-600"
-                  >
-                    移除截止日期
-                  </Button>
-                )}
-              </div>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={handleDateChange}
-                className="rounded-md border"
-                locale={zhCN}
-              />
-            </PopoverContent>
+                <DueDatePickerContent
+                  selectedDate={selectedDate}
+                  onChange={handleDateChange}
+                  removeLabel="移除截止日期"
+                />
+              </PopoverContent>
           </Popover>
         )}
         </div>

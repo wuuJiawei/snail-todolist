@@ -3,11 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Calendar } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { addDays, subDays, isValid, isBefore, startOfDay } from "date-fns";
+import { isValid, isBefore, startOfDay } from "date-fns";
 import { formatDateText } from "@/utils/taskUtils";
-import { zhCN } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import DueDatePickerContent from "./DueDatePickerContent";
 
 interface AddTaskFormProps {
   onAddTask: (title: string, date?: Date) => Promise<void>;
@@ -70,48 +69,10 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) =>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end">
-            <div className="p-2 flex flex-row gap-1">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setNewTaskDate(new Date())}
-                className="justify-start"
-              >
-                今天
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setNewTaskDate(addDays(new Date(), 1))}
-                className="justify-start"
-              >
-                明天
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setNewTaskDate(subDays(new Date(), 1))}
-                className="justify-start"
-              >
-                昨天
-              </Button>
-              {newTaskDate && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setNewTaskDate(undefined)}
-                  className="justify-start text-red-500 hover:text-red-600"
-                >
-                  移除日期
-                </Button>
-              )}
-            </div>
-            <CalendarComponent
-              mode="single"
-              selected={newTaskDate}
-              onSelect={setNewTaskDate}
-              className="rounded-md border pointer-events-auto"
-              locale={zhCN}
+            <DueDatePickerContent
+              selectedDate={newTaskDate}
+              onChange={setNewTaskDate}
+              removeLabel="移除日期"
             />
           </PopoverContent>
         </Popover>
