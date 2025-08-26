@@ -19,6 +19,8 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [loading, setLoading] = useState(false);
+
   const filteredTags = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return availableTags;
@@ -29,11 +31,13 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const selectedIds = useMemo(() => new Set(selected.map(t => t.id)), [selected]);
 
   const refreshAvailableTags = async () => {
+    setLoading(true);
     // 优先用缓存，必要时加载
     const cached = getCachedTags(projectId ?? undefined);
     if (cached.length === 0) await ensureTagsLoaded(projectId ?? undefined);
     const current = getCachedTags(projectId ?? undefined);
     setAvailableTags(current);
+    setLoading(false);
   };
 
   // 非内联（Popover）时：打开时加载
@@ -99,6 +103,9 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
           }}
         />
         <CommandList>
+          {loading && (
+            <div className="py-3 px-3 text-xs text-muted-foreground">正在加载标签…</div>
+          )}
           <CommandEmpty>
             无结果，按 Enter 创建
             <div className="mt-2" />

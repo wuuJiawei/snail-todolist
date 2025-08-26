@@ -32,13 +32,16 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
   const [open, setOpen] = useState(false);
   const { listAllTags, getAllTagUsageCounts, getCachedTags, ensureTagsLoaded, tagsVersion } = useTaskContext();
   const [allTags, setAllTags] = useState<{ id: string; name: string }[]>([]);
+  const [loadingTags, setLoadingTags] = useState(false);
   const usageCounts = getAllTagUsageCounts();
 
   const syncTags = async () => {
+    setLoadingTags(true);
     const cached = getCachedTags();
     if (cached.length === 0) await ensureTagsLoaded();
     const current = getCachedTags();
     setAllTags(current.map(t => ({ id: t.id, name: t.name })));
+    setLoadingTags(false);
   };
 
   useEffect(() => {
@@ -274,6 +277,9 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">标签</Label>
             <div className="space-y-1 max-h-40 overflow-y-auto pr-1 custom-scrollbar-thin">
+              {loadingTags && (
+                <div className="text-xs text-muted-foreground py-1">正在加载标签…</div>
+              )}
               {allTags.map(t => {
                 const checked = (filters.tags || []).includes(t.id);
                 return (
