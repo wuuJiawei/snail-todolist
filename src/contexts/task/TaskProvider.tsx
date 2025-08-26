@@ -19,6 +19,8 @@ import { getProjectTaskCount, getSavedProject } from "./taskUtils";
 import { SELECTED_PROJECT_KEY } from "./types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeadlineNotifications } from "@/hooks/useDeadlineNotifications";
+import { Tag } from "@/types/tag";
+import { fetchAllTags as fetchAllTagsService, getTagsByTaskIds as getTagsByTaskIdsService, attachTagToTask as attachTagToTaskService, detachTagFromTask as detachTagFromTaskService, createTag as createTagService } from "@/services/tagService";
 
 interface TaskProviderProps {
   children: ReactNode;
@@ -32,6 +34,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedProject, setSelectedProject] = useState<string>(getSavedProject());
   const [hasLoaded, setHasLoaded] = useState<boolean>(false);
+  const [taskIdToTags, setTaskIdToTags] = useState<Record<string, Tag[]>>({});
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -49,6 +52,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         setTasks([]);
         setTrashedTasks([]);
         setAbandonedTasks([]);
+        setTaskIdToTags({});
         setLoading(false);
         setHasLoaded(false);
         return;
@@ -73,6 +77,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         // Load abandoned tasks
         const abandonedData = await fetchAbandonedTasks();
         setAbandonedTasks(abandonedData);
+
+        // Load tags mapping for fetched tasks
+        const allTaskIds = [...data.map(t => t.id), ...trashedData.map(t => t.id), ...abandonedData.map(t => t.id)];
+        const mapping = await getTagsByTaskIdsService(allTaskIds);
+        setTaskIdToTags(mapping);
 
         setHasLoaded(true);
       } catch (error) {
@@ -143,6 +152,34 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     } catch (error) {
       console.error("Failed to update task:", error);
     }
+  };
+
+  // tags helpers
+  const getTaskTags = (taskId: string): Tag[] => taskIdToTags[taskId] || [];
+
+  const attachTagToTask = async (taskId: string, tagId: string) => {
+    const ok = await attachTagToTaskService(taskId, tagId);
+    if (!ok) return;
+    // refresh this task's tags
+    const mapping = await getTagsByTaskIdsService([taskId]);
+    setTaskIdToTags(prev => ({ ...prev, ...mapping }));
+  };
+
+  const detachTagFromTask = async (taskId: string, tagId: string) => {
+    const ok = await detachTagFromTaskService(taskId, tagId);
+    if (!ok) return;
+    // refresh this task's tags
+    const mapping = await getTagsByTaskIdsService([taskId]);
+    setTaskIdToTags(prev => ({ ...prev, ...mapping }));
+  };
+
+  const listAllTags = async (projectId?: string | null) => {
+    return await fetchAllTagsService(projectId);
+  };
+
+  const createTag = async (name: string, projectId?: string | null) => {
+    const tag = await createTagService(name, projectId);
+    return tag;
   };
 
   // Move task to trash (soft delete)
@@ -449,6 +486,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         getProjectTaskCount: (projectId: string) => getProjectTaskCount(tasks, projectId),
         getTrashCount,
         getAbandonedCount,
+        getTaskTags,
+        attachTagToTask,
+        detachTagFromTask,
+        listAllTags,
+        createTag,
       }}
     >
       {children}

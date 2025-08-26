@@ -1,5 +1,6 @@
 
 import { Task } from "@/types/task";
+import { Tag } from "@/types/tag";
 
 export const SELECTED_PROJECT_KEY = 'selected-project';
 
@@ -31,4 +32,11 @@ export interface TaskContextType {
   getProjectTaskCount: (projectId: string) => number;
   getTrashCount: () => number;
   getAbandonedCount: () => number;
+
+  // tags
+  getTaskTags: (taskId: string) => Tag[];
+  attachTagToTask: (taskId: string, tagId: string) => Promise<void>;
+  detachTagFromTask: (taskId: string, tagId: string) => Promise<void>;
+  listAllTags: (projectId?: string | null) => Promise<Tag[]>;
+  createTag: (name: string, projectId?: string | null) => Promise<Tag | null>;
 }

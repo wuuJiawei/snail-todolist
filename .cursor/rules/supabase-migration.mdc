@@ -1,6 +1,5 @@
 ---
-description: 使用supabase操作数据库时使用.
-globs: 
+description: 涉及supabase时使用.
 alwaysApply: false
 ---
 ---
