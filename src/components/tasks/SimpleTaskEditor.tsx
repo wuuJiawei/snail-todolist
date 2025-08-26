@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { blockNoteToMarkdown, markdownToPlainText, createMarkdownFromLegacyContent } from '@/utils/markdownConverter';
 import { addClipboardImageSupport } from '@/utils/clipboardUtils';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +32,29 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
   const lastTaskIdRef = useRef<string | undefined>(undefined);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Find/Replace state
+  const [isFindOpen, setIsFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState('');
+  const [replaceQuery, setReplaceQuery] = useState('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState<number>(-1);
+
+  type MatchPos = { start: number; end: number };
+  const matches: MatchPos[] = useMemo(() => {
+    if (!findQuery) return [];
+    const result: MatchPos[] = [];
+    const haystack = markdownContent;
+    const needle = findQuery;
+    let from = 0;
+    while (true) {
+      const idx = haystack.indexOf(needle, from);
+      if (idx === -1) break;
+      result.push({ start: idx, end: idx + needle.length });
+      from = idx + Math.max(needle.length, 1);
+      if (result.length > 5000) break; // safety guard
+    }
+    return result;
+  }, [markdownContent, findQuery]);
 
   // Convert content to markdown when taskId changes
   useEffect(() => {
@@ -139,13 +164,118 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
     return cleanup;
   }, [user, readOnly, attachments, onAttachmentsChange, markdownContent, onChange, toast]);
 
+  // Keyboard shortcuts for find/replace within textarea
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const isMeta = e.metaKey || e.ctrlKey;
+    if (!isMeta) return;
+
+    const key = e.key.toLowerCase();
+    if (key === 'f') {
+      e.preventDefault();
+      setIsFindOpen(true);
+      // If there is a selection, prefill find with it
+      const el = textareaRef.current;
+      if (el) {
+        const sel = el.value.substring(el.selectionStart, el.selectionEnd);
+        if (sel) setFindQuery(sel);
+      }
+      // Move to next match immediately
+      setTimeout(() => {
+        goToNextMatch();
+      }, 0);
+    } else if (key === 'g') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        goToPrevMatch();
+      } else {
+        goToNextMatch();
+      }
+    }
+  }, [goToNextMatch, goToPrevMatch]);
+
+  // Helpers to select match
+  const selectMatch = useCallback((index: number) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    if (index < 0 || index >= matches.length) return;
+    const { start, end } = matches[index];
+    el.focus();
+    el.setSelectionRange(start, end);
+    // Ensure visible
+    const beforeText = el.value.slice(0, start);
+    const lineBreaks = (beforeText.match(/\n/g) || []).length;
+    // Best-effort scroll by lines
+    const approxLineHeight = 18; // px
+    el.scrollTop = Math.max(0, (lineBreaks - 3) * approxLineHeight);
+    setCurrentMatchIndex(index);
+  }, [matches]);
+
+  const goToNextMatch = useCallback(() => {
+    if (matches.length === 0) return;
+    const next = currentMatchIndex < 0 ? 0 : (currentMatchIndex + 1) % matches.length;
+    selectMatch(next);
+  }, [matches, currentMatchIndex, selectMatch]);
+
+  const goToPrevMatch = useCallback(() => {
+    if (matches.length === 0) return;
+    const prev = currentMatchIndex < 0 ? matches.length - 1 : (currentMatchIndex - 1 + matches.length) % matches.length;
+    selectMatch(prev);
+  }, [matches, currentMatchIndex, selectMatch]);
+
+  // Update selection when query or content changes
+  useEffect(() => {
+    if (!isFindOpen) return;
+    if (matches.length === 0) {
+      setCurrentMatchIndex(-1);
+      return;
+    }
+    // Keep within range
+    const idx = Math.min(currentMatchIndex < 0 ? 0 : currentMatchIndex, matches.length - 1);
+    selectMatch(idx);
+  }, [matches, isFindOpen]);
+
+  const replaceCurrent = useCallback(() => {
+    if (readOnly) return;
+    if (currentMatchIndex < 0 || currentMatchIndex >= matches.length) return;
+    const { start, end } = matches[currentMatchIndex];
+    const before = markdownContent.slice(0, start);
+    const after = markdownContent.slice(end);
+    const newContent = before + replaceQuery + after;
+    setMarkdownContent(newContent);
+    onChange(newContent);
+
+    // After replacing, rebuild matches and select the next occurrence at same position
+    setTimeout(() => {
+      // Recompute using latest state via set state callbacks would be safer, but simple delay suffices here
+      const el = textareaRef.current;
+      if (el && replaceQuery) {
+        const newCaret = start + replaceQuery.length;
+        el.setSelectionRange(newCaret, newCaret);
+      }
+      // Move to next match relative to replaced segment
+      setCurrentMatchIndex(-1);
+      goToNextMatch();
+    }, 0);
+  }, [readOnly, currentMatchIndex, matches, markdownContent, replaceQuery, onChange, goToNextMatch]);
+
+  const replaceAll = useCallback(() => {
+    if (readOnly) return;
+    if (!findQuery) return;
+    if (findQuery === replaceQuery) return;
+    const newContent = markdownContent.split(findQuery).join(replaceQuery);
+    setMarkdownContent(newContent);
+    onChange(newContent);
+    setCurrentMatchIndex(-1);
+  }, [readOnly, findQuery, replaceQuery, markdownContent, onChange]);
+
   return (
-    <div className="h-full w-full flex-1 flex flex-col">
+    <div className="h-full w-full flex-1 flex flex-col relative">
       <Textarea
         ref={textareaRef}
         value={markdownContent}
         onChange={handleChange}
         onInput={handleInput}
+        onKeyDown={handleKeyDown}
         readOnly={readOnly}
         placeholder="输入任务内容... 📋✨
 
@@ -167,6 +297,51 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
           minHeight: '400px'
         }}
       />
+
+      {isFindOpen && (
+        <div className="absolute right-2 top-2 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow rounded-md border p-2 w-[min(480px,calc(100%-16px))]">
+          <div className="flex gap-2 items-center">
+            <Input
+              value={findQuery}
+              onChange={(e) => setFindQuery(e.target.value)}
+              placeholder="查找"
+              className="h-8"
+              autoFocus
+            />
+            <Button variant="secondary" size="sm" onClick={goToPrevMatch} disabled={matches.length === 0}>上一个</Button>
+            <Button variant="secondary" size="sm" onClick={goToNextMatch} disabled={matches.length === 0}>下一个</Button>
+            <div className="text-xs text-muted-foreground whitespace-nowrap">
+              {matches.length > 0 ? `${currentMatchIndex + 1}/${matches.length}` : '0/0'}
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setIsFindOpen(false)}>
+              ✕
+            </Button>
+          </div>
+          <div className="mt-2 flex gap-2 items-center">
+            <Input
+              value={replaceQuery}
+              onChange={(e) => setReplaceQuery(e.target.value)}
+              placeholder="替换为"
+              className="h-8"
+              disabled={readOnly}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  replaceCurrent();
+                } else if (e.key === 'Enter' && e.shiftKey) {
+                  e.preventDefault();
+                  replaceAll();
+                }
+              }}
+            />
+            <Button size="sm" onClick={replaceCurrent} disabled={readOnly || matches.length === 0}>替换</Button>
+            <Button size="sm" variant="destructive" onClick={replaceAll} disabled={readOnly || matches.length === 0}>全部替换</Button>
+          </div>
+          <div className="mt-1 text-[10px] text-muted-foreground">
+            快捷键：Cmd/Ctrl+F 查找，Cmd/Ctrl+G 下一个，Shift+Cmd/Ctrl+G 上一个；在“替换为”里 Enter=替换，Shift+Enter=全部替换
+          </div>
+        </div>
+      )}
     </div>
   );
 };
