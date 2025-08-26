@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Popover,
   PopoverContent,
@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Icon } from "@/components/ui/icon-park";
 import { useTaskContext } from "@/contexts/task";
-import { useEffect, useMemo, useState } from "react";
 
 export interface TaskFilterOptions {
   status: string[];

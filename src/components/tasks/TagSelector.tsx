@@ -11,13 +11,19 @@ interface TagSelectorProps {
   taskId: string;
   projectId?: string | null;
   readOnly?: boolean;
+  inline?: boolean; // 内联模式：直接展示搜索与列表，而不是通过弹出层
 }
 
-const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly = false }) => {
+const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly = false, inline = false }) => {
   const { getTaskTags, listAllTags, attachTagToTask, detachTagFromTask, createTag } = useTaskContext();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const filteredTags = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return availableTags;
+    return availableTags.filter(t => t.name.toLowerCase().includes(q));
+  }, [availableTags, query]);
 
   const selected = getTaskTags(taskId);
   const selectedIds = useMemo(() => new Set(selected.map(t => t.id)), [selected]);
@@ -50,9 +56,49 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     }
   };
 
+  const selectorBody = (
+    <>
+      <Command>
+        <CommandInput
+          value={query}
+          onValueChange={setQuery}
+          placeholder="搜索或创建标签"
+          onKeyDown={async (e) => {
+            if (e.key === 'Enter') {
+              const name = query.trim();
+              if (!name) return;
+              const exists = availableTags.some(t => t.name.toLowerCase() === name.toLowerCase());
+              if (!exists) {
+                await handleCreate(name);
+              }
+            }
+          }}
+        />
+        <CommandList>
+          <CommandEmpty>
+            无结果，按 Enter 创建「{query}」
+            <div className="mt-2" />
+          </CommandEmpty>
+          <CommandGroup heading="我的标签">
+            {filteredTags.map(tag => (
+              <CommandItem key={tag.id} value={tag.name} onSelect={() => handleToggle(tag)}>
+                <span className="mr-2 text-xs opacity-60">{selectedIds.has(tag.id) ? "✓" : ""}</span>
+                {tag.name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+      {query.trim() && (
+        <div className="border-t p-2">
+          <Button size="sm" className="w-full" onClick={() => handleCreate(query)}>创建标签「{query}」</Button>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      {/* selected tags */}
       {selected.map(tag => (
         <Badge key={tag.id} variant="secondary" className="px-2 py-0.5">
           <span>{tag.name}</span>
@@ -64,35 +110,20 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
         </Badge>
       ))}
       {!readOnly && (
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 px-2">+ 标签</Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-64" align="start">
-            <Command>
-              <CommandInput value={query} onValueChange={setQuery} placeholder="搜索或创建标签" />
-              <CommandList>
-                <CommandEmpty>
-                  无结果，按 Enter 创建「{query}」
-                  <div className="mt-2" />
-                </CommandEmpty>
-                <CommandGroup heading="我的标签">
-                  {availableTags.map(tag => (
-                    <CommandItem key={tag.id} value={tag.name} onSelect={() => handleToggle(tag)}>
-                      <span className="mr-2 text-xs opacity-60">{selectedIds.has(tag.id) ? "✓" : ""}</span>
-                      {tag.name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-            {query.trim() && (
-              <div className="border-t p-2">
-                <Button size="sm" className="w-full" onClick={() => handleCreate(query)}>创建标签「{query}」</Button>
-              </div>
-            )}
-          </PopoverContent>
-        </Popover>
+        inline ? (
+          <div className="w-full mt-2 border rounded-md overflow-hidden">
+            {selectorBody}
+          </div>
+        ) : (
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 px-2">+ 标签</Button>
+            </PopoverTrigger>
+            <PopoverContent className="p-0 w-64" align="start">
+              {selectorBody}
+            </PopoverContent>
+          </Popover>
+        )
       )}
     </div>
   );

@@ -25,6 +25,7 @@ import DueDatePickerContent from "./DueDatePickerContent";
 import { Draggable } from "@hello-pangea/dnd";
 import TaskOperationProgress from "@/components/ui/task-operation-progress";
 import { useTaskOperation } from "@/hooks/useTaskOperation";
+import TagManagerDialog from "./TagManagerDialog";
 
 interface TaskItemProps {
   task: Task;
@@ -47,6 +48,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const { operationState, startOperation } = useTaskOperation();
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
 
 
 
@@ -372,42 +374,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
       </ContextMenuSub>
       <ContextMenuSeparator />
 
-      {/* 标签维护 */}
-      <ContextMenuSub>
-        <ContextMenuSubTrigger>
-          <Icon icon="tag-one" size="16" className="h-4 w-4 mr-2" />
-          标签
-        </ContextMenuSubTrigger>
-        <ContextMenuSubContent>
-          {availableTags.map((tag) => {
-            const selected = (getTaskTags(task.id) || []).some(t => t.id === tag.id);
-            return (
-              <ContextMenuItem key={tag.id} onClick={async () => {
-                if (selected) {
-                  await detachTagFromTask(task.id, tag.id);
-                } else {
-                  await attachTagToTask(task.id, tag.id);
-                }
-              }}>
-                {selected ? "✓ " : ""}{tag.name}
-              </ContextMenuItem>
-            );
-          })}
-          <ContextMenuSeparator />
-          <ContextMenuItem onClick={async () => {
-            const name = window.prompt('新建标签名称');
-            if (!name) return;
-            const tag = await createTag(name, task.project ?? undefined);
-            if (tag) {
-              await attachTagToTask(task.id, tag.id);
-              const tags = await listAllTags(task.project ?? undefined);
-              setAvailableTags(tags);
-            }
-          }}>
-            新建标签…
-          </ContextMenuItem>
-        </ContextMenuSubContent>
-      </ContextMenuSub>
+      {/* 标签维护 -> 打开统一弹窗 */}
+      <ContextMenuItem onClick={() => setTagDialogOpen(true)}>
+        <Icon icon="tag-one" size="16" className="h-4 w-4 mr-2" />
+        管理标签…
+      </ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem onClick={handleDeleteTask} className="text-red-600">
         <Icon icon="delete" size="16" className="h-4 w-4 mr-2" />
@@ -614,6 +585,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
       <ContextMenuContent>
         {renderContextMenuContent()}
       </ContextMenuContent>
+      <TagManagerDialog open={tagDialogOpen} onOpenChange={setTagDialogOpen} taskId={task.id} projectId={task.project ?? null} />
     </ContextMenu>
   );
 };
