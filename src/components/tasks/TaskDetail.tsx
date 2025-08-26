@@ -25,6 +25,7 @@ import { format, parseISO, isValid } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { formatDateText } from "@/utils/taskUtils";
 import SimpleTaskEditor from "./SimpleTaskEditor";
+import TagSelector from "./TagSelector";
 import TaskAttachments from "./TaskAttachments";
 import { useDebouncedCallback } from 'use-debounce';
 import { addClipboardImageSupport } from "@/utils/clipboardUtils";
@@ -409,6 +410,12 @@ const TaskDetail = () => {
               />
             )}
           </div>
+          {/* tags row */}
+          {selectedTask && (
+            <div className="px-3 py-1">
+              <TagSelector taskId={selectedTask.id} projectId={selectedTask.project ?? null} readOnly={isTaskInTrash} />
+            </div>
+          )}
           <div className="text-xs text-gray-500 ml-1 mt-1 space-y-1">
             {selectedTask.completed_at && (
               <div>{formatCompletedAt()}</div>

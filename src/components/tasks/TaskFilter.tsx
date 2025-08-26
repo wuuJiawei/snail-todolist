@@ -9,11 +9,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Icon } from "@/components/ui/icon-park";
+import { useTaskContext } from "@/contexts/task";
+import { useEffect, useMemo, useState } from "react";
 
 export interface TaskFilterOptions {
   status: string[];
   deadline: string[];
   hasAttachments: boolean | null;
+  tags?: string[];
 }
 
 export interface TaskFilterProps {
@@ -28,6 +31,15 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
   activeCount,
 }) => {
   const [open, setOpen] = useState(false);
+  const { listAllTags } = useTaskContext();
+  const [allTags, setAllTags] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const tags = await listAllTags();
+      setAllTags(tags.map(t => ({ id: t.id, name: t.name })));
+    })();
+  }, []);
 
   const handleStatusChange = (status: string, checked: boolean) => {
     const newStatus = checked
@@ -63,13 +75,15 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
       status: [],
       deadline: [],
       hasAttachments: null,
+      tags: [],
     });
   };
 
   const hasActiveFilters = 
     filters.status.length > 0 ||
     filters.deadline.length > 0 ||
-    filters.hasAttachments !== null;
+    filters.hasAttachments !== null ||
+    (filters.tags && filters.tags.length > 0);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -243,6 +257,35 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
                   无附件
                 </Label>
               </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* 标签 */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">标签</Label>
+            <div className="space-y-1 max-h-40 overflow-y-auto pr-1 custom-scrollbar-thin">
+              {allTags.map(t => {
+                const checked = (filters.tags || []).includes(t.id);
+                return (
+                  <div key={t.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`tag-${t.id}`}
+                      checked={checked}
+                      onCheckedChange={(isChecked) => {
+                        const next = new Set(filters.tags || []);
+                        if (isChecked) next.add(t.id); else next.delete(t.id);
+                        onFiltersChange({ ...filters, tags: Array.from(next) });
+                      }}
+                    />
+                    <Label htmlFor={`tag-${t.id}`} className="text-sm">{t.name}</Label>
+                  </div>
+                );
+              })}
+              {allTags.length === 0 && (
+                <div className="text-xs text-muted-foreground">暂无标签</div>
+              )}
             </div>
           </div>
         </div>

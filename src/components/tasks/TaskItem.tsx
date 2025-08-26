@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/icon-park";
 import ProjectIcon from "@/components/ui/project-icon";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Task } from "@/types/task";
+import { Tag } from "@/types/tag";
 import { format, isValid, parseISO, isBefore, startOfDay } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { formatDateText as formatDateTextUtil } from "@/utils/taskUtils";
@@ -34,7 +35,7 @@ interface TaskItemProps {
 }
 
 const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectName, index, isDraggable = false }) => {
-  const { selectTask, updateTask, moveToTrash, selectedTask, addTask, abandonTask } = useTaskContext();
+  const { selectTask, updateTask, moveToTrash, selectedTask, addTask, abandonTask, getTaskTags, listAllTags, attachTagToTask, detachTagFromTask, createTag } = useTaskContext();
   const { projects } = useProjectContext();
   const isMobile = useIsMobile();
   const [isEditing, setIsEditing] = useState(false);
@@ -45,6 +46,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const { toast } = useToast();
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const { operationState, startOperation } = useTaskOperation();
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
 
 
 
@@ -58,6 +60,16 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
       inputRef.current.focus();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    if (!isContextMenuOpen) return;
+    let mounted = true;
+    (async () => {
+      const tags = await listAllTags(task.project ?? undefined);
+      if (mounted) setAvailableTags(tags);
+    })();
+    return () => { mounted = false };
+  }, [isContextMenuOpen, listAllTags, task.project]);
 
 
 
@@ -359,6 +371,44 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSeparator />
+
+      {/* 标签维护 */}
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <Icon icon="tag-one" size="16" className="h-4 w-4 mr-2" />
+          标签
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          {availableTags.map((tag) => {
+            const selected = (getTaskTags(task.id) || []).some(t => t.id === tag.id);
+            return (
+              <ContextMenuItem key={tag.id} onClick={async () => {
+                if (selected) {
+                  await detachTagFromTask(task.id, tag.id);
+                } else {
+                  await attachTagToTask(task.id, tag.id);
+                }
+              }}>
+                {selected ? "✓ " : ""}{tag.name}
+              </ContextMenuItem>
+            );
+          })}
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={async () => {
+            const name = window.prompt('新建标签名称');
+            if (!name) return;
+            const tag = await createTag(name, task.project ?? undefined);
+            if (tag) {
+              await attachTagToTask(task.id, tag.id);
+              const tags = await listAllTags(task.project ?? undefined);
+              setAvailableTags(tags);
+            }
+          }}>
+            新建标签…
+          </ContextMenuItem>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+      <ContextMenuSeparator />
       <ContextMenuItem onClick={handleDeleteTask} className="text-red-600">
         <Icon icon="delete" size="16" className="h-4 w-4 mr-2" />
         删除任务
@@ -507,6 +557,23 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
                   {format(parseISO(task.completed_at), "M月d日完成", { locale: zhCN })}
                 </div>
               )}
+              {/* tags display */}
+              {(() => {
+                const tags = getTaskTags(task.id);
+                if (!tags || tags.length === 0) return null;
+                const display = tags.slice(0, 3);
+                const extra = tags.length - display.length;
+                return (
+                  <div className="flex items-center gap-1 ml-1">
+                    {display.map(t => (
+                      <span key={t.id} className="px-1 py-0.5 rounded bg-gray-100 text-gray-700">{t.name}</span>
+                    ))}
+                    {extra > 0 && (
+                      <span className="px-1 py-0.5 rounded bg-gray-50 text-gray-500">+{extra}</span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
