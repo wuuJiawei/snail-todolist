@@ -19,6 +19,47 @@ interface SimpleTaskEditorProps {
   onAttachmentsChange?: (attachments: TaskAttachment[]) => void;
 }
 
+// Lightweight overlay to highlight current match under the textarea
+const HighlightOverlay: React.FC<{
+  content: string;
+  match: { start: number; end: number };
+  textareaRef?: React.RefObject<HTMLTextAreaElement>;
+}> = ({ content, match, textareaRef }) => {
+  const innerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef?.current;
+    const target = innerRef.current;
+    if (!el || !target) return;
+    const sync = () => {
+      target.style.transform = `translateY(-${el.scrollTop}px)`;
+    };
+    sync();
+    el.addEventListener('scroll', sync);
+    return () => {
+      el.removeEventListener('scroll', sync);
+    };
+  }, [textareaRef]);
+
+  const before = content.slice(0, match.start);
+  const middle = content.slice(match.start, match.end);
+  const after = content.slice(match.end);
+
+  return (
+    <div className="absolute inset-0 z-0 pointer-events-none">
+      <div
+        ref={innerRef}
+        className="px-3 pt-0 pb-3 text-sm leading-relaxed whitespace-pre-wrap font-inherit"
+        style={{ color: 'transparent' }}
+      >
+        <span>{before}</span>
+        <span className="bg-yellow-400/30 rounded-sm">{middle}</span>
+        <span>{after}</span>
+      </div>
+    </div>
+  );
+};
+
 const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
   content,
   onChange,
@@ -185,7 +226,6 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
     if (!el) return;
     if (index < 0 || index >= matches.length) return;
     const { start, end } = matches[index];
-    el.focus();
     el.setSelectionRange(start, end);
     // Ensure visible
     const beforeText = el.value.slice(0, start);
@@ -244,9 +284,21 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
       setCurrentMatchIndex(-1);
       return;
     }
-    // Keep within range
+    // 当查找输入框有焦点时，不主动改变焦点，只更新文本选区
+    const active = document.activeElement as HTMLElement | null;
+    const isTypingInFind = active && active.tagName === 'INPUT';
     const idx = Math.min(currentMatchIndex < 0 ? 0 : currentMatchIndex, matches.length - 1);
-    selectMatch(idx);
+    if (isTypingInFind) {
+      // 仅更新选区，不切焦点
+      const el = textareaRef.current;
+      if (el) {
+        const { start, end } = matches[idx];
+        el.setSelectionRange(start, end);
+      }
+      setCurrentMatchIndex(idx);
+    } else {
+      selectMatch(idx);
+    }
   }, [matches, isFindOpen, currentMatchIndex, selectMatch]);
 
   const replaceCurrent = useCallback(() => {
@@ -354,14 +406,24 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
         </div>
       )}
 
-      <Textarea
-        ref={textareaRef}
-        value={markdownContent}
-        onChange={handleChange}
-        onInput={handleInput}
-        onKeyDown={handleKeyDown}
-        readOnly={readOnly}
-        placeholder="输入任务内容... 📋✨
+      <div className="relative flex-1">
+        {/* Highlight overlay for current match (below textarea) */}
+        {isFindOpen && currentMatchIndex >= 0 && matches.length > 0 && (
+          <HighlightOverlay
+            content={markdownContent}
+            match={matches[currentMatchIndex]}
+            textareaRef={textareaRef}
+          />
+        )}
+
+        <Textarea
+          ref={textareaRef}
+          value={markdownContent}
+          onChange={handleChange}
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
+          readOnly={readOnly}
+          placeholder="输入任务内容... 📋✨
 
 🖼️ 直接粘贴图片 (Ctrl+V) - 让创作更自由
 📝 支持 Markdown 格式:
@@ -375,12 +437,13 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
    大道至简 - 最简单的往往最强大
    没有复杂的富文本编辑器，只有纯粹的文字力量
    专注内容本身，而非格式的束缚 🎯"
-        className="flex-1 w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm leading-relaxed px-3 pt-0 pb-3 bg-transparent"
-        style={{ 
-          height: '100%',
-          minHeight: '400px'
-        }}
-      />
+          className="relative z-10 flex-1 w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm leading-relaxed px-3 pt-0 pb-3 bg-transparent"
+          style={{ 
+            height: '100%',
+            minHeight: '400px'
+          }}
+        />
+      </div>
 
       {/* sticky find bar rendered above; floating panel removed for clarity */}
     </div>
