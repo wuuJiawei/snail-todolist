@@ -52,7 +52,10 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     const tag = await createTag(trimmed, projectId ?? undefined);
     if (tag) {
       await attachTagToTask(taskId, tag.id);
-      setOpen(false);
+      // 更新本地标签列表，避免重复
+      setAvailableTags(prev => (prev.some(t => t.id === tag.id) ? prev : [tag, ...prev]));
+      // 清空输入框
+      setQuery("");
     }
   };
 
@@ -76,7 +79,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
         />
         <CommandList>
           <CommandEmpty>
-            无结果，按 Enter 创建「{query}」
+            无结果，按 Enter 创建
             <div className="mt-2" />
           </CommandEmpty>
           <CommandGroup heading="我的标签">
@@ -91,7 +94,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
       </Command>
       {query.trim() && (
         <div className="border-t p-2">
-          <Button size="sm" className="w-full" onClick={() => handleCreate(query)}>创建标签「{query}」</Button>
+          <Button size="sm" className="w-full" onClick={() => handleCreate(query)}>创建标签</Button>
         </div>
       )}
     </>
