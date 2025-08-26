@@ -25,7 +25,7 @@ import DueDatePickerContent from "./DueDatePickerContent";
 import { Draggable } from "@hello-pangea/dnd";
 import TaskOperationProgress from "@/components/ui/task-operation-progress";
 import { useTaskOperation } from "@/hooks/useTaskOperation";
-import TagManagerDialog from "./TagManagerDialog";
+import TagSelector from "./TagSelector";
 
 interface TaskItemProps {
   task: Task;
@@ -47,8 +47,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const { toast } = useToast();
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const { operationState, startOperation } = useTaskOperation();
-  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
-  const [tagDialogOpen, setTagDialogOpen] = useState(false);
 
 
 
@@ -63,15 +61,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
     }
   }, [isEditing]);
 
-  useEffect(() => {
-    if (!isContextMenuOpen) return;
-    let mounted = true;
-    (async () => {
-      const tags = await listAllTags(task.project ?? undefined);
-      if (mounted) setAvailableTags(tags);
-    })();
-    return () => { mounted = false };
-  }, [isContextMenuOpen, listAllTags, task.project]);
+  // no-op
 
 
 
@@ -374,11 +364,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
       </ContextMenuSub>
       <ContextMenuSeparator />
 
-      {/* 标签维护 -> 打开统一弹窗 */}
-      <ContextMenuItem onClick={() => setTagDialogOpen(true)}>
-        <Icon icon="tag-one" size="16" className="h-4 w-4 mr-2" />
-        管理标签…
-      </ContextMenuItem>
+      {/* 标签子菜单：悬停打开右侧弹层，略向左缩进 */}
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <Icon icon="tag-one" size="16" className="h-4 w-4 mr-2" />
+          标签
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent sideOffset={-4} alignOffset={-2} className="p-0 w-72">
+          <div className="p-2">
+            <TagSelector taskId={task.id} projectId={task.project ?? null} readOnly={false} inline />
+          </div>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
       <ContextMenuSeparator />
       <ContextMenuItem onClick={handleDeleteTask} className="text-red-600">
         <Icon icon="delete" size="16" className="h-4 w-4 mr-2" />
@@ -585,7 +582,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
       <ContextMenuContent>
         {renderContextMenuContent()}
       </ContextMenuContent>
-      <TagManagerDialog open={tagDialogOpen} onOpenChange={setTagDialogOpen} taskId={task.id} projectId={task.project ?? null} />
     </ContextMenu>
   );
 };
