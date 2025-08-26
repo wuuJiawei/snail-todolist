@@ -35,6 +35,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const [selectedProject, setSelectedProject] = useState<string>(getSavedProject());
   const [hasLoaded, setHasLoaded] = useState<boolean>(false);
   const [taskIdToTags, setTaskIdToTags] = useState<Record<string, Tag[]>>({});
+  const [tagsCache, setTagsCache] = useState<Record<string, Tag[]>>({});
+  const [tagsVersion, setTagsVersion] = useState<number>(0);
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -179,6 +181,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   const createTag = async (name: string, projectId?: string | null) => {
     const tag = await createTagService(name, projectId);
+    // 更新缓存并 bump 版本（若创建成功）
+    if (tag) {
+      const key = (projectId ?? null) === null ? 'global' : (projectId as string);
+      setTagsCache(prev => {
+        const cur = prev[key] || [];
+        // 去重
+        if (cur.some(t => t.id === tag.id)) return prev;
+        return { ...prev, [key]: [tag, ...cur] };
+      });
+      setTagsVersion(v => v + 1);
+    }
     return tag;
   };
 
@@ -190,6 +203,21 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       });
     });
     return counts;
+  };
+
+  const keyForProject = (projectId?: string | null) => ((projectId ?? null) === null ? 'global' : (projectId as string));
+
+  const getCachedTags = (projectId?: string | null): Tag[] => {
+    const key = keyForProject(projectId);
+    return tagsCache[key] || [];
+  };
+
+  const ensureTagsLoaded = async (projectId?: string | null) => {
+    const key = keyForProject(projectId);
+    if (tagsCache[key] && tagsCache[key].length > 0) return; // 已有缓存
+    const data = await fetchAllTagsService(projectId);
+    setTagsCache(prev => ({ ...prev, [key]: data }));
+    setTagsVersion(v => v + 1);
   };
 
   // Move task to trash (soft delete)
@@ -502,6 +530,9 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         listAllTags,
         createTag,
         getAllTagUsageCounts,
+        getCachedTags,
+        ensureTagsLoaded,
+        tagsVersion,
       }}
     >
       {children}

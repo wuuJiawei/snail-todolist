@@ -15,7 +15,7 @@ interface TagSelectorProps {
 }
 
 const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly = false, inline = false }) => {
-  const { getTaskTags, listAllTags, attachTagToTask, detachTagFromTask, createTag } = useTaskContext();
+  const { getTaskTags, listAllTags, attachTagToTask, detachTagFromTask, createTag, getCachedTags, ensureTagsLoaded, tagsVersion } = useTaskContext();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
@@ -29,8 +29,11 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const selectedIds = useMemo(() => new Set(selected.map(t => t.id)), [selected]);
 
   const refreshAvailableTags = async () => {
-    const tags = await listAllTags(projectId ?? undefined);
-    setAvailableTags(tags);
+    // 优先用缓存，必要时加载
+    const cached = getCachedTags(projectId ?? undefined);
+    if (cached.length === 0) await ensureTagsLoaded(projectId ?? undefined);
+    const current = getCachedTags(projectId ?? undefined);
+    setAvailableTags(current);
   };
 
   // 非内联（Popover）时：打开时加载
@@ -38,7 +41,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     if (open && !inline) {
       refreshAvailableTags();
     }
-  }, [open, inline, listAllTags, projectId]);
+  }, [open, inline, projectId]);
 
   // 内联模式：挂载或 projectId 变化时加载
   useEffect(() => {
@@ -46,6 +49,11 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
       refreshAvailableTags();
     }
   }, [inline, projectId]);
+
+  // 监听缓存版本变化，保持本地列表同步
+  useEffect(() => {
+    refreshAvailableTags();
+  }, [tagsVersion]);
 
   const handleToggle = async (tag: Tag) => {
     if (readOnly) return;

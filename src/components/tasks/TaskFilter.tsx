@@ -30,16 +30,24 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
   activeCount,
 }) => {
   const [open, setOpen] = useState(false);
-  const { listAllTags, getAllTagUsageCounts } = useTaskContext();
+  const { listAllTags, getAllTagUsageCounts, getCachedTags, ensureTagsLoaded, tagsVersion } = useTaskContext();
   const [allTags, setAllTags] = useState<{ id: string; name: string }[]>([]);
   const usageCounts = getAllTagUsageCounts();
 
+  const syncTags = async () => {
+    const cached = getCachedTags();
+    if (cached.length === 0) await ensureTagsLoaded();
+    const current = getCachedTags();
+    setAllTags(current.map(t => ({ id: t.id, name: t.name })));
+  };
+
   useEffect(() => {
-    (async () => {
-      const tags = await listAllTags();
-      setAllTags(tags.map(t => ({ id: t.id, name: t.name })));
-    })();
+    syncTags();
   }, []);
+
+  useEffect(() => {
+    syncTags();
+  }, [tagsVersion]);
 
   const handleStatusChange = (status: string, checked: boolean) => {
     const newStatus = checked

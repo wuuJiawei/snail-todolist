@@ -40,4 +40,8 @@ export interface TaskContextType {
   listAllTags: (projectId?: string | null) => Promise<Tag[]>;
   createTag: (name: string, projectId?: string | null) => Promise<Tag | null>;
   getAllTagUsageCounts: () => Record<string, number>;
+  // tags cache & lifecycle
+  getCachedTags: (projectId?: string | null) => Tag[];
+  ensureTagsLoaded: (projectId?: string | null) => Promise<void>;
+  tagsVersion: number; // bump when tags cache changes to trigger subscribers
 }
