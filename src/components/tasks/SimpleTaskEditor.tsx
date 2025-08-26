@@ -13,7 +13,7 @@ interface SimpleTaskEditorProps {
   onChange: (content: string) => void;
   readOnly?: boolean;
   taskId?: string;
-  onEditorReady?: (editor: any) => void;
+  onEditorReady?: (editor: { blocksToMarkdownLossy: () => Promise<string> }) => void;
   attachments?: TaskAttachment[];
   onAttachmentsChange?: (attachments: TaskAttachment[]) => void;
 }
@@ -93,17 +93,25 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
     target.style.height = `${target.scrollHeight}px`;
   }, []);
 
-  // Mock editor for compatibility with existing copy functionality
-  const mockEditor = {
-    blocksToMarkdownLossy: async () => markdownContent
-  };
-
-  // Call onEditorReady if provided
+  // Keep latest content in ref so external callers always get up-to-date markdown
+  const contentRef = useRef(markdownContent);
   useEffect(() => {
-    if (onEditorReady) {
+    contentRef.current = markdownContent;
+  }, [markdownContent]);
+
+  // Stable mock editor for compatibility with existing copy functionality
+  const mockEditor = useMemo(() => ({
+    blocksToMarkdownLossy: async () => contentRef.current
+  }), []);
+
+  // Call onEditorReady once with a stable editor
+  const onReadyCalledRef = useRef(false);
+  useEffect(() => {
+    if (!onReadyCalledRef.current && onEditorReady) {
       onEditorReady(mockEditor);
+      onReadyCalledRef.current = true;
     }
-  }, [onEditorReady]);
+  }, [onEditorReady, mockEditor]);
 
   // Setup clipboard image support for content textarea
   useEffect(() => {
@@ -164,34 +172,7 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
     return cleanup;
   }, [user, readOnly, attachments, onAttachmentsChange, markdownContent, onChange, toast]);
 
-  // Keyboard shortcuts for find/replace within textarea
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const isMeta = e.metaKey || e.ctrlKey;
-    if (!isMeta) return;
-
-    const key = e.key.toLowerCase();
-    if (key === 'f') {
-      e.preventDefault();
-      setIsFindOpen(true);
-      // If there is a selection, prefill find with it
-      const el = textareaRef.current;
-      if (el) {
-        const sel = el.value.substring(el.selectionStart, el.selectionEnd);
-        if (sel) setFindQuery(sel);
-      }
-      // Move to next match immediately
-      setTimeout(() => {
-        goToNextMatch();
-      }, 0);
-    } else if (key === 'g') {
-      e.preventDefault();
-      if (e.shiftKey) {
-        goToPrevMatch();
-      } else {
-        goToNextMatch();
-      }
-    }
-  }, [goToNextMatch, goToPrevMatch]);
+  
 
   // Helpers to select match
   const selectMatch = useCallback((index: number) => {
@@ -222,6 +203,35 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
     selectMatch(prev);
   }, [matches, currentMatchIndex, selectMatch]);
 
+  // Keyboard shortcuts for find/replace within textarea (placed after helpers to avoid TDZ)
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const isMeta = e.metaKey || e.ctrlKey;
+    if (!isMeta) return;
+
+    const key = e.key.toLowerCase();
+    if (key === 'f') {
+      e.preventDefault();
+      setIsFindOpen(true);
+      // If there is a selection, prefill find with it
+      const el = textareaRef.current;
+      if (el) {
+        const sel = el.value.substring(el.selectionStart, el.selectionEnd);
+        if (sel) setFindQuery(sel);
+      }
+      // Move to next match immediately
+      setTimeout(() => {
+        goToNextMatch();
+      }, 0);
+    } else if (key === 'g') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        goToPrevMatch();
+      } else {
+        goToNextMatch();
+      }
+    }
+  }, [goToNextMatch, goToPrevMatch]);
+
   // Update selection when query or content changes
   useEffect(() => {
     if (!isFindOpen) return;
@@ -232,7 +242,7 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
     // Keep within range
     const idx = Math.min(currentMatchIndex < 0 ? 0 : currentMatchIndex, matches.length - 1);
     selectMatch(idx);
-  }, [matches, isFindOpen]);
+  }, [matches, isFindOpen, currentMatchIndex, selectMatch]);
 
   const replaceCurrent = useCallback(() => {
     if (readOnly) return;
