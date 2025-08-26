@@ -205,7 +205,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     return counts;
   };
 
-  const keyForProject = (projectId?: string | null) => ((projectId ?? null) === null ? 'global' : (projectId as string));
+  // 全局标签：不再区分 projectId，统一使用 'global' 作为缓存键
+  const keyForProject = (_projectId?: string | null) => 'global';
 
   const getCachedTags = (projectId?: string | null): Tag[] => {
     const key = keyForProject(projectId);

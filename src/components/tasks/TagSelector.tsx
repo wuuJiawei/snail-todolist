@@ -33,9 +33,9 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const refreshAvailableTags = async () => {
     setLoading(true);
     // 优先用缓存，必要时加载
-    const cached = getCachedTags(projectId ?? undefined);
-    if (cached.length === 0) await ensureTagsLoaded(projectId ?? undefined);
-    const current = getCachedTags(projectId ?? undefined);
+    const cached = getCachedTags();
+    if (cached.length === 0) await ensureTagsLoaded();
+    const current = getCachedTags();
     setAvailableTags(current);
     setLoading(false);
   };
@@ -45,14 +45,14 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     if (open && !inline) {
       refreshAvailableTags();
     }
-  }, [open, inline, projectId]);
+  }, [open, inline]);
 
   // 内联模式：挂载或 projectId 变化时加载
   useEffect(() => {
     if (inline) {
       refreshAvailableTags();
     }
-  }, [inline, projectId]);
+  }, [inline]);
 
   // 监听缓存版本变化，保持本地列表同步
   useEffect(() => {
@@ -72,11 +72,11 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     if (readOnly) return;
     const trimmed = name.trim();
     if (!trimmed) return;
-    const created = await createTag(trimmed, projectId ?? undefined);
+    const created = await createTag(trimmed);
     // 无论创建成功还是已存在，都刷新一次标签列表
     await refreshAvailableTags();
     // 尝试找到同名标签并关联
-    const found = (await listAllTags(projectId ?? undefined)).find(t => t.name.toLowerCase() === trimmed.toLowerCase());
+    const found = (await listAllTags()).find(t => t.name.toLowerCase() === trimmed.toLowerCase());
     if (found) {
       await attachTagToTask(taskId, found.id);
     }
