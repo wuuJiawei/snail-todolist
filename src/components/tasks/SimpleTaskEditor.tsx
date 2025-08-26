@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ChevronUp, ChevronDown, ArrowLeftRight, Repeat, X } from 'lucide-react';
 import { blockNoteToMarkdown, markdownToPlainText, createMarkdownFromLegacyContent } from '@/utils/markdownConverter';
 import { addClipboardImageSupport } from '@/utils/clipboardUtils';
 import { useToast } from '@/hooks/use-toast';
@@ -39,11 +40,9 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
   const [replaceQuery, setReplaceQuery] = useState('');
   const [currentMatchIndex, setCurrentMatchIndex] = useState<number>(-1);
 
-  // Draggable find panel position; null = default top-right
-  const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const dragStateRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
+  // Find bar docking position: top or bottom (sticky)
+  const [findDock, setFindDock] = useState<'top' | 'bottom'>('top');
+  const [showReplace, setShowReplace] = useState(false);
 
   type MatchPos = { start: number; end: number };
   const matches: MatchPos[] = useMemo(() => {
@@ -284,59 +283,77 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
     setCurrentMatchIndex(-1);
   }, [readOnly, findQuery, replaceQuery, markdownContent, onChange]);
 
-  // Enable global Cmd/Ctrl+F to open our find panel (when component mounted)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const isMeta = e.metaKey || e.ctrlKey;
-      if (isMeta && e.key.toLowerCase() === 'f') {
-        e.preventDefault();
-        setIsFindOpen(true);
-        setTimeout(() => {
-          goToNextMatch();
-        }, 0);
-      }
-    };
-    window.addEventListener('keydown', handler, { capture: true });
-    return () => window.removeEventListener('keydown', handler, { capture: true } as AddEventListenerOptions);
-  }, [goToNextMatch]);
+  // Note: We intentionally avoid global Cmd/Ctrl+F interception to keep browser find intact
+  // unless the textarea itself is focused (handled by onKeyDown on textarea).
 
-  // Drag handlers for find panel
-  const onDragStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!panelRef.current) return;
-    const panelRect = panelRef.current.getBoundingClientRect();
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    // Compute cursor offset within panel (viewport-based)
-    const offsetX = e.clientX - panelRect.left;
-    const offsetY = e.clientY - panelRect.top;
-    dragStateRef.current = { offsetX, offsetY };
-    // Attach listeners
-    const onMove = (ev: MouseEvent) => {
-      if (!dragStateRef.current) return;
-      const el = panelRef.current;
-      const parentRect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight } as DOMRect;
-      if (!el) return;
-      const width = el.offsetWidth;
-      const height = el.offsetHeight;
-      const maxLeft = (parentRect.width ?? window.innerWidth) - width - 4;
-      const maxTop = (parentRect.height ?? window.innerHeight) - height - 4;
-      // Transform viewport coords to container-relative coords
-      let nextLeft = ev.clientX - parentRect.left - dragStateRef.current.offsetX;
-      let nextTop = ev.clientY - parentRect.top - dragStateRef.current.offsetY;
-      nextLeft = Math.max(4, Math.min(nextLeft, Math.max(4, maxLeft)));
-      nextTop = Math.max(4, Math.min(nextTop, Math.max(4, maxTop)));
-      setPanelPos({ left: nextLeft, top: nextTop });
-    };
-    const onUp = () => {
-      dragStateRef.current = null;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp, { once: true });
-  }, []);
-
+  const isBottomDocked = isFindOpen && findDock === 'bottom';
   return (
-    <div ref={containerRef} className="h-full w-full flex-1 flex flex-col relative">
+    <div className={`h-full w-full flex-1 flex flex-col relative ${isBottomDocked ? 'pb-16' : ''}`}>
+      {isFindOpen && (
+        <div className={`sticky z-10 ${findDock === 'top' ? 'top-0' : 'bottom-0'} py-1`}> 
+          <div className="mx-2 my-1 rounded-md border border-border bg-muted shadow-sm px-2 py-1">
+          <div className="flex items-center gap-1 flex-nowrap w-full min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => setShowReplace((v) => !v)}
+              title={showReplace ? '收起替换' : '展开替换'}
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${showReplace ? 'rotate-180' : ''}`} />
+            </Button>
+            <Input
+              value={findQuery}
+              onChange={(e) => setFindQuery(e.target.value)}
+              placeholder="查找"
+              className="h-8 px-2 flex-1 min-w-0"
+              autoFocus
+            />
+            <div className="flex items-center gap-1 shrink-0">
+              <Button variant="secondary" size="icon" className="h-8 w-8" onClick={goToPrevMatch} disabled={matches.length === 0} title="上一个">
+                <ChevronUp className="h-4 w-4" />
+              </Button>
+              <Button variant="secondary" size="icon" className="h-8 w-8" onClick={goToNextMatch} disabled={matches.length === 0} title="下一个">
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+              <div className="text-xs text-muted-foreground whitespace-nowrap px-1">
+                {matches.length > 0 ? `${currentMatchIndex + 1}/${matches.length}` : '无结果'}
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsFindOpen(false)} title="关闭">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          {showReplace && (
+            <div className="mt-1 flex items-center gap-1 flex-nowrap w-full min-w-0">
+              <Input
+                value={replaceQuery}
+                onChange={(e) => setReplaceQuery(e.target.value)}
+                placeholder="替换为"
+                className="h-8 px-2 flex-1 min-w-0"
+                disabled={readOnly}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    replaceCurrent();
+                  } else if (e.key === 'Enter' && e.shiftKey) {
+                    e.preventDefault();
+                    replaceAll();
+                  }
+                }}
+              />
+              <Button size="icon" className="h-8 w-8" onClick={replaceCurrent} disabled={readOnly || matches.length === 0} title="替换当前">
+                <ArrowLeftRight className="h-4 w-4" />
+              </Button>
+              <Button size="icon" className="h-8 w-8" variant="secondary" onClick={replaceAll} disabled={readOnly || matches.length === 0} title="全部替换">
+                <Repeat className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          </div>
+        </div>
+      )}
+
       <Textarea
         ref={textareaRef}
         value={markdownContent}
@@ -365,61 +382,7 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
         }}
       />
 
-      {isFindOpen && (
-        <div
-          ref={panelRef}
-          className="absolute z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow rounded-md border p-2 w-[min(480px,calc(100%-16px))]"
-          style={panelPos ? { left: panelPos.left, top: panelPos.top } : { right: 8, top: 8 }}
-        >
-          <div className="flex gap-2 items-center">
-            <div
-              onMouseDown={onDragStart}
-              className="shrink-0 w-4 h-8 flex items-center justify-center cursor-move select-none text-muted-foreground"
-              title="拖拽移动"
-            >
-              ⠿
-            </div>
-            <Input
-              value={findQuery}
-              onChange={(e) => setFindQuery(e.target.value)}
-              placeholder="查找"
-              className="h-8 px-2"
-              autoFocus
-            />
-            <Button variant="secondary" size="sm" className="h-8" onClick={goToPrevMatch} disabled={matches.length === 0}>上一个</Button>
-            <Button variant="secondary" size="sm" className="h-8" onClick={goToNextMatch} disabled={matches.length === 0}>下一个</Button>
-            <div className="text-xs text-muted-foreground whitespace-nowrap">
-              {matches.length > 0 ? `${currentMatchIndex + 1}/${matches.length}` : '0/0'}
-            </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsFindOpen(false)}>
-              ✕
-            </Button>
-          </div>
-          <div className="mt-2 flex gap-2 items-center">
-            <Input
-              value={replaceQuery}
-              onChange={(e) => setReplaceQuery(e.target.value)}
-              placeholder="替换为"
-              className="h-8 px-2"
-              disabled={readOnly}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  replaceCurrent();
-                } else if (e.key === 'Enter' && e.shiftKey) {
-                  e.preventDefault();
-                  replaceAll();
-                }
-              }}
-            />
-            <Button size="sm" className="h-8" onClick={replaceCurrent} disabled={readOnly || matches.length === 0}>替换</Button>
-            <Button size="sm" className="h-8" variant="destructive" onClick={replaceAll} disabled={readOnly || matches.length === 0}>全部替换</Button>
-          </div>
-          <div className="mt-1 text-[10px] text-muted-foreground">
-            快捷键：Cmd/Ctrl+F 查找，Cmd/Ctrl+G 下一个，Shift+Cmd/Ctrl+G 上一个；在“替换为”里 Enter=替换，Shift+Enter=全部替换
-          </div>
-        </div>
-      )}
+      {/* sticky find bar rendered above; floating panel removed for clarity */}
     </div>
   );
 };
