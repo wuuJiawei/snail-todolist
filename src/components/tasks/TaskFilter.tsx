@@ -31,8 +31,9 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
   activeCount,
 }) => {
   const [open, setOpen] = useState(false);
-  const { listAllTags } = useTaskContext();
+  const { listAllTags, getAllTagUsageCounts } = useTaskContext();
   const [allTags, setAllTags] = useState<{ id: string; name: string }[]>([]);
+  const usageCounts = getAllTagUsageCounts();
 
   useEffect(() => {
     (async () => {
@@ -279,7 +280,9 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
                         onFiltersChange({ ...filters, tags: Array.from(next) });
                       }}
                     />
-                    <Label htmlFor={`tag-${t.id}`} className="text-sm">{t.name}</Label>
+                    <Label htmlFor={`tag-${t.id}`} className="text-sm">{t.name}
+                      <span className="ml-1 text-xs text-muted-foreground">({usageCounts[t.id] || 0})</span>
+                    </Label>
                   </div>
                 );
               })}

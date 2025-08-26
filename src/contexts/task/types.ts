@@ -39,4 +39,5 @@ export interface TaskContextType {
   detachTagFromTask: (taskId: string, tagId: string) => Promise<void>;
   listAllTags: (projectId?: string | null) => Promise<Tag[]>;
   createTag: (name: string, projectId?: string | null) => Promise<Tag | null>;
+  getAllTagUsageCounts: () => Record<string, number>;
 }

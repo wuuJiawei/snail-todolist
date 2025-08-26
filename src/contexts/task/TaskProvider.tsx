@@ -182,6 +182,16 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     return tag;
   };
 
+  const getAllTagUsageCounts = () => {
+    const counts: Record<string, number> = {};
+    Object.values(taskIdToTags).forEach(tags => {
+      (tags || []).forEach(tag => {
+        counts[tag.id] = (counts[tag.id] || 0) + 1;
+      });
+    });
+    return counts;
+  };
+
   // Move task to trash (soft delete)
   const moveToTrash = async (id: string) => {
     try {
@@ -491,6 +501,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         detachTagFromTask,
         listAllTags,
         createTag,
+        getAllTagUsageCounts,
       }}
     >
       {children}
