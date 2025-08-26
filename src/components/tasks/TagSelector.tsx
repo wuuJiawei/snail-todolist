@@ -28,13 +28,24 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const selected = getTaskTags(taskId);
   const selectedIds = useMemo(() => new Set(selected.map(t => t.id)), [selected]);
 
+  const refreshAvailableTags = async () => {
+    const tags = await listAllTags(projectId ?? undefined);
+    setAvailableTags(tags);
+  };
+
+  // 非内联（Popover）时：打开时加载
   useEffect(() => {
-    if (!open) return;
-    (async () => {
-      const tags = await listAllTags(projectId ?? undefined);
-      setAvailableTags(tags);
-    })();
-  }, [open, listAllTags, projectId]);
+    if (open && !inline) {
+      refreshAvailableTags();
+    }
+  }, [open, inline, listAllTags, projectId]);
+
+  // 内联模式：挂载或 projectId 变化时加载
+  useEffect(() => {
+    if (inline) {
+      refreshAvailableTags();
+    }
+  }, [inline, projectId]);
 
   const handleToggle = async (tag: Tag) => {
     if (readOnly) return;
@@ -49,14 +60,16 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     if (readOnly) return;
     const trimmed = name.trim();
     if (!trimmed) return;
-    const tag = await createTag(trimmed, projectId ?? undefined);
-    if (tag) {
-      await attachTagToTask(taskId, tag.id);
-      // 更新本地标签列表，避免重复
-      setAvailableTags(prev => (prev.some(t => t.id === tag.id) ? prev : [tag, ...prev]));
-      // 清空输入框
-      setQuery("");
+    const created = await createTag(trimmed, projectId ?? undefined);
+    // 无论创建成功还是已存在，都刷新一次标签列表
+    await refreshAvailableTags();
+    // 尝试找到同名标签并关联
+    const found = (await listAllTags(projectId ?? undefined)).find(t => t.name.toLowerCase() === trimmed.toLowerCase());
+    if (found) {
+      await attachTagToTask(taskId, found.id);
     }
+    // 清空输入框
+    setQuery("");
   };
 
   const selectorBody = (
