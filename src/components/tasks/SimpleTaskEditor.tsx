@@ -39,6 +39,12 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
   const [replaceQuery, setReplaceQuery] = useState('');
   const [currentMatchIndex, setCurrentMatchIndex] = useState<number>(-1);
 
+  // Draggable find panel position; null = default top-right
+  const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
+
   type MatchPos = { start: number; end: number };
   const matches: MatchPos[] = useMemo(() => {
     if (!findQuery) return [];
@@ -278,8 +284,59 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
     setCurrentMatchIndex(-1);
   }, [readOnly, findQuery, replaceQuery, markdownContent, onChange]);
 
+  // Enable global Cmd/Ctrl+F to open our find panel (when component mounted)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isMeta = e.metaKey || e.ctrlKey;
+      if (isMeta && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setIsFindOpen(true);
+        setTimeout(() => {
+          goToNextMatch();
+        }, 0);
+      }
+    };
+    window.addEventListener('keydown', handler, { capture: true });
+    return () => window.removeEventListener('keydown', handler, { capture: true } as AddEventListenerOptions);
+  }, [goToNextMatch]);
+
+  // Drag handlers for find panel
+  const onDragStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!panelRef.current) return;
+    const panelRect = panelRef.current.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    // Compute cursor offset within panel (viewport-based)
+    const offsetX = e.clientX - panelRect.left;
+    const offsetY = e.clientY - panelRect.top;
+    dragStateRef.current = { offsetX, offsetY };
+    // Attach listeners
+    const onMove = (ev: MouseEvent) => {
+      if (!dragStateRef.current) return;
+      const el = panelRef.current;
+      const parentRect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight } as DOMRect;
+      if (!el) return;
+      const width = el.offsetWidth;
+      const height = el.offsetHeight;
+      const maxLeft = (parentRect.width ?? window.innerWidth) - width - 4;
+      const maxTop = (parentRect.height ?? window.innerHeight) - height - 4;
+      // Transform viewport coords to container-relative coords
+      let nextLeft = ev.clientX - parentRect.left - dragStateRef.current.offsetX;
+      let nextTop = ev.clientY - parentRect.top - dragStateRef.current.offsetY;
+      nextLeft = Math.max(4, Math.min(nextLeft, Math.max(4, maxLeft)));
+      nextTop = Math.max(4, Math.min(nextTop, Math.max(4, maxTop)));
+      setPanelPos({ left: nextLeft, top: nextTop });
+    };
+    const onUp = () => {
+      dragStateRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp, { once: true });
+  }, []);
+
   return (
-    <div className="h-full w-full flex-1 flex flex-col relative">
+    <div ref={containerRef} className="h-full w-full flex-1 flex flex-col relative">
       <Textarea
         ref={textareaRef}
         value={markdownContent}
@@ -309,21 +366,32 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
       />
 
       {isFindOpen && (
-        <div className="absolute right-2 top-2 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow rounded-md border p-2 w-[min(480px,calc(100%-16px))]">
+        <div
+          ref={panelRef}
+          className="absolute z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow rounded-md border p-2 w-[min(480px,calc(100%-16px))]"
+          style={panelPos ? { left: panelPos.left, top: panelPos.top } : { right: 8, top: 8 }}
+        >
           <div className="flex gap-2 items-center">
+            <div
+              onMouseDown={onDragStart}
+              className="shrink-0 w-4 h-8 flex items-center justify-center cursor-move select-none text-muted-foreground"
+              title="拖拽移动"
+            >
+              ⠿
+            </div>
             <Input
               value={findQuery}
               onChange={(e) => setFindQuery(e.target.value)}
               placeholder="查找"
-              className="h-8"
+              className="h-8 px-2"
               autoFocus
             />
-            <Button variant="secondary" size="sm" onClick={goToPrevMatch} disabled={matches.length === 0}>上一个</Button>
-            <Button variant="secondary" size="sm" onClick={goToNextMatch} disabled={matches.length === 0}>下一个</Button>
+            <Button variant="secondary" size="sm" className="h-8" onClick={goToPrevMatch} disabled={matches.length === 0}>上一个</Button>
+            <Button variant="secondary" size="sm" className="h-8" onClick={goToNextMatch} disabled={matches.length === 0}>下一个</Button>
             <div className="text-xs text-muted-foreground whitespace-nowrap">
               {matches.length > 0 ? `${currentMatchIndex + 1}/${matches.length}` : '0/0'}
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsFindOpen(false)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsFindOpen(false)}>
               ✕
             </Button>
           </div>
@@ -332,7 +400,7 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
               value={replaceQuery}
               onChange={(e) => setReplaceQuery(e.target.value)}
               placeholder="替换为"
-              className="h-8"
+              className="h-8 px-2"
               disabled={readOnly}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -344,8 +412,8 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
                 }
               }}
             />
-            <Button size="sm" onClick={replaceCurrent} disabled={readOnly || matches.length === 0}>替换</Button>
-            <Button size="sm" variant="destructive" onClick={replaceAll} disabled={readOnly || matches.length === 0}>全部替换</Button>
+            <Button size="sm" className="h-8" onClick={replaceCurrent} disabled={readOnly || matches.length === 0}>替换</Button>
+            <Button size="sm" className="h-8" variant="destructive" onClick={replaceAll} disabled={readOnly || matches.length === 0}>全部替换</Button>
           </div>
           <div className="mt-1 text-[10px] text-muted-foreground">
             快捷键：Cmd/Ctrl+F 查找，Cmd/Ctrl+G 下一个，Shift+Cmd/Ctrl+G 上一个；在“替换为”里 Enter=替换，Shift+Enter=全部替换
