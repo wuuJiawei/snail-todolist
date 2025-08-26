@@ -1,0 +1,55 @@
+---
+alwaysApply: true
+---
+# React 开发规范（SnailTodoList）
+
+以下规则适用于本仓库的 React + TypeScript 代码。
+
+## 基础原则
+- 保持 KISS 原则：简单、清晰、可读。
+- 谨慎修改，确保不引入编译/类型错误；提交前保持 lints 通过。
+- 不要出现无意义或提醒性质的注释；注释只在必要时解释“为什么”。
+- 避免重复代码（DRY）：提炼为可复用组件/Hook/工具函数。
+
+## TypeScript 与命名
+- 组件与导出 API 使用显式类型；局部易推断变量可省略类型。
+- 函数组件、Hook 使用有意义的名称：函数用动词，变量用名词。
+- 避免缩写与模糊命名，优先全词：如 useTaskOperation、formatDateText。
+- 禁止 any/类型断言逃逸，除非有明确理由且局部封装。
+
+## 组件与状态
+- 使用受控组件与单向数据流；必要时以 props 提供回调。
+- 将复杂 UI 片段抽为组件；跨页面复用抽到 `src/components`。
+- 通用展示组件放 `components/ui`，与业务解耦；业务组件放 `components/*`。
+- 业务逻辑用 Hook 隔离（如 useTaskOperation），避免在 JSX 中内联复杂逻辑。
+
+## 代码组织
+- 复用优先：
+  - 重复的 UI 片段抽到组件（示例：[DueDatePickerContent.tsx](mdc:src/components/tasks/DueDatePickerContent.tsx)）。
+  - 重复的逻辑抽到 `src/utils`/`src/hooks`（示例：[taskUtils.ts](mdc:src/utils/taskUtils.ts)）。
+- 文件命名与导出清晰：默认导出用于主要组件，具名导出用于多个导出。
+- 保持 import 路径简洁，使用已配置的别名 `@/`。
+
+## 样式与 UI
+- 遵循项目现有 UI 库（shadcn/ui、Radix）与 Tailwind 约定；保持一致的 className 风格。
+- 交互细节需稳健：悬停/子菜单偏移等通过 `sideOffset/alignOffset` 调整，避免抖动/误关闭。
+- 可访问性优先：语义化标签、键盘可用、aria 属性。
+
+## 控制流与错误处理
+- 早返回与守卫式写法，避免深层嵌套。
+- 不无意义 try/catch；捕获后给出清晰处理或用户提示（toast）。
+- 异步操作避免竞态；长操作使用进度或禁用态（示例：useTaskOperation）。
+
+## 注释与文档
+- 只写“为什么”，不写“做了什么”的注释；删除陈旧注释。
+- 复杂函数/Hook 使用简短 JSDoc 描述输入输出或副作用。
+
+## 提交与规则
+- 变更前跑 lints 并修复。
+- Git 提交信息使用英文，遵循 Conventional Commits；标注来源：`Committed via Cursor (https://cursor.com)`。
+
+## 性能与可维护性
+- 列表项用稳定 key；避免不必要 re-render（合理 memo/useMemo/useCallback）。
+- 避免在 render 中创建新对象/函数；必要时提取到外部或 useMemo。
+- 体积优化：按需引入、延迟加载非关键模块。
+
