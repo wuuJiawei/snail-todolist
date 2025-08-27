@@ -1,3 +1,27 @@
+## 桌面客户端（Tauri）开发与打包
+
+前置：已安装 Rust（stable）与 Xcode CLT（macOS）。
+
+- 本地开发（桌面窗口 + Vite dev server）
+
+```bash
+npm run tauri:dev
+```
+
+- 生产打包（生成未签名安装包）
+
+```bash
+npm run tauri:build
+```
+
+产物目录：`src-tauri/target/release/bundle/`
+
+注意：
+- macOS 未签名首次运行需要在“系统设置 -> 安全性与隐私”允许。
+- Windows 可能提示来源不明，手动允许后可继续。
+
+CI：已配置 `.github/workflows/tauri-build.yml`，对 macOS/Windows/Linux 构建未签名包并上传为 artifacts。
+
 # Supabase 数据库设置指南
 
 本项目使用 Supabase 作为后端数据库。以下是完整的设置步骤。

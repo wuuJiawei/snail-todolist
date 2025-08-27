@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { isTauriRuntime } from "@/utils/runtime";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
@@ -113,10 +114,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign in with OAuth provider
   const signInWithOAuth = async (provider: 'github' | 'google') => {
     try {
+      const redirectTo = isTauriRuntime()
+        ? "snailtodo://auth-callback"
+        : `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
         },
       });
       if (error) throw error;
