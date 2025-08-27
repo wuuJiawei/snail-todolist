@@ -34,6 +34,7 @@
 
 - 桌面特性适配
   - [x] Supabase OAuth：注册自定义协议（`snailtodo://`）——已在 Tauri 配置添加，待前端回调适配
+  - [x] OAuth redirectTo：桌面端使用 `snailtodo://auth-callback`，Web 端使用 `/auth/callback`
   - [ ] 通知适配：抽象统一通知层，优先 Tauri 通知，浏览器通知回退
 
 - 安全与权限
