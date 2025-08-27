@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X } from "lucide-react";
+import { X, Trash } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface TagSelectorProps {
   taskId: string;
@@ -15,7 +16,9 @@ interface TagSelectorProps {
 }
 
 const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly = false, inline = false }) => {
-  const { getTaskTags, listAllTags, attachTagToTask, detachTagFromTask, createTag, getCachedTags, ensureTagsLoaded, tagsVersion } = useTaskContext();
+  const { getTaskTags, listAllTags, attachTagToTask, detachTagFromTask, createTag, deleteTagPermanently, getCachedTags, ensureTagsLoaded, tagsVersion, getAllTagUsageCounts } = useTaskContext();
+  const usageCounts = getAllTagUsageCounts();
+  const [confirmOpenForTagId, setConfirmOpenForTagId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
@@ -112,9 +115,37 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
           </CommandEmpty>
           <CommandGroup heading="我的标签">
             {filteredTags.map(tag => (
-              <CommandItem key={tag.id} value={tag.name} onSelect={() => handleToggle(tag)}>
+              <CommandItem key={tag.id} value={tag.name} onSelect={() => handleToggle(tag)} className="flex items-center">
                 <span className="mr-2 text-xs opacity-60">{selectedIds.has(tag.id) ? "✓" : ""}</span>
-                {tag.name}
+                <span className="flex-1">{tag.name}</span>
+                {!readOnly && (
+                  <AlertDialog open={confirmOpenForTagId === tag.id} onOpenChange={(o) => setConfirmOpenForTagId(o ? tag.id : null)}>
+                    <AlertDialogTrigger asChild>
+                      <button className="ml-2 p-1 rounded hover:bg-muted" onClick={(e) => { e.stopPropagation(); }}>
+                        <Trash className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>删除标签？</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {usageCounts[tag.id] && usageCounts[tag.id] > 0
+                            ? `该标签正在被 ${usageCounts[tag.id]} 个任务使用。是否强制删除？此操作会从所有相关任务中移除该标签。`
+                            : "此操作将删除该标签，是否继续？"}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>取消</AlertDialogCancel>
+                        <AlertDialogAction onClick={async () => {
+                          const ok = await deleteTagPermanently(tag.id);
+                          if (ok) {
+                            await refreshAvailableTags();
+                          }
+                        }}>删除</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </CommandItem>
             ))}
           </CommandGroup>

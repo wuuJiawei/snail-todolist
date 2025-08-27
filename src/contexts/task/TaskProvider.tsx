@@ -20,7 +20,7 @@ import { SELECTED_PROJECT_KEY } from "./types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeadlineNotifications } from "@/hooks/useDeadlineNotifications";
 import { Tag } from "@/types/tag";
-import { fetchAllTags as fetchAllTagsService, getTagsByTaskIds as getTagsByTaskIdsService, attachTagToTask as attachTagToTaskService, detachTagFromTask as detachTagFromTaskService, createTag as createTagService } from "@/services/tagService";
+import { fetchAllTags as fetchAllTagsService, getTagsByTaskIds as getTagsByTaskIdsService, attachTagToTask as attachTagToTaskService, detachTagFromTask as detachTagFromTaskService, createTag as createTagService, deleteTagById as deleteTagByIdService } from "@/services/tagService";
 
 interface TaskProviderProps {
   children: ReactNode;
@@ -193,6 +193,30 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       setTagsVersion(v => v + 1);
     }
     return tag;
+  };
+
+  const deleteTagPermanently = async (tagId: string): Promise<boolean> => {
+    const ok = await deleteTagByIdService(tagId);
+    if (ok) {
+      // 从缓存中移除并 bump 版本
+      setTagsCache(prev => {
+        const next: Record<string, Tag[]> = {};
+        Object.keys(prev).forEach(k => {
+          next[k] = (prev[k] || []).filter(t => t.id !== tagId);
+        });
+        return next;
+      });
+      // 从任务-标签映射中移除该标签
+      setTaskIdToTags(prev => {
+        const next: Record<string, Tag[]> = {};
+        Object.keys(prev).forEach(taskId => {
+          next[taskId] = (prev[taskId] || []).filter(t => t.id !== tagId);
+        });
+        return next;
+      });
+      setTagsVersion(v => v + 1);
+    }
+    return ok;
   };
 
   const getAllTagUsageCounts = () => {
@@ -530,6 +554,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         detachTagFromTask,
         listAllTags,
         createTag,
+        deleteTagPermanently,
         getAllTagUsageCounts,
         getCachedTags,
         ensureTagsLoaded,
