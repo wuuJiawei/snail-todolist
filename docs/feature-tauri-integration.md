@@ -41,8 +41,8 @@
   - [x] 最小权限 `allowlist` 基础：启用 `shell:allow-open`；前端统一外链用系统浏览器打开
 
 - 构建与发布
-  - [ ] macOS 签名与公证（Apple ID/证书/钥匙串）— 暂跳过（生成未签名包）
-  - [x] CI 多平台构建与产物发布（macOS/Windows/Linux）— 已添加 GitHub Actions（未签名）
+  - [ ] macOS 签名与公证（Apple ID/证书/钥匙串）
+  - [ ] CI 多平台构建与产物发布（macOS/Windows/Linux）
   - [ ] 更新文档（README/SETUP）：本地运行、打包、签名、公证、发布流程
 
 - 质量保障
