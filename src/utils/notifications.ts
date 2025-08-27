@@ -6,8 +6,8 @@ export async function ensureNotificationPermission(): Promise<WebPermission> {
   // Prefer Tauri notification API when available
   if (isTauriRuntime()) {
     try {
-      // Dynamically import to avoid bundler errors when not present
-      const mod = await import("@tauri-apps/api/notification");
+      // Use Tauri v2 notification plugin
+      const mod = await import("@tauri-apps/plugin-notification");
       const granted = await mod.isPermissionGranted();
       if (granted) return "granted";
       const req = await mod.requestPermission();
@@ -36,7 +36,7 @@ export async function sendNotification(options: {
 }): Promise<void> {
   if (isTauriRuntime()) {
     try {
-      const mod = await import("@tauri-apps/api/notification");
+      const mod = await import("@tauri-apps/plugin-notification");
       await mod.sendNotification({ title: options.title, body: options.body });
       return;
     } catch {

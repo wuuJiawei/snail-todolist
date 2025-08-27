@@ -21,8 +21,8 @@ if (isTauriRuntime()) {
     if (/^https?:\/\//i.test(href)) {
       e.preventDefault();
       try {
-        const { open } = await import('@tauri-apps/api/shell');
-        await open(href);
+        const mod = await import('@tauri-apps/plugin-shell');
+        await mod.open(href);
       } catch {
         // ignore
       }
