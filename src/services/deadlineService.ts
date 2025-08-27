@@ -1,6 +1,7 @@
 import { Task } from "@/types/task";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { ensureNotificationPermission, sendNotification as sendUnifiedNotification } from "@/utils/notifications";
 
 interface DeadlineNotificationConfig {
   enabled: boolean;
@@ -89,29 +90,23 @@ export const checkUpcomingDeadlines = (
 };
 
 // 发送浏览器通知
-export const sendBrowserNotification = (task: Task) => {
-  if (!("Notification" in window)) {
-    console.warn("浏览器不支持通知功能");
-    return;
-  }
+export const sendBrowserNotification = async (task: Task) => {
+  const deadline = task.date ? new Date(task.date) : null;
+  const deadlineText = deadline
+    ? deadline.toLocaleString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
 
-  if (Notification.permission === "granted") {
-    const deadline = task.date ? new Date(task.date) : null;
-    const deadlineText = deadline 
-      ? deadline.toLocaleString('zh-CN', { 
-          month: '2-digit', 
-          day: '2-digit', 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })
-      : '';
-
-    new Notification(`任务即将截止`, {
-      body: `${task.title}\n截止时间: ${deadlineText}`,
-      icon: '/favicon.ico',
-      tag: `task-${task.id}`, // 防止重复通知
-    });
-  }
+  await ensureNotificationPermission();
+  await sendUnifiedNotification({
+    title: `任务即将截止`,
+    body: `${task.title}${deadlineText ? `\n截止时间: ${deadlineText}` : ''}`,
+    tag: `task-${task.id}`,
+  });
 };
 
 // 请求通知权限
