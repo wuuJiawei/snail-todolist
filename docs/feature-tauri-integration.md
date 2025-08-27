@@ -33,7 +33,7 @@
   - [x] 准备 1024x1024 源图（PNG/SVG）并运行 `tauri icon` 生成多平台图标
 
 - 桌面特性适配
-  - [x] Supabase OAuth：注册自定义协议（`snailtodo://`）——已在 Tauri 配置添加，待前端回调适配
+  - [x] Supabase OAuth：自定义协议（`snailtodo://`）——不在 `bundle.protocols` 声明；后续用 deep-link 插件或平台配置实现
   - [x] OAuth redirectTo：桌面端使用 `snailtodo://auth-callback`，Web 端使用 `/auth/callback`
   - [x] 通知适配：抽象统一通知层，优先 Tauri 通知，浏览器通知回退
 
