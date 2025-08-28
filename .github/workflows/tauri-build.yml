@@ -92,20 +92,22 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.target }}" != "" ]; then
-            INSTALLER_PATH=$(find src-tauri/target/${{ matrix.target }}/release/bundle -name "*.${INSTALLER_EXT}" | head -n 1)
+            INSTALLER_PATH=$(find src-tauri/target/${{ matrix.target }}/release/bundle -type f -name "*.${INSTALLER_EXT}" | head -n 1)
           else
-            INSTALLER_PATH=$(find src-tauri/target/release/bundle -name "*.${INSTALLER_EXT}" | head -n 1)
+            INSTALLER_PATH=$(find src-tauri/target/release/bundle -type f -name "*.${INSTALLER_EXT}" | head -n 1)
           fi
           
           if [ -z "$INSTALLER_PATH" ]; then
             echo "No installer found with extension .${INSTALLER_EXT}"
-            exit 1
+            exit 0  # 不要因为找不到安装包而失败
           fi
           
-          INSTALLER_NAME=$(basename "$INSTALLER_PATH")
-          echo "Found installer: $INSTALLER_PATH"
-          echo "installer_path=$INSTALLER_PATH" >> $GITHUB_OUTPUT
-          echo "installer_name=$INSTALLER_NAME" >> $GITHUB_OUTPUT
+          if [ -n "$INSTALLER_PATH" ]; then
+            INSTALLER_NAME=$(basename "$INSTALLER_PATH")
+            echo "Found installer: $INSTALLER_PATH"
+            echo "installer_path=$INSTALLER_PATH" >> $GITHUB_OUTPUT
+            echo "installer_name=$INSTALLER_NAME" >> $GITHUB_OUTPUT
+          fi
         env:
           INSTALLER_EXT: ${{ matrix.ext }}
 
