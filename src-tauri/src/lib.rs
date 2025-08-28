@@ -38,10 +38,3 @@ pub fn run() {
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
-
-// 显示主窗口的命令
-#[tauri::command]
-fn show_main_window(window: tauri::Window) {
-  log::info!("显示主窗口");
-  window.show().expect("无法显示窗口");
-}
