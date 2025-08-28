@@ -1,7 +1,7 @@
 {
   "name": "snail-todolist",
   "private": false,
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "一个现代化、功能丰富的待办事项管理应用",
   "author": "Your Name <your.email@example.com>",
   "license": "MIT",
