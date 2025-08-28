@@ -35,7 +35,7 @@
 - 桌面特性适配
   - [x] Supabase OAuth：自定义协议（`snailtodo://`）——不在 `bundle.protocols` 声明；后续用 deep-link 插件或平台配置实现
   - [x] OAuth redirectTo：桌面端使用 `snailtodo://auth-callback`，Web 端使用 `/auth/callback`
-  - [x] 通知适配：抽象统一通知层，优先 Tauri 通知，浏览器通知回退
+  - [x] 通知适配：统一通知层，目前仅支持浏览器通知（Tauri 权限系统暂不支持插件权限）
 
 - 安全与权限
   - [x] 最小权限 `allowlist` 基础：启用 `shell:allow-open`；前端统一外链用系统浏览器打开
