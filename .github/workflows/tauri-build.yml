@@ -151,7 +151,6 @@ jobs:
             artifacts/**/*.AppImage
             artifacts/**/*.msi
             artifacts/**/*.deb
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
 
