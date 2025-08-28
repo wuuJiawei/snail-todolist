@@ -9,12 +9,24 @@ on:
 
 jobs:
   build:
-    name: Build ${{ matrix.os }}
+    name: Build ${{ matrix.os }} ${{ matrix.target || '' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-22.04, windows-latest]
+        include:
+          # macOS Intel
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            args: --target x86_64-apple-darwin
+          # macOS Apple Silicon
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            args: --target aarch64-apple-darwin
+          # Ubuntu
+          - os: ubuntu-22.04
+          # Windows
+          - os: windows-latest
 
     steps:
       - name: Checkout
@@ -39,6 +51,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target || '' }}
 
       - name: Install dependencies
         run: npm install
@@ -47,14 +61,14 @@ jobs:
         run: npm run build
 
       - name: Build Tauri app
-        run: npm run tauri:build
+        run: npm run tauri:build -- ${{ matrix.args || '' }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: snail-todolist-${{ matrix.os }}
+          name: snail-todolist-${{ matrix.os }}${{ matrix.target && format('-{0}', matrix.target) || '' }}
           path: |
-            src-tauri/target/release/bundle/**/*
+            src-tauri/target/${{ matrix.target && format('{0}/release', matrix.target) || 'release' }}/bundle/**/*
           if-no-files-found: warn
 
 
