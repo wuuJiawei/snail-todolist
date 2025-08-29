@@ -9,19 +9,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Pencil, Plus, Tag as TagIcon, Trash } from "lucide-react";
+import { Pencil, Plus, Tag as TagIcon, Trash, RefreshCw } from "lucide-react";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { renameTag, updateTagProject } from "@/services/tagService";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/hooks/use-toast";
 
 const TagSettings = () => {
   const { projects } = useProjectContext();
-  const { listAllTags, createTag, deleteTagPermanently, getAllTagUsageCounts, tagsVersion } = useTaskContext();
+  const { listAllTags, createTag, deleteTagPermanently, getAllTagUsageCounts, tagsVersion, refreshAllTags } = useTaskContext();
 
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTagName, setNewTagName] = useState("");
   const [usageCounts, setUsageCounts] = useState<Record<string, number>>({});
+  const [refreshing, setRefreshing] = useState(false);
 
   // Edit tag dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -50,6 +52,29 @@ const TagSettings = () => {
       console.error("Error loading tags:", error);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // 手动刷新所有标签数据
+  const handleRefreshTags = async () => {
+    setRefreshing(true);
+    try {
+      const success = await refreshAllTags();
+      if (success) {
+        toast({
+          title: "刷新成功",
+          description: "标签数据已更新",
+        });
+        loadTags();
+      } else {
+        toast({
+          title: "刷新失败",
+          description: "无法刷新标签数据",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -102,11 +127,22 @@ const TagSettings = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">标签管理</h2>
-        <p className="text-muted-foreground">
-          管理所有标签及其关联的项目
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">标签管理</h2>
+          <p className="text-muted-foreground">
+            管理所有标签及其关联的项目
+          </p>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleRefreshTags}
+          disabled={refreshing}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+          刷新标签数据
+        </Button>
       </div>
 
       <div className="flex items-center gap-2 mb-4">

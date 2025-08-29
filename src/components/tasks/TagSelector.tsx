@@ -48,8 +48,17 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const refreshAvailableTags = async () => {
     setLoading(true);
     try {
-      // Load tags for current project (includes global tags + project-specific tags)
-      const tags = await listAllTags(projectId);
+      // 首先尝试使用缓存数据
+      const cachedTags = getCachedTags(projectId);
+      if (cachedTags && cachedTags.length > 0) {
+        setAvailableTags(cachedTags);
+        setLoading(false);
+        return;
+      }
+      
+      // 如果缓存中没有，则加载
+      await ensureTagsLoaded(projectId);
+      const tags = getCachedTags(projectId);
       setAvailableTags(tags);
     } catch (error) {
       console.error("Error loading tags:", error);
@@ -94,13 +103,19 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     // Create tag with current project scope
     const created = await createTag(trimmed, projectId);
     
-    // 无论创建成功还是已存在，都刷新一次标签列表
-    await refreshAvailableTags();
+    // 创建后直接从缓存获取刷新列表
+    refreshAvailableTags();
     
     // 尝试找到同名标签并关联
-    const found = (await listAllTags()).find(t => t.name.toLowerCase() === trimmed.toLowerCase());
-    if (found) {
-      await attachTagToTask(taskId, found.id);
+    if (created) {
+      await attachTagToTask(taskId, created.id);
+    } else {
+      // 如果没创建成功（可能是已存在），尝试查找同名标签
+      const cachedTags = getCachedTags(projectId);
+      const found = cachedTags.find(t => t.name.toLowerCase() === trimmed.toLowerCase());
+      if (found) {
+        await attachTagToTask(taskId, found.id);
+      }
     }
     
     // 清空输入框

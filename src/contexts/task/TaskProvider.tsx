@@ -47,7 +47,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     enabled: true 
   });
 
-  // Load tasks from Supabase on mount or when user changes
+  // 加载任务数据和标签数据
   useEffect(() => {
     const loadTasks = async () => {
       if (!user) {
@@ -55,6 +55,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         setTrashedTasks([]);
         setAbandonedTasks([]);
         setTaskIdToTags({});
+        setTagsCache({}); // 清空标签缓存
         setLoading(false);
         setHasLoaded(false);
         return;
@@ -68,17 +69,34 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
       setLoading(true);
       try {
-        // Load regular tasks (not deleted)
-        const data = await fetchTasks();
+        // 并行加载任务数据和所有标签数据
+        const [data, trashedData, abandonedData, allTags] = await Promise.all([
+          fetchTasks(),
+          fetchDeletedTasks(),
+          fetchAbandonedTasks(),
+          fetchAllTagsService(undefined) // 预加载所有标签，不指定项目
+        ]);
+        
         setTasks(data);
-
-        // Load trashed tasks
-        const trashedData = await fetchDeletedTasks();
         setTrashedTasks(trashedData);
-
-        // Load abandoned tasks
-        const abandonedData = await fetchAbandonedTasks();
         setAbandonedTasks(abandonedData);
+
+        // 构建标签缓存 - 按项目分组
+        const newTagsCache: Record<string, Tag[]> = {
+          'global': allTags.filter(tag => tag.project_id === null)
+        };
+        
+        // 为每个项目建立标签缓存
+        allTags.forEach(tag => {
+          if (tag.project_id) {
+            if (!newTagsCache[tag.project_id]) {
+              newTagsCache[tag.project_id] = [];
+            }
+            newTagsCache[tag.project_id].push(tag);
+          }
+        });
+        
+        setTagsCache(newTagsCache);
 
         // Load tags mapping for fetched tasks
         const allTaskIds = [...data.map(t => t.id), ...trashedData.map(t => t.id), ...abandonedData.map(t => t.id)];
@@ -86,6 +104,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         setTaskIdToTags(mapping);
 
         setHasLoaded(true);
+        setTagsVersion(v => v + 1); // 更新标签版本
       } catch (error) {
         console.error("Failed to load tasks:", error);
         toast({
@@ -193,10 +212,41 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     return await fetchAllTagsService(projectId);
   };
 
+  // 刷新所有标签缓存
+  const refreshAllTags = async () => {
+    try {
+      const allTags = await fetchAllTagsService(undefined);
+      
+      // 构建新的标签缓存 - 按项目分组
+      const newTagsCache: Record<string, Tag[]> = {
+        'global': allTags.filter(tag => tag.project_id === null)
+      };
+      
+      // 为每个项目建立标签缓存
+      allTags.forEach(tag => {
+        if (tag.project_id) {
+          if (!newTagsCache[tag.project_id]) {
+            newTagsCache[tag.project_id] = [];
+          }
+          newTagsCache[tag.project_id].push(tag);
+        }
+      });
+      
+      setTagsCache(newTagsCache);
+      setTagsVersion(v => v + 1);
+      return true;
+    } catch (error) {
+      console.error("Failed to refresh tags:", error);
+      return false;
+    }
+  };
+
+  // 修改createTag函数，更新后刷新缓存
   const createTag = async (name: string, projectId?: string | null) => {
     const tag = await createTagService(name, projectId);
     // 更新缓存并 bump 版本（若创建成功）
     if (tag) {
+      // 使用快速缓存更新
       const key = (projectId ?? null) === null ? 'global' : (projectId as string);
       setTagsCache(prev => {
         const cur = prev[key] || [];
@@ -209,6 +259,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     return tag;
   };
 
+  // 修改deleteTagPermanently函数
   const deleteTagPermanently = async (tagId: string): Promise<boolean> => {
     const ok = await deleteTagByIdService(tagId);
     if (ok) {
@@ -233,6 +284,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     return ok;
   };
 
+  // 修改updateTagProject函数
   const updateTagProject = async (tagId: string, projectId: string | null): Promise<Tag | null> => {
     const updatedTag = await updateTagProjectService(tagId, projectId);
     if (updatedTag) {
@@ -285,6 +337,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     return projectSpecificTags;
   };
 
+  // 优化 ensureTagsLoaded 函数，先从缓存获取，必要时再加载
   const ensureTagsLoaded = async (projectId?: string | null) => {
     // Generate cache key for the requested scope
     const key = keyForProject(projectId);
@@ -292,6 +345,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     // Skip if we already have tags for this scope
     if (tagsCache[key] && tagsCache[key].length > 0) return;
     
+    // 由于我们在初始化时已经预加载了所有标签，这里只需要在缓存缺失的情况下重新加载
     // For projects, also ensure we have global tags cached
     if (projectId !== null && projectId !== undefined) {
       const globalKey = 'global';
@@ -301,7 +355,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
     }
     
-    // Fetch tags for requested scope
+    // 只有在缓存中没有对应项目的标签时才加载
     const data = await fetchAllTagsService(projectId);
     setTagsCache(prev => ({ ...prev, [key]: data }));
     setTagsVersion(v => v + 1);
@@ -618,6 +672,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         createTag,
         deleteTagPermanently,
         updateTagProject,
+        refreshAllTags,
         getAllTagUsageCounts,
         getCachedTags,
         ensureTagsLoaded,
