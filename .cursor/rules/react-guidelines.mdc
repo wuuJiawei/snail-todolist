@@ -45,6 +45,8 @@
 ## 提交与规则
 - 变更前跑 lints 并修复。
 - Git 提交信息使用英文，遵循 Conventional Commits；标注来源：`Committed via Cursor (https://cursor.com)`。
+- Git 提交信息的描述部分应当使用多行文本，**不要使用 \n 转义字符换行**，而是直接在文本中换行。
+- 使用 `-m` 参数时，可使用多个 `-m` 参数表示不同段落，如：`git commit -m "标题" -m "描述第一行" -m "描述第二行"`。
 
 ## 性能与可维护性
 - 列表项用稳定 key；避免不必要 re-render（合理 memo/useMemo/useCallback）。
