@@ -181,10 +181,12 @@ const TaskList: React.FC = () => {
         </div>
         
         {/* 骨架屏：任务列表 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto custom-scrollbar pb-4">
           {Array(5).fill(0).map((_, index) => (
-            <div key={index} className="flex flex-col gap-2">
-              <Skeleton className="h-14 w-full rounded-md" />
+            <div key={index} className="px-4">
+              <div className="flex flex-col gap-2 py-1">
+                <Skeleton className="h-14 w-full rounded-md" />
+              </div>
             </div>
           ))}
         </div>
