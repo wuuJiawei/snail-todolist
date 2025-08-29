@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Pencil, Plus, Tag as TagIcon, Trash } from "lucide-react";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { renameTag, updateTagProject } from "@/services/tagService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const TagSettings = () => {
   const { projects } = useProjectContext();
@@ -127,7 +128,42 @@ const TagSettings = () => {
       </div>
 
       {loading ? (
-        <div className="text-center py-6">加载中...</div>
+        <div className="border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>标签名</TableHead>
+                <TableHead>使用次数</TableHead>
+                <TableHead>可见范围</TableHead>
+                <TableHead className="w-24">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array(5).fill(0).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <Skeleton className="h-4 w-4 mr-2 rounded-full" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-6 w-12 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       ) : (
         <div className="border rounded-md">
           <Table>

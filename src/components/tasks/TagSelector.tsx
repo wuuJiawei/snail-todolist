@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Globe, X, Trash } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useProjectContext } from "@/contexts/ProjectContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface TagSelectorProps {
   taskId: string;
@@ -132,7 +133,14 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
         />
         <CommandList>
           {loading && (
-            <div className="py-3 px-3 text-xs text-muted-foreground">正在加载标签…</div>
+            <div className="px-2 py-3 flex flex-col space-y-2">
+              {Array(3).fill(0).map((_, index) => (
+                <div key={index} className="flex items-center px-2">
+                  <Skeleton className="h-3 w-3 mr-2 rounded-full" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              ))}
+            </div>
           )}
           <CommandEmpty>
             无结果，按 Enter 创建
