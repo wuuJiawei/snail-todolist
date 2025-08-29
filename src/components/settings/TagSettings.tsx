@@ -31,8 +31,18 @@ const TagSettings = () => {
   const loadTags = async () => {
     setLoading(true);
     try {
-      // Load all tags regardless of project
+      // Load all tags regardless of project scope
       const allTags = await listAllTags(undefined);
+      // Sort tags by project (null/global first, then by project name)
+      allTags.sort((a, b) => {
+        // Global tags first
+        if (a.project_id === null && b.project_id !== null) return -1;
+        if (a.project_id !== null && b.project_id === null) return 1;
+        // Then by project name
+        const aProject = a.project_id ? projects.find(p => p.id === a.project_id)?.name || "" : "";
+        const bProject = b.project_id ? projects.find(p => p.id === b.project_id)?.name || "" : "";
+        return aProject.localeCompare(bProject) || a.name.localeCompare(b.name);
+      });
       setTags(allTags);
       setUsageCounts(getAllTagUsageCounts());
     } catch (error) {
@@ -84,7 +94,7 @@ const TagSettings = () => {
   };
 
   const getProjectName = (projectId: string | null) => {
-    if (!projectId) return "全局";
+    if (projectId === null) return "全局（所有项目）";
     const project = projects.find(p => p.id === projectId);
     return project?.name || "未知项目";
   };

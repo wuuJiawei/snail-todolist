@@ -176,6 +176,20 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   };
 
   const listAllTags = async (projectId?: string | null) => {
+    // If projectId is undefined, fetch ALL tags (for tag management UI)
+    if (projectId === undefined) {
+      return await fetchAllTagsService(undefined);
+    }
+    
+    // If requesting a specific project's tags, get project-specific tags + global tags
+    // This mirrors the behavior of getCachedTags
+    if (projectId !== null) {
+      const projectTags = await fetchAllTagsService(projectId);
+      const globalTags = await fetchAllTagsService(null);
+      return [...projectTags, ...globalTags];
+    }
+    
+    // If explicitly requesting only global tags
     return await fetchAllTagsService(projectId);
   };
 
@@ -253,16 +267,41 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   };
 
   // 全局标签：不再区分 projectId，统一使用 'global' 作为缓存键
-  const keyForProject = (_projectId?: string | null) => 'global';
+  const keyForProject = (projectId?: string | null): string => {
+    return (projectId ?? null) === null ? 'global' : projectId as string;
+  };
 
   const getCachedTags = (projectId?: string | null): Tag[] => {
+    // 获取项目特定的标签
     const key = keyForProject(projectId);
-    return tagsCache[key] || [];
+    const projectSpecificTags = tagsCache[key] || [];
+    
+    // 如果请求的是特定项目的标签，还需要包括全局标签
+    if (projectId !== null && projectId !== undefined) {
+      const globalTags = tagsCache['global'] || [];
+      return [...projectSpecificTags, ...globalTags];
+    }
+    
+    return projectSpecificTags;
   };
 
   const ensureTagsLoaded = async (projectId?: string | null) => {
+    // Generate cache key for the requested scope
     const key = keyForProject(projectId);
-    if (tagsCache[key] && tagsCache[key].length > 0) return; // 已有缓存
+    
+    // Skip if we already have tags for this scope
+    if (tagsCache[key] && tagsCache[key].length > 0) return;
+    
+    // For projects, also ensure we have global tags cached
+    if (projectId !== null && projectId !== undefined) {
+      const globalKey = 'global';
+      if (!tagsCache[globalKey] || tagsCache[globalKey].length === 0) {
+        const globalData = await fetchAllTagsService(null);
+        setTagsCache(prev => ({ ...prev, [globalKey]: globalData }));
+      }
+    }
+    
+    // Fetch tags for requested scope
     const data = await fetchAllTagsService(projectId);
     setTagsCache(prev => ({ ...prev, [key]: data }));
     setTagsVersion(v => v + 1);

@@ -47,8 +47,8 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const refreshAvailableTags = async () => {
     setLoading(true);
     try {
-      // Load all tags to see both global and project-specific ones
-      const tags = await listAllTags(undefined);
+      // Load tags for current project (includes global tags + project-specific tags)
+      const tags = await listAllTags(projectId);
       setAvailableTags(tags);
     } catch (error) {
       console.error("Error loading tags:", error);
