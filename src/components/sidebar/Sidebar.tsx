@@ -13,6 +13,7 @@ import { Project } from "@/types/project";
 import CheckInButton from "@/components/sidebar/CheckInButton";
 import { useToast } from "@/components/ui/use-toast";
 import { isToday, isBefore, startOfDay, addDays, parseISO, isValid, isWithinInterval } from 'date-fns';
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Sidebar: React.FC = () => {
   const { tasks, selectProject, selectedProject, getTrashCount } = useTaskContext();
@@ -178,7 +179,14 @@ const Sidebar: React.FC = () => {
                   )}
                 >
                   {loading ? (
-                    <div className="p-3 text-sm text-gray-500 dark:text-gray-400">加载中...</div>
+                    <div className="space-y-2 px-2">
+                      {Array(5).fill(0).map((_, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2">
+                          <Skeleton className="h-5 w-5 rounded-full" />
+                          <Skeleton className="h-4 w-24" />
+                        </div>
+                      ))}
+                    </div>
                   ) : customProjects.length === 0 ? (
                     <div className="p-3 text-sm text-gray-500 dark:text-gray-400 text-center">暂无清单</div>
                   ) : (

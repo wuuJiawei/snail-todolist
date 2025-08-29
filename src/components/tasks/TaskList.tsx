@@ -14,6 +14,7 @@ import { TODAY_TASKS_FILTERS_KEY, RECENT_TASKS_FILTERS_KEY } from "@/constants/s
 import { Icon } from "@/components/ui/icon-park";
 import { Button } from "@/components/ui/button";
 import TaskFilter, { TaskFilterOptions } from "@/components/tasks/TaskFilter";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Import the extracted components
 import TaskHeader from "./TaskHeader";
@@ -164,9 +165,34 @@ const TaskList: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400 mb-2" />
-        <p className="text-gray-500">加载任务中...</p>
+      <div className="flex-1 flex flex-col h-screen">
+        {/* 骨架屏：头部 */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <Skeleton className="h-6 w-40" />
+          </div>
+          <Skeleton className="h-9 w-20" />
+        </div>
+        
+        {/* 骨架屏：添加任务表单 */}
+        <div className="px-4 py-3 border-b">
+          <Skeleton className="h-10 w-full rounded-md" />
+        </div>
+        
+        {/* 骨架屏：任务列表 */}
+        <div className="flex-1 overflow-hidden p-4 space-y-3">
+          {Array(5).fill(0).map((_, index) => (
+            <div key={index} className="flex flex-col gap-2">
+              <Skeleton className="h-14 w-full rounded-md" />
+            </div>
+          ))}
+        </div>
+        
+        {/* 骨架屏：底部 */}
+        <div className="border-t p-2">
+          <Skeleton className="h-10 w-full rounded-md" />
+        </div>
       </div>
     );
   }

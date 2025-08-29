@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon-park";
 // Keep lucide-react as fallback
-import { Check, Clock, Search, Loader2 } from "lucide-react";
+import { Check, Clock, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import UserMenu from "@/components/UserMenu";
 import { useAuth } from "@/contexts/AuthContext";
 import { Task } from "@/types/task";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -201,9 +202,28 @@ const AppSidebar = () => {
             {/* 搜索结果 */}
             <div className="flex-1 overflow-hidden">
               {searchLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  <span className="text-sm text-muted-foreground">搜索中...</span>
+                <div className="px-2 py-3 space-y-3">
+                  <div className="flex items-center gap-2 px-2">
+                    <Skeleton className="h-5 w-5" />
+                    <div className="space-y-1 flex-1">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 px-2">
+                    <Skeleton className="h-5 w-5" />
+                    <div className="space-y-1 flex-1">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 px-2">
+                    <Skeleton className="h-5 w-5" />
+                    <div className="space-y-1 flex-1">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
                 </div>
               ) : !searchQuery.trim() ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
