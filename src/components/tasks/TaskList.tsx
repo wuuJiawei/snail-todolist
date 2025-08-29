@@ -165,7 +165,7 @@ const TaskList: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col h-screen">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* 骨架屏：头部 */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-3">
@@ -181,7 +181,7 @@ const TaskList: React.FC = () => {
         </div>
         
         {/* 骨架屏：任务列表 */}
-        <div className="flex-1 overflow-hidden p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {Array(5).fill(0).map((_, index) => (
             <div key={index} className="flex flex-col gap-2">
               <Skeleton className="h-14 w-full rounded-md" />
