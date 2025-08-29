@@ -1,19 +1,31 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon-park";
 import { cn } from "@/lib/utils";
 import AccountSettings from "@/components/settings/AccountSettings";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import AboutSettings from "@/components/settings/AboutSettings";
+import TagSettings from "@/components/settings/TagSettings";
+import { useLocation } from "react-router-dom";
 
-type SettingsTab = "account" | "notifications" | "about";
+type SettingsTab = "account" | "notifications" | "tags" | "about";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
+  const location = useLocation();
+
+  // Handle initial tab from location state
+  useEffect(() => {
+    const state = location.state as { activeTab?: SettingsTab };
+    if (state?.activeTab) {
+      setActiveTab(state.activeTab);
+    }
+  }, [location]);
 
   const tabs = [
     { id: "account", label: "账号", icon: "user" },
     { id: "notifications", label: "通知", icon: "message-one" },
+    { id: "tags", label: "标签", icon: "tag-one" },
     { id: "about", label: "关于", icon: "info" },
   ];
 
@@ -46,6 +58,7 @@ const Settings = () => {
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
         {activeTab === "account" && <AccountSettings />}
         {activeTab === "notifications" && <NotificationSettings />}
+        {activeTab === "tags" && <TagSettings />}
         {activeTab === "about" && <AboutSettings />}
       </div>
     </div>

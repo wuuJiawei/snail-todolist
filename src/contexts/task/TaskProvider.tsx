@@ -20,7 +20,7 @@ import { SELECTED_PROJECT_KEY } from "./types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeadlineNotifications } from "@/hooks/useDeadlineNotifications";
 import { Tag } from "@/types/tag";
-import { fetchAllTags as fetchAllTagsService, getTagsByTaskIds as getTagsByTaskIdsService, attachTagToTask as attachTagToTaskService, detachTagFromTask as detachTagFromTaskService, createTag as createTagService, deleteTagById as deleteTagByIdService } from "@/services/tagService";
+import { fetchAllTags as fetchAllTagsService, getTagsByTaskIds as getTagsByTaskIdsService, attachTagToTask as attachTagToTaskService, detachTagFromTask as detachTagFromTaskService, createTag as createTagService, deleteTagById as deleteTagByIdService, updateTagProject as updateTagProjectService, renameTag as renameTagService } from "@/services/tagService";
 
 interface TaskProviderProps {
   children: ReactNode;
@@ -217,6 +217,29 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       setTagsVersion(v => v + 1);
     }
     return ok;
+  };
+
+  const updateTagProject = async (tagId: string, projectId: string | null): Promise<Tag | null> => {
+    const updatedTag = await updateTagProjectService(tagId, projectId);
+    if (updatedTag) {
+      // 刷新标签缓存
+      setTagsCache(prev => {
+        const next = { ...prev };
+        // 从所有项目缓存中移除这个标签
+        Object.keys(next).forEach(key => {
+          next[key] = (next[key] || []).filter(t => t.id !== tagId);
+        });
+        
+        // 添加到正确的项目缓存中
+        const targetKey = projectId === null ? 'global' : projectId;
+        if (!next[targetKey]) next[targetKey] = [];
+        next[targetKey] = [updatedTag, ...next[targetKey]];
+        
+        return next;
+      });
+      setTagsVersion(v => v + 1);
+    }
+    return updatedTag;
   };
 
   const getAllTagUsageCounts = () => {
@@ -555,6 +578,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         listAllTags,
         createTag,
         deleteTagPermanently,
+        updateTagProject,
         getAllTagUsageCounts,
         getCachedTags,
         ensureTagsLoaded,

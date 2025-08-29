@@ -152,4 +152,29 @@ export const detachTagFromTask = async (taskId: string, tagId: string): Promise<
   }
 };
 
+export const updateTagProject = async (tagId: string, projectId: string | null): Promise<Tag | null> => {
+  try {
+    const { data, error } = await supabase
+      .from("tags")
+      .update({ project_id: projectId })
+      .eq("id", tagId)
+      .select()
+      .maybeSingle();
+    
+    if (error) throw error;
+    
+    if (projectId === null) {
+      toast({ title: "已更新", description: "标签已设为全局可见", variant: "default" });
+    } else {
+      toast({ title: "已更新", description: "已更新标签可见范围", variant: "default" });
+    }
+    
+    return (data as Tag) ?? null;
+  } catch (error) {
+    console.error("Error updating tag project:", error);
+    toast({ title: "更新失败", description: "无法更新标签所属项目", variant: "destructive" });
+    return null;
+  }
+};
+
 

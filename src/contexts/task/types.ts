@@ -40,6 +40,7 @@ export interface TaskContextType {
   listAllTags: (projectId?: string | null) => Promise<Tag[]>;
   createTag: (name: string, projectId?: string | null) => Promise<Tag | null>;
   deleteTagPermanently: (tagId: string) => Promise<boolean>;
+  updateTagProject: (tagId: string, projectId: string | null) => Promise<Tag | null>;
   getAllTagUsageCounts: () => Record<string, number>;
   // tags cache & lifecycle
   getCachedTags: (projectId?: string | null) => Tag[];
