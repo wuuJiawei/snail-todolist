@@ -10,9 +10,11 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
+  isGuest: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInWithOAuth: (provider: 'github' | 'google') => Promise<void>;
+  signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -22,6 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
   const navigate = useNavigate();
 
   // Track if we've already shown the login toast
@@ -51,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           navigate('/auth');
           setHasShownLoginToast(false);
+          setIsGuest(false);
         } else if (event === 'USER_UPDATED') {
           // User metadata has been updated, refresh the user state
           setUser(currentSession?.user ?? null);
@@ -82,12 +86,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "欢迎回来！",
       });
       setHasShownLoginToast(true);
+      setIsGuest(false);
 
       navigate('/');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "登录失败",
-        description: error.message || "请检查您的邮箱和密码",
+        description: error instanceof Error ? error.message : "请检查您的邮箱和密码",
         variant: "destructive",
       });
     }
@@ -102,10 +107,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         title: "注册成功",
         description: "请检查您的邮箱以验证账户",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "注册失败",
-        description: error.message || "请稍后再试",
+        description: error instanceof Error ? error.message : "请稍后再试",
         variant: "destructive",
       });
     }
@@ -124,10 +129,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
       if (error) throw error;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "登录失败",
-        description: error.message || "请稍后再试",
+        description: error instanceof Error ? error.message : "请稍后再试",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Sign in as guest
+  const signInAsGuest = async () => {
+    try {
+      // 启用游客模式而不是实际登录
+      setIsGuest(true);
+      
+      toast({
+        title: "游客模式",
+        description: "您现在以游客身份使用，部分功能可能受限",
+      });
+      
+      navigate('/');
+    } catch (error: unknown) {
+      toast({
+        title: "游客登录失败",
+        description: error instanceof Error ? error.message : "请稍后再试",
         variant: "destructive",
       });
     }
@@ -135,6 +161,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sign out
   const signOut = async () => {
+    if (isGuest) {
+      setIsGuest(false);
+      navigate('/auth');
+      return;
+    }
+    
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({
@@ -151,9 +183,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         user,
         loading,
+        isGuest,
         signInWithEmail,
         signUpWithEmail,
         signInWithOAuth,
+        signInAsGuest,
         signOut,
       }}
     >

@@ -9,7 +9,7 @@ interface AuthRouteProps {
 }
 
 const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest } = useAuth();
 
   if (loading) {
     return (
@@ -20,7 +20,8 @@ const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
     );
   }
 
-  if (!user) {
+  // 如果用户已登录或是游客模式，允许访问
+  if (!user && !isGuest) {
     return <Navigate to="/auth" replace />;
   }
 

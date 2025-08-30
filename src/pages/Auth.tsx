@@ -12,7 +12,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { signInWithEmail, signUpWithEmail, signInWithOAuth, user } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithOAuth, signInAsGuest, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,6 +39,12 @@ const Auth = () => {
   const handleOAuthSignIn = async (provider: 'github' | 'google') => {
     setIsLoading(true);
     await signInWithOAuth(provider);
+    setIsLoading(false);
+  };
+
+  const handleGuestSignIn = async () => {
+    setIsLoading(true);
+    await signInAsGuest();
     setIsLoading(false);
   };
 
@@ -118,6 +124,15 @@ const Auth = () => {
               </form>
             </TabsContent>
           </Tabs>
+
+          <Button 
+            variant="ghost" 
+            className="w-full mt-4"
+            onClick={handleGuestSignIn}
+            disabled={isLoading}
+          >
+            以游客身份使用
+          </Button>
 
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">

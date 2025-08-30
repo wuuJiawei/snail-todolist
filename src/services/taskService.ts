@@ -1,10 +1,56 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Task } from "@/types/task";
 import { toast } from "@/hooks/use-toast";
+import { v4 as uuidv4 } from "uuid";
+
+// 游客ID本地存储key
+const GUEST_ID_KEY = "snail_guest_id";
+
+// 获取或创建游客ID
+const getOrCreateGuestId = (): string => {
+  let guestId = localStorage.getItem(GUEST_ID_KEY);
+  if (!guestId) {
+    guestId = uuidv4();
+    localStorage.setItem(GUEST_ID_KEY, guestId);
+  }
+  return guestId;
+};
+
+// 设置Supabase请求头中的游客ID
+const setGuestIdHeader = () => {
+  const guestId = getOrCreateGuestId();
+  supabase.functions.setHeaders({
+    'x-anonymous-id': guestId
+  });
+  return guestId;
+};
 
 // Fetch all tasks for the current user (excluding deleted tasks by default)
-export const fetchTasks = async (includeDeleted: boolean = false): Promise<Task[]> => {
+export const fetchTasks = async (includeDeleted: boolean = false, isGuest: boolean = false): Promise<Task[]> => {
   try {
+    // 游客模式
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      let query = supabase.from("tasks").select("*");
+      query = query.eq("anonymous_id", guestId);
+      
+      if (!includeDeleted) {
+        query = query.eq("deleted", false).eq("abandoned", false);
+      }
+      
+      const { data, error } = await query
+        .order("sort_order", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        throw error;
+      }
+      
+      return (data || []).map(mapTaskData);
+    }
+
+    // 正常登录用户模式
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -53,33 +99,7 @@ export const fetchTasks = async (includeDeleted: boolean = false): Promise<Task[
     }
 
     // Ensure we properly map the data to our Task type
-    return (data || []).map((item): Task => ({
-      id: item.id,
-      title: item.title,
-      completed: item.completed,
-      date: item.date || undefined,
-      project: item.project || undefined,
-      description: item.description || undefined,
-      icon: item.icon || undefined,
-      completed_at: item.completed_at || undefined,
-      updated_at: item.updated_at || undefined,
-      user_id: item.user_id || undefined,
-      sort_order: item.sort_order !== null ? item.sort_order : undefined,
-      deleted: item.deleted || false,
-      deleted_at: item.deleted_at || undefined,
-      abandoned: item.abandoned || false,
-      abandoned_at: item.abandoned_at || undefined,
-      attachments: (() => {
-        try {
-          return item.attachments && typeof item.attachments === 'string' 
-            ? JSON.parse(item.attachments) 
-            : (item.attachments || []);
-        } catch (e) {
-          console.warn('Failed to parse attachments:', e);
-          return [];
-        }
-      })(),
-    }));
+    return (data || []).map(mapTaskData);
   } catch (error) {
     console.error("Error fetching tasks:", error);
     toast({
@@ -91,9 +111,60 @@ export const fetchTasks = async (includeDeleted: boolean = false): Promise<Task[
   }
 };
 
+// 统一的Task数据映射函数
+const mapTaskData = (item: any): Task => ({
+  id: item.id,
+  title: item.title,
+  completed: item.completed,
+  date: item.date || undefined,
+  project: item.project || undefined,
+  description: item.description || undefined,
+  icon: item.icon || undefined,
+  completed_at: item.completed_at || undefined,
+  updated_at: item.updated_at || undefined,
+  user_id: item.user_id || undefined,
+  sort_order: item.sort_order !== null ? item.sort_order : undefined,
+  deleted: item.deleted || false,
+  deleted_at: item.deleted_at || undefined,
+  abandoned: item.abandoned || false,
+  abandoned_at: item.abandoned_at || undefined,
+  anonymous_id: item.anonymous_id || undefined,
+  attachments: (() => {
+    try {
+      return item.attachments && typeof item.attachments === 'string' 
+        ? JSON.parse(item.attachments) 
+        : (item.attachments || []);
+    } catch (e) {
+      console.warn('Failed to parse attachments:', e);
+      return [];
+    }
+  })(),
+});
+
 // Fetch only deleted tasks (trash)
-export const fetchDeletedTasks = async (): Promise<Task[]> => {
+export const fetchDeletedTasks = async (isGuest: boolean = false): Promise<Task[]> => {
   try {
+    // 游客模式
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      let query = supabase.from("tasks")
+        .select("*")
+        .eq("anonymous_id", guestId)
+        .eq("deleted", true)
+        .eq("abandoned", false)
+        .order("deleted_at", { ascending: false });
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      return (data || []).map(mapTaskData);
+    }
+
+    // 正常登录用户模式
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -138,33 +209,7 @@ export const fetchDeletedTasks = async (): Promise<Task[]> => {
     }
 
     // Ensure we properly map the data to our Task type
-    return (data || []).map((item): Task => ({
-      id: item.id,
-      title: item.title,
-      completed: item.completed,
-      date: item.date || undefined,
-      project: item.project || undefined,
-      description: item.description || undefined,
-      icon: item.icon || undefined,
-      completed_at: item.completed_at || undefined,
-      updated_at: item.updated_at || undefined,
-      user_id: item.user_id || undefined,
-      sort_order: item.sort_order !== null ? item.sort_order : undefined,
-      deleted: item.deleted || false,
-      deleted_at: item.deleted_at || undefined,
-      abandoned: item.abandoned || false,
-      abandoned_at: item.abandoned_at || undefined,
-      attachments: (() => {
-        try {
-          return item.attachments && typeof item.attachments === 'string' 
-            ? JSON.parse(item.attachments) 
-            : (item.attachments || []);
-        } catch (e) {
-          console.warn('Failed to parse attachments:', e);
-          return [];
-        }
-      })(),
-    }));
+    return (data || []).map(mapTaskData);
   } catch (error) {
     console.error("Error fetching deleted tasks:", error);
     toast({
@@ -177,8 +222,62 @@ export const fetchDeletedTasks = async (): Promise<Task[]> => {
 };
 
 // Add a new task
-export const addTask = async (task: Omit<Task, "id">): Promise<Task | null> => {
+export const addTask = async (task: Omit<Task, "id">, isGuest: boolean = false): Promise<Task | null> => {
   try {
+    // 游客模式添加任务
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      // 获取当前游客任务的最大排序值
+      const { data: maxOrderData, error: maxOrderError } = await supabase
+        .from("tasks")
+        .select("sort_order")
+        .eq("anonymous_id", guestId)
+        .eq("completed", task.completed)
+        .order("sort_order", { ascending: false })
+        .limit(1);
+      
+      if (maxOrderError) {
+        console.error("Error getting max sort order:", maxOrderError);
+      }
+      
+      // 计算下一个排序值
+      const maxOrder = maxOrderData && maxOrderData.length > 0 && maxOrderData[0].sort_order !== null
+        ? maxOrderData[0].sort_order
+        : 0;
+      const nextSortOrder = maxOrder + 1000;
+      
+      // 添加游客ID和排序值到任务
+      const taskWithGuestId = {
+        ...task,
+        anonymous_id: guestId,
+        sort_order: nextSortOrder,
+        // 转换附件数组为JSON字符串
+        attachments: task.attachments ? JSON.stringify(task.attachments) : '[]'
+      };
+      
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert(taskWithGuestId)
+        .select();
+        
+      if (error) {
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        throw new Error("No data returned after insert");
+      }
+      
+      toast({
+        title: "添加成功",
+        description: "任务已成功添加",
+      });
+      
+      return mapTaskData(data[0]);
+    }
+
+    // 正常登录用户模式
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -274,33 +373,7 @@ export const addTask = async (task: Omit<Task, "id">): Promise<Task | null> => {
       description: "任务已成功添加",
     });
 
-    return {
-      id: data[0].id,
-      title: data[0].title,
-      completed: data[0].completed,
-      date: data[0].date || undefined,
-      project: data[0].project || undefined,
-      description: data[0].description || undefined,
-      icon: data[0].icon || undefined,
-      completed_at: data[0].completed_at || undefined,
-      updated_at: data[0].updated_at || undefined,
-      user_id: data[0].user_id || undefined,
-      sort_order: data[0].sort_order !== null ? data[0].sort_order : undefined,
-      deleted: data[0].deleted || false,
-      deleted_at: data[0].deleted_at || undefined,
-      abandoned: data[0].abandoned || false,
-      abandoned_at: data[0].abandoned_at || undefined,
-      attachments: (() => {
-        try {
-          return data[0].attachments && typeof data[0].attachments === 'string'
-            ? JSON.parse(data[0].attachments)
-            : (data[0].attachments || []);
-        } catch (e) {
-          console.warn('Failed to parse attachments:', e);
-          return [];
-        }
-      })(),
-    };
+    return mapTaskData(data[0]);
   } catch (error) {
     console.error("Error adding task:", error);
     toast({
@@ -315,9 +388,60 @@ export const addTask = async (task: Omit<Task, "id">): Promise<Task | null> => {
 // Update an existing task
 export const updateTask = async (
   id: string,
-  updates: Partial<Task>
+  updates: Partial<Task>,
+  isGuest: boolean = false
 ): Promise<Task | null> => {
   try {
+    // 游客模式更新任务
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      // 首先检查任务是否属于当前游客
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("id", id)
+        .eq("anonymous_id", guestId)
+        .single();
+      
+      if (taskError) {
+        throw taskError;
+      }
+      
+      // 如果任务被标记为已完成，设置完成时间
+      if (updates.completed === true) {
+        updates.completed_at = new Date().toISOString();
+      }
+      // 如果任务被标记为未完成，移除完成时间
+      else if (updates.completed === false) {
+        updates.completed_at = null;
+      }
+      
+      // 准备数据库更新 - 转换附件数组为JSON字符串
+      const dbUpdates = { ...updates };
+      if (dbUpdates.attachments !== undefined) {
+        dbUpdates.attachments = JSON.stringify(dbUpdates.attachments || []);
+      }
+      
+      const { data, error } = await supabase
+        .from("tasks")
+        .update(dbUpdates)
+        .eq("id", id)
+        .eq("anonymous_id", guestId)
+        .select();
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        throw new Error("No data returned after update or task not found");
+      }
+      
+      return mapTaskData(data[0]);
+    }
+
+    // 正常登录用户模式
     // Get current user to verify ownership
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -398,33 +522,7 @@ export const updateTask = async (
       throw new Error("No data returned after update or task not found");
     }
 
-    return {
-      id: data[0].id,
-      title: data[0].title,
-      completed: data[0].completed,
-      date: data[0].date || undefined,
-      project: data[0].project || undefined,
-      description: data[0].description || undefined,
-      icon: data[0].icon || undefined,
-      completed_at: data[0].completed_at || undefined,
-      updated_at: data[0].updated_at || undefined,
-      user_id: data[0].user_id || undefined,
-      sort_order: data[0].sort_order !== null ? data[0].sort_order : undefined,
-      deleted: data[0].deleted || false,
-      deleted_at: data[0].deleted_at || undefined,
-      abandoned: data[0].abandoned || false,
-      abandoned_at: data[0].abandoned_at || undefined,
-      attachments: (() => {
-        try {
-          return data[0].attachments && typeof data[0].attachments === 'string'
-            ? JSON.parse(data[0].attachments)
-            : (data[0].attachments || []);
-        } catch (e) {
-          console.warn('Failed to parse attachments:', e);
-          return [];
-        }
-      })(),
-    };
+    return mapTaskData(data[0]);
   } catch (error) {
     console.error("Error updating task:", error);
     toast({
@@ -437,8 +535,46 @@ export const updateTask = async (
 };
 
 // Move a task to trash (soft delete)
-export const moveToTrash = async (id: string): Promise<boolean> => {
+export const moveToTrash = async (id: string, isGuest: boolean = false): Promise<boolean> => {
   try {
+    // 游客模式
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      // 检查任务是否属于当前游客
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("id", id)
+        .eq("anonymous_id", guestId)
+        .single();
+      
+      if (taskError) {
+        throw taskError;
+      }
+      
+      const { error } = await supabase
+        .from("tasks")
+        .update({
+          deleted: true,
+          deleted_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .eq("anonymous_id", guestId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "删除成功",
+        description: "任务已移至垃圾桶",
+      });
+      
+      return true;
+    }
+    
+    // 以下是原有的代码
     // Get current user to verify ownership
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -520,8 +656,46 @@ export const moveToTrash = async (id: string): Promise<boolean> => {
 };
 
 // Restore a task from trash
-export const restoreFromTrash = async (id: string): Promise<boolean> => {
+export const restoreFromTrash = async (id: string, isGuest: boolean = false): Promise<boolean> => {
   try {
+    // 游客模式
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      // 检查任务是否属于当前游客
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("id", id)
+        .eq("anonymous_id", guestId)
+        .single();
+      
+      if (taskError) {
+        throw taskError;
+      }
+      
+      const { error } = await supabase
+        .from("tasks")
+        .update({
+          deleted: false,
+          deleted_at: null
+        })
+        .eq("id", id)
+        .eq("anonymous_id", guestId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "恢复成功",
+        description: "任务已恢复",
+      });
+      
+      return true;
+    }
+    
+    // 以下是原有的代码
     // Get current user to verify ownership
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -603,8 +777,43 @@ export const restoreFromTrash = async (id: string): Promise<boolean> => {
 };
 
 // Permanently delete a task
-export const deleteTask = async (id: string): Promise<boolean> => {
+export const deleteTask = async (id: string, isGuest: boolean = false): Promise<boolean> => {
   try {
+    // 游客模式
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      // 检查任务是否属于当前游客
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("id", id)
+        .eq("anonymous_id", guestId)
+        .single();
+      
+      if (taskError) {
+        throw taskError;
+      }
+      
+      const { error } = await supabase
+        .from("tasks")
+        .delete()
+        .eq("id", id)
+        .eq("anonymous_id", guestId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "删除成功",
+        description: "任务已永久删除",
+      });
+      
+      return true;
+    }
+    
+    // 以下是原有的代码
     // Get current user to verify ownership
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -684,8 +893,37 @@ export const deleteTask = async (id: string): Promise<boolean> => {
 };
 
 // Update task order in database
-export const updateTaskOrder = async (tasks: Task[]): Promise<boolean> => {
+export const updateTaskOrder = async (tasks: Task[], isGuest: boolean = false): Promise<boolean> => {
   try {
+    // 游客模式
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      // 计算新的排序值，使用游客ID作为过滤条件
+      const tasksWithOrder = tasks.map((task, index) => ({
+        id: task.id,
+        // 使用index * 1000作为排序值，确保游客任务之间有足够的间隔
+        sort_order: (index + 1) * 1000,
+        anonymous_id: guestId // 添加游客ID过滤条件
+      }));
+      
+      // 批量更新任务
+      for (const task of tasksWithOrder) {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ sort_order: task.sort_order })
+          .eq("id", task.id)
+          .eq("anonymous_id", guestId); // 添加游客ID过滤条件
+        
+        if (error) {
+          throw error;
+        }
+      }
+      
+      return true;
+    }
+    
+    // 以下是原有的代码
     // Get current user to verify ownership
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -731,8 +969,29 @@ export const updateTaskOrder = async (tasks: Task[]): Promise<boolean> => {
 };
 
 // Fetch only abandoned tasks 
-export const fetchAbandonedTasks = async (): Promise<Task[]> => {
+export const fetchAbandonedTasks = async (isGuest: boolean = false): Promise<Task[]> => {
   try {
+    // 游客模式
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      let query = supabase.from("tasks")
+        .select("*")
+        .eq("anonymous_id", guestId)
+        .eq("abandoned", true)
+        .eq("deleted", false)
+        .order("abandoned_at", { ascending: false });
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      return (data || []).map(mapTaskData);
+    }
+    
+    // 正常登录用户模式
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -777,33 +1036,7 @@ export const fetchAbandonedTasks = async (): Promise<Task[]> => {
     }
 
     // Ensure we properly map the data to our Task type
-    return (data || []).map((item): Task => ({
-      id: item.id,
-      title: item.title,
-      completed: item.completed,
-      date: item.date || undefined,
-      project: item.project || undefined,
-      description: item.description || undefined,
-      icon: item.icon || undefined,
-      completed_at: item.completed_at || undefined,
-      updated_at: item.updated_at || undefined,
-      user_id: item.user_id || undefined,
-      sort_order: item.sort_order !== null ? item.sort_order : undefined,
-      deleted: item.deleted || false,
-      deleted_at: item.deleted_at || undefined,
-      abandoned: item.abandoned || false,
-      abandoned_at: item.abandoned_at || undefined,
-      attachments: (() => {
-        try {
-          return item.attachments && typeof item.attachments === 'string' 
-            ? JSON.parse(item.attachments) 
-            : (item.attachments || []);
-        } catch (e) {
-          console.warn('Failed to parse attachments:', e);
-          return [];
-        }
-      })(),
-    }));
+    return (data || []).map(mapTaskData);
   } catch (error) {
     console.error("Error fetching abandoned tasks:", error);
     toast({
@@ -816,8 +1049,48 @@ export const fetchAbandonedTasks = async (): Promise<Task[]> => {
 };
 
 // Abandon a task
-export const abandonTask = async (id: string): Promise<boolean> => {
+export const abandonTask = async (id: string, isGuest: boolean = false): Promise<boolean> => {
   try {
+    // 游客模式
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      // 首先检查任务是否属于当前游客
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("id", id)
+        .eq("anonymous_id", guestId)
+        .single();
+      
+      if (taskError) {
+        throw taskError;
+      }
+      
+      const { error } = await supabase
+        .from("tasks")
+        .update({ 
+          abandoned: true, 
+          abandoned_at: new Date().toISOString(),
+          completed: false, // 确保放弃的任务不是完成状态
+          completed_at: null
+        })
+        .eq("id", id)
+        .eq("anonymous_id", guestId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "任务已放弃",
+        description: "任务已标记为放弃",
+      });
+      
+      return true;
+    }
+    
+    // 以下是原有的代码
     // Get current user to verify ownership
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -901,8 +1174,46 @@ export const abandonTask = async (id: string): Promise<boolean> => {
 };
 
 // Restore abandoned task
-export const restoreAbandonedTask = async (id: string): Promise<boolean> => {
+export const restoreAbandonedTask = async (id: string, isGuest: boolean = false): Promise<boolean> => {
   try {
+    // 游客模式
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      // 首先检查任务是否属于当前游客
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("id", id)
+        .eq("anonymous_id", guestId)
+        .single();
+      
+      if (taskError) {
+        throw taskError;
+      }
+      
+      const { error } = await supabase
+        .from("tasks")
+        .update({ 
+          abandoned: false, 
+          abandoned_at: null
+        })
+        .eq("id", id)
+        .eq("anonymous_id", guestId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "任务已恢复",
+        description: "任务已从放弃状态恢复",
+      });
+      
+      return true;
+    }
+    
+    // 以下是原有的代码
     // Get current user to verify ownership
     const { data: { user } } = await supabase.auth.getUser();
 
