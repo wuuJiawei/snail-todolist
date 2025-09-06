@@ -36,7 +36,7 @@ interface TaskItemProps {
 }
 
 const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectName, index, isDraggable = false }) => {
-  const { selectTask, updateTask, moveToTrash, selectedTask, addTask, abandonTask, getTaskTags, listAllTags, attachTagToTask, detachTagFromTask, createTag } = useTaskContext();
+  const { selectTask, updateTask, moveToTrash, selectedTask, addTask, abandonTask, restoreAbandonedTask, getTaskTags, listAllTags, attachTagToTask, detachTagFromTask, createTag } = useTaskContext();
   const { projects } = useProjectContext();
   const isMobile = useIsMobile();
   const [isEditing, setIsEditing] = useState(false);
@@ -240,6 +240,15 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
     });
   };
 
+  const handleRestoreAbandonedTask = async () => {
+    // 防止操作进行中的重复点击
+    if (operationState.isActive) return;
+
+    await startOperation("restore", async () => {
+      await restoreAbandonedTask(task.id);
+    });
+  };
+
 
   // 从 task.date 解析当前选择日期
   const getSelectedDate = (): Date | undefined => {
@@ -296,6 +305,16 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
           <ContextMenuItem onClick={handleAbandonTask}>
             <Icon icon="close-one" size="16" className="h-4 w-4 mr-2" />
             放弃
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+        </>
+      )}
+
+      {task.abandoned && (
+        <>
+          <ContextMenuItem onClick={handleRestoreAbandonedTask}>
+            <Icon icon="undo" size="16" className="h-4 w-4 mr-2" />
+            恢复任务
           </ContextMenuItem>
           <ContextMenuSeparator />
         </>
