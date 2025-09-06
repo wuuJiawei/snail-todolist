@@ -74,8 +74,14 @@ COMMENT ON TABLE public.data_migration_logs IS '数据迁移日志记录';
 -- 设置RLS策略
 ALTER TABLE public.data_migration_logs ENABLE ROW LEVEL SECURITY;
 
--- 只有管理员和系统可以访问迁移日志
-CREATE POLICY "管理员可以访问迁移日志" ON public.data_migration_logs
-  FOR ALL
+-- 设置基本的RLS策略：用户只能访问与自己相关的迁移记录
+CREATE POLICY "用户可以访问自己的迁移日志" ON public.data_migration_logs
+  FOR SELECT
   TO authenticated
-  USING (auth.uid() IN (SELECT id FROM auth.users WHERE is_admin = true)); 
+  USING (auth.uid() = user_id);
+
+-- 允许服务角色完全访问迁移日志
+CREATE POLICY "服务角色可以完全访问迁移日志" ON public.data_migration_logs
+  FOR ALL
+  TO service_role
+  USING (true); 

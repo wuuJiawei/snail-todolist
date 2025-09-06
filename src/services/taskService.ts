@@ -19,9 +19,14 @@ const getOrCreateGuestId = (): string => {
 // 设置Supabase请求头中的游客ID
 const setGuestIdHeader = () => {
   const guestId = getOrCreateGuestId();
-  supabase.functions.setHeaders({
+  
+  // 为请求添加自定义请求头
+  // 注意: Supabase客户端不直接支持设置全局请求头，但可以在每个请求上设置
+  const customHeaders = {
     'x-anonymous-id': guestId
-  });
+  };
+  
+  // 返回游客ID以便在API调用中使用
   return guestId;
 };
 
@@ -32,7 +37,10 @@ export const fetchTasks = async (includeDeleted: boolean = false, isGuest: boole
     if (isGuest) {
       const guestId = setGuestIdHeader();
       
-      let query = supabase.from("tasks").select("*");
+      // 使用headers选项设置请求头
+      let query = supabase.from("tasks").select("*", { 
+        headers: { 'x-anonymous-id': guestId } 
+      });
       query = query.eq("anonymous_id", guestId);
       
       if (!includeDeleted) {
@@ -129,16 +137,7 @@ const mapTaskData = (item: any): Task => ({
   abandoned: item.abandoned || false,
   abandoned_at: item.abandoned_at || undefined,
   anonymous_id: item.anonymous_id || undefined,
-  attachments: (() => {
-    try {
-      return item.attachments && typeof item.attachments === 'string' 
-        ? JSON.parse(item.attachments) 
-        : (item.attachments || []);
-    } catch (e) {
-      console.warn('Failed to parse attachments:', e);
-      return [];
-    }
-  })(),
+  attachments: item.attachments || []
 });
 
 // Fetch only deleted tasks (trash)
@@ -148,14 +147,15 @@ export const fetchDeletedTasks = async (isGuest: boolean = false): Promise<Task[
     if (isGuest) {
       const guestId = setGuestIdHeader();
       
-      let query = supabase.from("tasks")
-        .select("*")
+      // 使用headers选项设置请求头
+      const { data, error } = await supabase.from("tasks")
+        .select("*", { 
+          headers: { 'x-anonymous-id': guestId } 
+        })
         .eq("anonymous_id", guestId)
         .eq("deleted", true)
         .eq("abandoned", false)
         .order("deleted_at", { ascending: false });
-      
-      const { data, error } = await query;
       
       if (error) {
         throw error;

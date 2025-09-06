@@ -6,6 +6,19 @@ import { isTauriRuntime } from "@/utils/runtime";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
+// 游客ID本地存储key
+const GUEST_ID_KEY = "snail_guest_id";
+
+// 获取本地存储的游客ID
+const getGuestId = (): string | null => {
+  return localStorage.getItem(GUEST_ID_KEY);
+};
+
+// 清除本地存储的游客ID
+const clearGuestId = (): void => {
+  localStorage.removeItem(GUEST_ID_KEY);
+};
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -33,7 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
+      async (event, currentSession) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
 
@@ -46,6 +59,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               description: "欢迎回来！",
             });
             setHasShownLoginToast(true);
+            
+            // 如果用户登录时有游客数据，迁移数据
+            const guestId = getGuestId();
+            if (guestId && currentSession?.user) {
+              await migrateGuestDataToUser(guestId, currentSession.user.id);
+            }
           }
         } else if (event === 'SIGNED_OUT') {
           toast({
@@ -74,6 +93,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [navigate, hasShownLoginToast]);
 
+  // 将游客数据迁移到正式用户账户
+  const migrateGuestDataToUser = async (guestId: string, userId: string) => {
+    try {
+      // 显示迁移过程提示
+      const migrationToast = toast({
+        title: "数据同步中...",
+        description: "正在将您的游客数据同步到您的账户",
+      });
+      
+      // 调用服务端函数迁移数据
+      const { error } = await supabase.rpc('migrate_guest_data', {
+        p_guest_id: guestId,
+        p_user_id: userId
+      });
+      
+      if (error) throw error;
+      
+      // 迁移成功后清除游客ID
+      clearGuestId();
+      
+      // 更新提示信息
+      toast({
+        title: "数据同步完成",
+        description: "您的所有任务已成功同步到您的账户",
+      });
+    } catch (error) {
+      console.error("Error migrating guest data:", error);
+      toast({
+        title: "数据同步失败",
+        description: "无法将游客数据迁移到您的账户，请联系管理员",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Sign in with email and password
   const signInWithEmail = async (email: string, password: string) => {
     try {
@@ -88,6 +142,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHasShownLoginToast(true);
       setIsGuest(false);
 
+      // 如果用户登录时有游客数据，迁移数据
+      const { data: { user } } = await supabase.auth.getUser();
+      const guestId = getGuestId();
+      if (guestId && user) {
+        await migrateGuestDataToUser(guestId, user.id);
+      }
+
       navigate('/');
     } catch (error: unknown) {
       toast({
@@ -101,12 +162,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up with email and password
   const signUpWithEmail = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { error, data } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
+      
       toast({
         title: "注册成功",
         description: "请检查您的邮箱以验证账户",
       });
+      
+      // 如果注册后立即获得用户且有游客数据，迁移数据
+      if (data.user) {
+        const guestId = getGuestId();
+        if (guestId) {
+          await migrateGuestDataToUser(guestId, data.user.id);
+        }
+      }
     } catch (error: unknown) {
       toast({
         title: "注册失败",
