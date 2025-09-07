@@ -120,25 +120,44 @@ export const fetchTasks = async (includeDeleted: boolean = false, isGuest: boole
 };
 
 // 统一的Task数据映射函数
-const mapTaskData = (item: any): Task => ({
-  id: item.id,
-  title: item.title,
-  completed: item.completed,
-  date: item.date || undefined,
-  project: item.project || undefined,
-  description: item.description || undefined,
-  icon: item.icon || undefined,
-  completed_at: item.completed_at || undefined,
-  updated_at: item.updated_at || undefined,
-  user_id: item.user_id || undefined,
-  sort_order: item.sort_order !== null ? item.sort_order : undefined,
-  deleted: item.deleted || false,
-  deleted_at: item.deleted_at || undefined,
-  abandoned: item.abandoned || false,
-  abandoned_at: item.abandoned_at || undefined,
-  anonymous_id: item.anonymous_id || undefined,
-  attachments: item.attachments || []
-});
+const mapTaskData = (item: any): Task => {
+  // Normalize attachments: database may return JSON string or array
+  let normalizedAttachments: any[] = [];
+  const raw = item.attachments;
+  if (Array.isArray(raw)) {
+    normalizedAttachments = raw;
+  } else if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      normalizedAttachments = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      normalizedAttachments = [];
+    }
+  } else if (raw && typeof raw === 'object') {
+    // Some drivers may return object for JSON
+    normalizedAttachments = [];
+  }
+
+  return {
+    id: item.id,
+    title: item.title,
+    completed: item.completed,
+    date: item.date || undefined,
+    project: item.project || undefined,
+    description: item.description || undefined,
+    icon: item.icon || undefined,
+    completed_at: item.completed_at || undefined,
+    updated_at: item.updated_at || undefined,
+    user_id: item.user_id || undefined,
+    sort_order: item.sort_order !== null ? item.sort_order : undefined,
+    deleted: item.deleted || false,
+    deleted_at: item.deleted_at || undefined,
+    abandoned: item.abandoned || false,
+    abandoned_at: item.abandoned_at || undefined,
+    // Note: anonymous_id is used in guest mode flows but not in Task type; omit
+    attachments: normalizedAttachments
+  };
+};
 
 // Fetch only deleted tasks (trash)
 export const fetchDeletedTasks = async (isGuest: boolean = false): Promise<Task[]> => {
