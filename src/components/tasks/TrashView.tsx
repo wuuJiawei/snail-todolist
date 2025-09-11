@@ -77,7 +77,7 @@ const TrashView: React.FC = () => {
       </p>
 
       {/* Task list */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 h-[calc(100vh-200px)]" type="auto">
         {trashedTasks.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-12">
             <AlertCircle className="h-12 w-12 mb-4 text-muted-foreground/50" />
