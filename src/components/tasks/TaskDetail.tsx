@@ -58,6 +58,9 @@ const TaskDetail = () => {
   const cursorPosRef = useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
   const shouldRestoreCursorRef = useRef(false);
 
+  // IME composition state for title input
+  const [isTitleComposing, setIsTitleComposing] = useState(false);
+
   useEffect(() => {
     if (selectedTask) {
       // Check if this is a new task selection
@@ -153,7 +156,11 @@ const TaskDetail = () => {
     cursorPosRef.current = { start: e.target.selectionStart, end: e.target.selectionEnd };
     
     setTitle(newTitle);
-    debouncedSave({ title: newTitle });
+    
+    // During IME composition, don't save immediately
+    if (!isTitleComposing) {
+      debouncedSave({ title: newTitle });
+    }
     
     // Clear existing timeout and set new one to mark end of typing
     if (userInputTimeoutRef.current) {
@@ -164,6 +171,19 @@ const TaskDetail = () => {
       isUserTypingRef.current = false;
       shouldRestoreCursorRef.current = false;
     }, 1000); // User considered done typing after 1 second of inactivity
+  };
+
+  // Handle IME composition events for title
+  const handleTitleCompositionStart = () => {
+    setIsTitleComposing(true);
+  };
+
+  const handleTitleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
+    setIsTitleComposing(false);
+    const newTitle = e.currentTarget.value;
+    
+    // Save the final title when composition ends
+    debouncedSave({ title: newTitle });
   };
 
   const handleCompletedChange = (checked: boolean | 'indeterminate') => {
@@ -400,6 +420,8 @@ const TaskDetail = () => {
                 ref={titleTextareaRef}
                 value={title}
                 onChange={handleTitleChange}
+                onCompositionStart={handleTitleCompositionStart}
+                onCompositionEnd={handleTitleCompositionEnd}
                 className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-lg font-medium px-3 min-h-[32px] resize-none overflow-hidden"
                 placeholder="任务标题"
                 onInput={(e) => {

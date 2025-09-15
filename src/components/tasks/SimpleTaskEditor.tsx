@@ -75,6 +75,10 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // IME composition state to handle Chinese input method
+  const [isComposing, setIsComposing] = useState(false);
+  const compositionValueRef = useRef<string>('');
+
   // Find/Replace state
   const [isFindOpen, setIsFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState('');
@@ -125,10 +129,32 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
   // Handle textarea content changes
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newMarkdown = e.target.value;
+    
+    // During IME composition, only update local state, don't call onChange
+    if (isComposing) {
+      compositionValueRef.current = newMarkdown;
+      setMarkdownContent(newMarkdown);
+      return;
+    }
+    
     setMarkdownContent(newMarkdown);
     
     // For simplicity, we'll store the markdown as plain text
     // This makes it easier to edit and doesn't require complex JSON conversion
+    onChange(newMarkdown);
+  }, [onChange, isComposing]);
+
+  // Handle IME composition events
+  const handleCompositionStart = useCallback(() => {
+    setIsComposing(true);
+  }, []);
+
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLTextAreaElement>) => {
+    setIsComposing(false);
+    const newMarkdown = e.currentTarget.value;
+    
+    // Update both local state and call onChange when composition ends
+    setMarkdownContent(newMarkdown);
     onChange(newMarkdown);
   }, [onChange]);
 
@@ -422,6 +448,8 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
           onChange={handleChange}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           readOnly={readOnly}
           placeholder="输入任务内容... 📋✨
 
