@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Popover,
   PopoverContent,
@@ -30,38 +30,29 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
   activeCount,
 }) => {
   const [open, setOpen] = useState(false);
-  const { listAllTags, getAllTagUsageCounts, getCachedTags, ensureTagsLoaded, tagsVersion } = useTaskContext();
+  const { selectedProject, getAllTagUsageCounts, getCachedTags, ensureTagsLoaded, tagsVersion } = useTaskContext();
   const [allTags, setAllTags] = useState<{ id: string; name: string }[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
   const usageCounts = getAllTagUsageCounts();
 
-  const syncTags = async () => {
+  const syncTags = useCallback(async () => {
     setLoadingTags(true);
-    const cached = getCachedTags();
-    if (cached.length === 0) await ensureTagsLoaded();
-    const current = getCachedTags();
+    // 传入 selectedProject 以获取当前项目的标签+全局标签
+    const projectId = selectedProject === 'all' ? null : selectedProject;
+    const cached = getCachedTags(projectId);
+    if (cached.length === 0) await ensureTagsLoaded(projectId);
+    const current = getCachedTags(projectId);
     setAllTags(current.map(t => ({ id: t.id, name: t.name })));
     setLoadingTags(false);
-  };
+  }, [selectedProject, getCachedTags, ensureTagsLoaded]);
 
   useEffect(() => {
     syncTags();
-  }, []);
+  }, [syncTags, selectedProject]);
 
   useEffect(() => {
     syncTags();
-  }, [tagsVersion]);
-
-  const handleStatusChange = (status: string, checked: boolean) => {
-    const newStatus = checked
-      ? [...filters.status, status]
-      : filters.status.filter((s) => s !== status);
-    
-    onFiltersChange({
-      ...filters,
-      status: newStatus,
-    });
-  };
+  }, [syncTags, tagsVersion]);
 
   const handleDeadlineChange = (deadline: string, checked: boolean) => {
     const newDeadline = checked
@@ -91,7 +82,6 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
   };
 
   const hasActiveFilters = 
-    filters.status.length > 0 ||
     filters.deadline.length > 0 ||
     filters.hasAttachments !== null ||
     (filters.tags && filters.tags.length > 0);
@@ -126,51 +116,6 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
                 清除
               </Button>
             )}
-          </div>
-
-          <Separator />
-
-          {/* 任务状态 */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">任务状态</Label>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="pending"
-                  checked={filters.status.includes("pending")}
-                  onCheckedChange={(checked) =>
-                    handleStatusChange("pending", checked as boolean)
-                  }
-                />
-                <Label htmlFor="pending" className="text-sm">
-                  待办
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="completed"
-                  checked={filters.status.includes("completed")}
-                  onCheckedChange={(checked) =>
-                    handleStatusChange("completed", checked as boolean)
-                  }
-                />
-                <Label htmlFor="completed" className="text-sm">
-                  已完成
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="abandoned"
-                  checked={filters.status.includes("abandoned")}
-                  onCheckedChange={(checked) =>
-                    handleStatusChange("abandoned", checked as boolean)
-                  }
-                />
-                <Label htmlFor="abandoned" className="text-sm">
-                  已放弃
-                </Label>
-              </div>
-            </div>
           </div>
 
           <Separator />
