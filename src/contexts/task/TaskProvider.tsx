@@ -310,8 +310,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   const getAllTagUsageCounts = () => {
     const counts: Record<string, number> = {};
-    Object.values(taskIdToTags).forEach(tags => {
-      (tags || []).forEach(tag => {
+    // 只统计待办状态的任务（未完成且未放弃的任务）
+    const pendingTasks = tasks.filter(task => !task.completed && !task.abandoned);
+    pendingTasks.forEach(task => {
+      const tags = taskIdToTags[task.id] || [];
+      tags.forEach(tag => {
         counts[tag.id] = (counts[tag.id] || 0) + 1;
       });
     });
