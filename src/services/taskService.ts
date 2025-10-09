@@ -247,24 +247,25 @@ export const addTask = async (task: Omit<Task, "id">, isGuest: boolean = false):
     if (isGuest) {
       const guestId = setGuestIdHeader();
       
-      // 获取当前游客任务的最大排序值
-      const { data: maxOrderData, error: maxOrderError } = await supabase
+      // 获取当前游客任务的最小排序值（新任务添加到顶部）
+      const { data: minOrderData, error: minOrderError } = await supabase
         .from("tasks")
         .select("sort_order")
         .eq("anonymous_id", guestId)
         .eq("completed", task.completed)
-        .order("sort_order", { ascending: false })
+        .order("sort_order", { ascending: true })
         .limit(1);
       
-      if (maxOrderError) {
-        console.error("Error getting max sort order:", maxOrderError);
+      if (minOrderError) {
+        console.error("Error getting min sort order:", minOrderError);
       }
       
-      // 计算下一个排序值
-      const maxOrder = maxOrderData && maxOrderData.length > 0 && maxOrderData[0].sort_order !== null
-        ? maxOrderData[0].sort_order
-        : 0;
-      const nextSortOrder = maxOrder + 1000;
+      // 计算下一个排序值（比当前最小值小 1000）
+      // 这样确保新任务显示在顶部
+      const minOrder = minOrderData && minOrderData.length > 0 && minOrderData[0].sort_order !== null
+        ? minOrderData[0].sort_order
+        : 1000;
+      const nextSortOrder = minOrder - 1000;
       
       // 添加游客ID和排序值到任务
       const taskWithGuestId = {
@@ -346,24 +347,25 @@ export const addTask = async (task: Omit<Task, "id">, isGuest: boolean = false):
       }
     }
 
-    // Get the highest sort_order for the project
-    const { data: maxOrderData, error: maxOrderError } = await supabase
+    // Get the lowest sort_order for the project (to add new task at the top)
+    const { data: minOrderData, error: minOrderError } = await supabase
       .from("tasks")
       .select("sort_order")
       .eq("project", task.project)
       .eq("completed", task.completed)
-      .order("sort_order", { ascending: false })
+      .order("sort_order", { ascending: true })
       .limit(1);
 
-    if (maxOrderError) {
-      console.error("Error getting max sort order:", maxOrderError);
+    if (minOrderError) {
+      console.error("Error getting min sort order:", minOrderError);
     }
 
-    // Calculate the next sort order (1000 higher than the current max)
-    const maxOrder = maxOrderData && maxOrderData.length > 0 && maxOrderData[0].sort_order !== null
-      ? maxOrderData[0].sort_order
-      : 0;
-    const nextSortOrder = maxOrder + 1000;
+    // Calculate the next sort order (1000 lower than the current min)
+    // This ensures new tasks appear at the top
+    const minOrder = minOrderData && minOrderData.length > 0 && minOrderData[0].sort_order !== null
+      ? minOrderData[0].sort_order
+      : 1000;
+    const nextSortOrder = minOrder - 1000;
 
     // Add user_id and sort_order to task
     const taskWithUserId = {
