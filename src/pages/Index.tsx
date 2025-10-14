@@ -28,9 +28,9 @@ const Index = () => {
           key="collapsed-panels"
           leftPanel={<TaskView />}
           rightPanel={<TaskDetail />}
-          defaultLeftWidth={60}
-          minLeftWidth={30}
-          minRightWidth={25}
+          defaultLeftWidth={33}
+          minLeftWidth={25}
+          minRightWidth={30}
           className="flex-1"
         />
       </div>
@@ -48,12 +48,12 @@ const Index = () => {
             key="content-panels"
             leftPanel={<TaskView />}
             rightPanel={<TaskDetail />}
-            defaultLeftWidth={60}
-            minLeftWidth={30}
-            minRightWidth={25}
+            defaultLeftWidth={33}
+            minLeftWidth={25}
+            minRightWidth={30}
           />
         }
-        defaultLeftWidth={20}
+        defaultLeftWidth={25}
         minLeftWidth={15}
         minRightWidth={60}
       />
