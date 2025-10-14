@@ -138,6 +138,24 @@ const mapTaskData = (item: any): Task => {
     normalizedAttachments = [];
   }
 
+  // Fix old attachment field names for backward compatibility
+  normalizedAttachments = normalizedAttachments.map((att: any) => {
+    // If attachment has old field names (file_name, file_type, file_size), convert them
+    if (att.file_name || att.file_type || att.file_size) {
+      return {
+        id: att.id,
+        filename: att.file_name || att.filename,
+        original_name: att.original_name,
+        url: att.url,
+        size: att.file_size || att.size,
+        type: att.file_type || att.type,
+        uploaded_at: att.uploaded_at,
+      };
+    }
+    // Return as-is if already using correct field names
+    return att;
+  });
+
   return {
     id: item.id,
     title: item.title,

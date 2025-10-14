@@ -128,10 +128,10 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
               const attachment: TaskAttachment = {
                 id: crypto.randomUUID(),
                 url: url,
-                file_name: file.name,
+                filename: file.name,
                 original_name: file.name,
-                file_type: file.type,
-                file_size: file.size,
+                type: file.type,
+                size: file.size,
                 uploaded_at: new Date().toISOString(),
               };
 
