@@ -24,11 +24,10 @@ import {
 import { format, parseISO, isValid } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { formatDateText } from "@/utils/taskUtils";
-import SimpleTaskEditor from "./SimpleTaskEditor";
+import VditorEditor from "./VditorEditor";
 import TagSelector from "./TagSelector";
 import TaskAttachments from "./TaskAttachments";
 import { useDebouncedCallback } from 'use-debounce';
-import { addClipboardImageSupport } from "@/utils/clipboardUtils";
 
 const TaskDetail = () => {
   const { selectedTask, updateTask, selectTask, trashedTasks } = useTaskContext();
@@ -300,40 +299,7 @@ const TaskDetail = () => {
     }
   };
 
-  // Setup clipboard image support for title textarea
-  useEffect(() => {
-    if (!titleTextareaRef.current || !user || isTaskInTrash) return;
-
-    const cleanup = addClipboardImageSupport(titleTextareaRef.current, {
-      userId: user.id,
-      onUploadStart: () => {
-        toast({
-          title: "正在上传图片...",
-          description: "请稍候",
-        });
-      },
-      onUploadComplete: (attachment) => {
-        // Add to attachments
-        const newAttachments = [...attachments, attachment];
-        setAttachments(newAttachments);
-        saveTask({ attachments: newAttachments });
-        
-        toast({
-          title: "图片上传成功",
-          description: `已添加图片: ${attachment.original_name}`,
-        });
-      },
-      onUploadError: (error) => {
-        toast({
-          title: "图片上传失败",
-          description: error,
-          variant: "destructive",
-        });
-      }
-    });
-
-    return cleanup;
-  }, [user, attachments, saveTask, toast, isTaskInTrash]);
+  // Removed clipboard image support for title - now handled by Vditor editor
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -450,7 +416,7 @@ const TaskDetail = () => {
 
         <div className="w-full flex-1 overflow-visible relative">
           {!isEditorUpdating && (
-            <SimpleTaskEditor
+            <VditorEditor
               taskId={selectedTask.id}
               content={editorContent}
               onChange={handleEditorChange}
@@ -470,17 +436,19 @@ const TaskDetail = () => {
           )}
         </div>
 
-        {/* File Attachments Section */}
-        <div className="px-3 pb-3">
-          <TaskAttachments
-            attachments={attachments}
-            onAttachmentsChange={(newAttachments) => {
-              setAttachments(newAttachments);
-              saveTask({ attachments: newAttachments });
-            }}
-            readOnly={isTaskInTrash}
-          />
-        </div>
+        {/* File Attachments Section - 保留在底部，类似邮件附件 */}
+        {attachments.length > 0 && (
+          <div className="px-3 pb-3 border-t pt-3 mt-2">
+            <TaskAttachments
+              attachments={attachments}
+              onAttachmentsChange={(newAttachments) => {
+                setAttachments(newAttachments);
+                saveTask({ attachments: newAttachments });
+              }}
+              readOnly={isTaskInTrash}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
