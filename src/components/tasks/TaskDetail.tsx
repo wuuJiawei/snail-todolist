@@ -44,6 +44,9 @@ const TaskDetail = () => {
   // Track task switching with a ref to avoid unnecessary re-renders
   const previousTaskIdRef = useRef<string | null>(null);
   
+  // 关键修复：追踪当前正在编辑的任务ID，防止竞态条件
+  const currentEditingTaskIdRef = useRef<string | null>(null);
+  
   // Add refs to track user input state
   const isUserTypingRef = useRef(false);
   const lastUserInputTimeRef = useRef<number>(0);
@@ -65,6 +68,11 @@ const TaskDetail = () => {
       // Check if this is a new task selection
       const isNewTaskSelection = previousTaskIdRef.current !== selectedTask.id;
       previousTaskIdRef.current = selectedTask.id;
+
+      // 关键修复：更新当前正在编辑的任务ID
+      if (isNewTaskSelection) {
+        currentEditingTaskIdRef.current = selectedTask.id;
+      }
 
       // Only update title if it's a new task selection AND user is not currently typing
       if (isNewTaskSelection && !isUserTypingRef.current) {
@@ -110,10 +118,10 @@ const TaskDetail = () => {
           });
         }
 
-        // Reset editor updating flag after a delay to ensure proper rendering
+        // 关键修复：延长保护期从100ms到300ms，确保编辑器完全初始化
         setTimeout(() => {
           setIsEditorUpdating(false);
-        }, 100);
+        }, 300);
       }
     }
   }, [selectedTask]);
@@ -125,11 +133,18 @@ const TaskDetail = () => {
     }
   }, [selectedTask?.attachments]);
 
-  const saveTask = useCallback(async (updates: Partial<typeof selectedTask>) => {
+  const saveTask = useCallback(async (updates: Partial<typeof selectedTask>, taskIdToSave?: string) => {
     if (!selectedTask) return;
 
+    // 关键修复：验证当前正在编辑的任务ID，防止竞态条件
+    const targetTaskId = taskIdToSave || selectedTask.id;
+    if (currentEditingTaskIdRef.current && currentEditingTaskIdRef.current !== targetTaskId) {
+      console.warn(`任务切换竞态条件：尝试保存到任务 ${targetTaskId}，但当前编辑的是 ${currentEditingTaskIdRef.current}，忽略此次保存`);
+      return;
+    }
+
     try {
-      await updateTask(selectedTask.id, updates);
+      await updateTask(targetTaskId, updates);
     } catch (error) {
       console.error("Failed to save task", error);
       toast({
@@ -224,11 +239,17 @@ const TaskDetail = () => {
   const handleEditorChange = (content: string) => {
     // Only update if we have a selected task to prevent overwrites during transitions
     if (selectedTask && !isEditorUpdating) {
+      // 关键修复：验证当前编辑的任务ID是否匹配
+      if (currentEditingTaskIdRef.current !== selectedTask.id) {
+        console.warn(`编辑器内容变化但任务ID不匹配：当前编辑=${currentEditingTaskIdRef.current}，selectedTask=${selectedTask.id}，忽略此次变化`);
+        return;
+      }
+
       // Update local state immediately to prevent flickering
       setEditorContent(content);
 
-      // Debounce the actual save operation
-      debouncedSave({ description: content });
+      // Debounce the actual save operation，传入当前任务ID
+      debouncedSave({ description: content }, selectedTask.id);
     }
   };
 

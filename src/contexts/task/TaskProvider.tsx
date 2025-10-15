@@ -165,9 +165,26 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
           prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
         );
 
-        // Update selected task if it's the one being updated
+        // 关键优化：智能更新selectedTask，避免不必要的重渲染
         if (selectedTask?.id === id) {
-          setSelectedTask((prev) => (prev ? { ...prev, ...updatedTask } : null));
+          // 检查是否只是description或attachments更新（编辑器相关字段）
+          const isOnlyEditorFieldUpdate = 
+            Object.keys(updatedTask).length === 1 && 
+            (updatedTask.description !== undefined || updatedTask.attachments !== undefined);
+          
+          // 如果只是编辑器相关字段更新，不触发selectedTask更新，避免循环
+          // 其他字段（如completed、date等）正常更新
+          if (!isOnlyEditorFieldUpdate) {
+            setSelectedTask((prev) => (prev ? { ...prev, ...updatedTask } : null));
+          } else {
+            // 对于编辑器字段，静默更新，不触发重渲染
+            setSelectedTask((prev) => {
+              if (!prev) return null;
+              // 直接修改对象，不创建新引用，避免触发useEffect
+              Object.assign(prev, updatedTask);
+              return prev;
+            });
+          }
         }
       }
     } catch (error) {

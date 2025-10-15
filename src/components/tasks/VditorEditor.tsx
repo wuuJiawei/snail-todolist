@@ -32,6 +32,15 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
   const lastTaskIdRef = useRef<string | undefined>(undefined);
   const isInitializedRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
+  
+  // 标志位：区分程序化更新和用户输入
+  const isProgrammaticChangeRef = useRef(false);
+  
+  // 保存最新的content值，避免闭包陷阱
+  const contentRef = useRef(content);
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
   // Handle file upload
   const uploadFile = async (file: File): Promise<string> => {
@@ -180,8 +189,13 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
           isInitializedRef.current = true;
           setIsReady(true);
 
-          // Set initial content
-          vditor.setValue(content || '');
+          // Set initial content (程序化更新，不触发onChange)
+          isProgrammaticChangeRef.current = true;
+          vditor.setValue(contentRef.current || '');
+          // 使用setTimeout确保setValue完成后再重置标志位
+          setTimeout(() => {
+            isProgrammaticChangeRef.current = false;
+          }, 50);
 
           // Call onEditorReady with mock editor interface
           if (onEditorReady) {
@@ -192,12 +206,16 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
         }
       },
       input: (value: string) => {
-        // Auto-save on input with debouncing handled by parent
-        onChange(value);
+        // 只在用户输入时触发onChange，忽略程序化的setValue
+        if (!isProgrammaticChangeRef.current) {
+          onChange(value);
+        }
       },
       blur: (value: string) => {
-        // Ensure save on blur
-        onChange(value);
+        // 只在用户输入时触发onChange，忽略程序化的setValue
+        if (!isProgrammaticChangeRef.current) {
+          onChange(value);
+        }
       },
     });
 
@@ -212,6 +230,7 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
   }, []); // Only run once on mount
 
   // Handle content updates when taskId changes
+  // 关键修复：只依赖taskId，不依赖content，避免每次content更新都触发setValue
   useEffect(() => {
     if (!isReady || !vditorRef.current) return;
 
@@ -219,13 +238,15 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
     if (taskId !== lastTaskIdRef.current) {
       lastTaskIdRef.current = taskId;
       
-      // Update content when task changes
-      const currentValue = vditorRef.current.getValue();
-      if (currentValue !== content) {
-        vditorRef.current.setValue(content || '');
-      }
+      // Update content when task changes (程序化更新，不触发onChange)
+      isProgrammaticChangeRef.current = true;
+      vditorRef.current.setValue(contentRef.current || '');
+      // 使用setTimeout确保setValue完成后再重置标志位
+      setTimeout(() => {
+        isProgrammaticChangeRef.current = false;
+      }, 50);
     }
-  }, [taskId, content, isReady]);
+  }, [taskId, isReady]); // 移除content依赖，避免循环更新
 
   // Handle readonly mode changes
   useEffect(() => {
