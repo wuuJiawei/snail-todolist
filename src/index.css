@@ -288,49 +288,263 @@
     line-height: 1.6;
   }
 
-  /* 修复Tailwind CSS重置导致的列表样式问题 */
-  .vditor-ir ul,
-  .vditor-wysiwyg ul,
-  .vditor-preview ul {
+  /* ==================== 全面修复Tailwind CSS重置导致的Markdown样式问题 ==================== */
+  
+  /* 1. 标题样式 */
+  .vditor-ir h1, .vditor-wysiwyg h1, .vditor-preview h1 {
+    font-size: 2em;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 0.67em;
+    margin-bottom: 0.67em;
+    border-bottom: 2px solid hsl(var(--border));
+    padding-bottom: 0.3em;
+  }
+
+  .vditor-ir h2, .vditor-wysiwyg h2, .vditor-preview h2 {
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 1.4;
+    margin-top: 0.83em;
+    margin-bottom: 0.83em;
+    border-bottom: 1px solid hsl(var(--border));
+    padding-bottom: 0.3em;
+  }
+
+  .vditor-ir h3, .vditor-wysiwyg h3, .vditor-preview h3 {
+    font-size: 1.25em;
+    font-weight: 600;
+    line-height: 1.5;
+    margin-top: 1em;
+    margin-bottom: 1em;
+  }
+
+  .vditor-ir h4, .vditor-wysiwyg h4, .vditor-preview h4 {
+    font-size: 1.1em;
+    font-weight: 600;
+    line-height: 1.5;
+    margin-top: 1.33em;
+    margin-bottom: 1.33em;
+  }
+
+  .vditor-ir h5, .vditor-wysiwyg h5, .vditor-preview h5 {
+    font-size: 1em;
+    font-weight: 600;
+    line-height: 1.5;
+    margin-top: 1.67em;
+    margin-bottom: 1.67em;
+  }
+
+  .vditor-ir h6, .vditor-wysiwyg h6, .vditor-preview h6 {
+    font-size: 0.875em;
+    font-weight: 600;
+    line-height: 1.5;
+    margin-top: 2.33em;
+    margin-bottom: 2.33em;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* 2. 段落样式 */
+  .vditor-ir p, .vditor-wysiwyg p, .vditor-preview p {
+    margin-top: 0;
+    margin-bottom: 1em;
+    line-height: 1.7;
+  }
+
+  /* 3. 列表样式 */
+  .vditor-ir ul, .vditor-wysiwyg ul, .vditor-preview ul {
     list-style-type: disc;
     list-style-position: outside;
     padding-left: 2em;
     margin: 0.5em 0;
   }
 
-  .vditor-ir ol,
-  .vditor-wysiwyg ol,
-  .vditor-preview ol {
+  .vditor-ir ol, .vditor-wysiwyg ol, .vditor-preview ol {
     list-style-type: decimal;
     list-style-position: outside;
     padding-left: 2em;
     margin: 0.5em 0;
   }
 
-  .vditor-ir ul ul,
-  .vditor-wysiwyg ul ul,
-  .vditor-preview ul ul {
+  .vditor-ir ul ul, .vditor-wysiwyg ul ul, .vditor-preview ul ul {
     list-style-type: circle;
+    margin-top: 0;
+    margin-bottom: 0;
   }
 
-  .vditor-ir ul ul ul,
-  .vditor-wysiwyg ul ul ul,
-  .vditor-preview ul ul ul {
+  .vditor-ir ul ul ul, .vditor-wysiwyg ul ul ul, .vditor-preview ul ul ul {
     list-style-type: square;
   }
 
-  .vditor-ir li,
-  .vditor-wysiwyg li,
-  .vditor-preview li {
+  .vditor-ir ol ol, .vditor-wysiwyg ol ol, .vditor-preview ol ol {
+    list-style-type: lower-alpha;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .vditor-ir ol ol ol, .vditor-wysiwyg ol ol ol, .vditor-preview ol ol ol {
+    list-style-type: lower-roman;
+  }
+
+  .vditor-ir li, .vditor-wysiwyg li, .vditor-preview li {
     display: list-item;
     margin: 0.25em 0;
   }
 
   /* 任务列表特殊处理 */
-  .vditor-ir li.vditor-task,
-  .vditor-wysiwyg li.vditor-task,
-  .vditor-preview li.vditor-task {
+  .vditor-ir li.vditor-task, .vditor-wysiwyg li.vditor-task, .vditor-preview li.vditor-task {
     list-style-type: none;
+    padding-left: 0;
+  }
+
+  /* 4. 代码样式 */
+  .vditor-ir code, .vditor-wysiwyg code, .vditor-preview code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    background-color: hsl(var(--muted) / 0.5);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+  }
+
+  .vditor-ir pre, .vditor-wysiwyg pre, .vditor-preview pre {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    background-color: hsl(var(--muted) / 0.5);
+    padding: 1em;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 1em 0;
+  }
+
+  .vditor-ir pre code, .vditor-wysiwyg pre code, .vditor-preview pre code {
+    background-color: transparent;
+    padding: 0;
+    font-size: 1em;
+  }
+
+  /* 5. 引用块样式 */
+  .vditor-ir blockquote, .vditor-wysiwyg blockquote, .vditor-preview blockquote {
+    border-left: 4px solid hsl(var(--border));
+    padding-left: 1em;
+    margin: 1em 0;
+    color: hsl(var(--muted-foreground));
+    font-style: italic;
+  }
+
+  .vditor-ir blockquote p, .vditor-wysiwyg blockquote p, .vditor-preview blockquote p {
+    margin: 0.5em 0;
+  }
+
+  /* 6. 链接样式 */
+  .vditor-ir a, .vditor-wysiwyg a, .vditor-preview a {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .vditor-ir a:hover, .vditor-wysiwyg a:hover, .vditor-preview a:hover {
+    color: hsl(var(--primary) / 0.8);
+  }
+
+  /* 7. 强调样式 */
+  .vditor-ir strong, .vditor-wysiwyg strong, .vditor-preview strong,
+  .vditor-ir b, .vditor-wysiwyg b, .vditor-preview b {
+    font-weight: 700;
+  }
+
+  .vditor-ir em, .vditor-wysiwyg em, .vditor-preview em,
+  .vditor-ir i, .vditor-wysiwyg i, .vditor-preview i {
+    font-style: italic;
+  }
+
+  .vditor-ir del, .vditor-wysiwyg del, .vditor-preview del,
+  .vditor-ir s, .vditor-wysiwyg s, .vditor-preview s {
+    text-decoration: line-through;
+  }
+
+  /* 8. 表格样式 */
+  .vditor-ir table, .vditor-wysiwyg table, .vditor-preview table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    display: table;
+  }
+
+  .vditor-ir th, .vditor-wysiwyg th, .vditor-preview th {
+    background-color: hsl(var(--muted));
+    font-weight: 600;
+    text-align: left;
+    padding: 0.5em 1em;
+    border: 1px solid hsl(var(--border));
+  }
+
+  .vditor-ir td, .vditor-wysiwyg td, .vditor-preview td {
+    padding: 0.5em 1em;
+    border: 1px solid hsl(var(--border));
+  }
+
+  .vditor-ir tr:nth-child(even), .vditor-wysiwyg tr:nth-child(even), .vditor-preview tr:nth-child(even) {
+    background-color: hsl(var(--muted) / 0.3);
+  }
+
+  /* 9. 分隔线样式 */
+  .vditor-ir hr, .vditor-wysiwyg hr, .vditor-preview hr {
+    border: 0;
+    border-top: 2px solid hsl(var(--border));
+    margin: 1.5em 0;
+    height: 0;
+  }
+
+  /* 10. 图片样式 */
+  .vditor-ir img, .vditor-wysiwyg img, .vditor-preview img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1em 0;
+    border-radius: 6px;
+  }
+
+  /* 11. 行内图片 */
+  .vditor-ir p img, .vditor-wysiwyg p img, .vditor-preview p img {
+    display: inline-block;
+    margin: 0 0.2em;
+    vertical-align: middle;
+  }
+
+  /* 12. 键盘按键样式 */
+  .vditor-ir kbd, .vditor-wysiwyg kbd, .vditor-preview kbd {
+    display: inline-block;
+    padding: 0.2em 0.4em;
+    font-size: 0.9em;
+    font-family: 'Courier New', Courier, monospace;
+    background-color: hsl(var(--muted));
+    border: 1px solid hsl(var(--border));
+    border-radius: 3px;
+    box-shadow: 0 1px 0 hsl(var(--border));
+  }
+
+  /* 13. 下标和上标 */
+  .vditor-ir sub, .vditor-wysiwyg sub, .vditor-preview sub {
+    font-size: 0.75em;
+    vertical-align: sub;
+  }
+
+  .vditor-ir sup, .vditor-wysiwyg sup, .vditor-preview sup {
+    font-size: 0.75em;
+    vertical-align: super;
+  }
+
+  /* 14. 标记/高亮 */
+  .vditor-ir mark, .vditor-wysiwyg mark, .vditor-preview mark {
+    background-color: yellow;
+    padding: 0.1em 0.2em;
+    border-radius: 2px;
+  }
+
+  /* 暗色模式下的标记 */
+  .dark .vditor-ir mark, .dark .vditor-wysiwyg mark, .dark .vditor-preview mark {
+    background-color: #aa8800;
+    color: white;
   }
 
   /* 确保 Vditor 填充整个容器 */

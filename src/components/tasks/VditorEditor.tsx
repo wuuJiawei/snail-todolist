@@ -123,6 +123,24 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
       },
       upload: {
         accept: 'image/*',
+        // 关键修复：添加format函数，确保图片以正确的markdown格式插入
+        format: (files: File[], responseText: string) => {
+          try {
+            const response = JSON.parse(responseText);
+            if (response.code === 0 && response.data && response.data.succMap) {
+              // 构建markdown图片语法
+              let result = '';
+              Object.entries(response.data.succMap).forEach(([fileName, url]) => {
+                // 使用标准的markdown图片语法: ![alt text](url)
+                result += `![${fileName}](${url})\n`;
+              });
+              return result;
+            }
+          } catch (error) {
+            console.error('Error formatting upload response:', error);
+          }
+          return '';
+        },
         handler: async (files: File[]) => {
           // 关键修复：保持文件名和URL的正确对应关系
           const results = await Promise.all(
