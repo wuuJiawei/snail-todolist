@@ -124,61 +124,71 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
       upload: {
         accept: 'image/*',
         handler: async (files: File[]) => {
-          const uploadPromises = files.map(async (file) => {
-            try {
-              toast({
-                title: "正在上传图片...",
-                description: file.name,
-              });
+          // 关键修复：保持文件名和URL的正确对应关系
+          const results = await Promise.all(
+            files.map(async (file) => {
+              try {
+                toast({
+                  title: "正在上传图片...",
+                  description: file.name,
+                });
 
-              const url = await uploadFile(file);
+                const url = await uploadFile(file);
 
-              // Create attachment record
-              const attachment: TaskAttachment = {
-                id: crypto.randomUUID(),
-                url: url,
-                filename: file.name,
-                original_name: file.name,
-                type: file.type,
-                size: file.size,
-                uploaded_at: new Date().toISOString(),
-              };
+                // Create attachment record
+                const attachment: TaskAttachment = {
+                  id: crypto.randomUUID(),
+                  url: url,
+                  filename: file.name,
+                  original_name: file.name,
+                  type: file.type,
+                  size: file.size,
+                  uploaded_at: new Date().toISOString(),
+                };
 
-              // Add to attachments list
-              if (onAttachmentsChange) {
-                const newAttachments = [...attachments, attachment];
-                onAttachmentsChange(newAttachments);
+                // Add to attachments list
+                if (onAttachmentsChange) {
+                  const newAttachments = [...attachments, attachment];
+                  onAttachmentsChange(newAttachments);
+                }
+
+                toast({
+                  title: "图片上传成功",
+                  description: file.name,
+                });
+
+                return { fileName: file.name, url, success: true };
+              } catch (error) {
+                console.error('Upload failed:', error);
+                toast({
+                  title: "图片上传失败",
+                  description: file.name,
+                  variant: "destructive",
+                });
+                return { fileName: file.name, url: null, success: false };
               }
+            })
+          );
 
-              toast({
-                title: "图片上传成功",
-                description: file.name,
-              });
+          // 构建succMap，只包含成功的上传，保持文件名和URL的正确对应
+          const succMap: Record<string, string> = {};
+          const errFiles: string[] = [];
 
-              return url;
-            } catch (error) {
-              console.error('Upload failed:', error);
-              toast({
-                title: "图片上传失败",
-                description: file.name,
-                variant: "destructive",
-              });
-              return null;
+          results.forEach((result) => {
+            if (result.success && result.url) {
+              succMap[result.fileName] = result.url;
+            } else {
+              errFiles.push(result.fileName);
             }
           });
-
-          const urls = await Promise.all(uploadPromises);
-          const successUrls = urls.filter((url): url is string => url !== null);
 
           // Return success JSON for Vditor
           return JSON.stringify({
             msg: '',
             code: 0,
             data: {
-              errFiles: [],
-              succMap: Object.fromEntries(
-                successUrls.map((url, i) => [files[i].name, url])
-              ),
+              errFiles,
+              succMap,
             },
           });
         },

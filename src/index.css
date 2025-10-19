@@ -288,6 +288,51 @@
     line-height: 1.6;
   }
 
+  /* 修复Tailwind CSS重置导致的列表样式问题 */
+  .vditor-ir ul,
+  .vditor-wysiwyg ul,
+  .vditor-preview ul {
+    list-style-type: disc;
+    list-style-position: outside;
+    padding-left: 2em;
+    margin: 0.5em 0;
+  }
+
+  .vditor-ir ol,
+  .vditor-wysiwyg ol,
+  .vditor-preview ol {
+    list-style-type: decimal;
+    list-style-position: outside;
+    padding-left: 2em;
+    margin: 0.5em 0;
+  }
+
+  .vditor-ir ul ul,
+  .vditor-wysiwyg ul ul,
+  .vditor-preview ul ul {
+    list-style-type: circle;
+  }
+
+  .vditor-ir ul ul ul,
+  .vditor-wysiwyg ul ul ul,
+  .vditor-preview ul ul ul {
+    list-style-type: square;
+  }
+
+  .vditor-ir li,
+  .vditor-wysiwyg li,
+  .vditor-preview li {
+    display: list-item;
+    margin: 0.25em 0;
+  }
+
+  /* 任务列表特殊处理 */
+  .vditor-ir li.vditor-task,
+  .vditor-wysiwyg li.vditor-task,
+  .vditor-preview li.vditor-task {
+    list-style-type: none;
+  }
+
   /* 确保 Vditor 填充整个容器 */
   .vditor-container {
     display: flex;

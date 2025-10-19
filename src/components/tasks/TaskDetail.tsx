@@ -67,6 +67,13 @@ const TaskDetail = () => {
     if (selectedTask) {
       // Check if this is a new task selection
       const isNewTaskSelection = previousTaskIdRef.current !== selectedTask.id;
+      
+      // 关键修复：在任务切换前，强制刷新pending的debounced save
+      if (isNewTaskSelection && previousTaskIdRef.current !== null) {
+        // 立即执行pending的保存操作，防止快速切换导致内容丢失
+        debouncedSave.flush();
+      }
+      
       previousTaskIdRef.current = selectedTask.id;
 
       // 关键修复：更新当前正在编辑的任务ID
