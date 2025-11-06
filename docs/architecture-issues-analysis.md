@@ -634,9 +634,9 @@ export const useTasks = (projectId: string) => {
 - [x] 优化debounce时间
 
 ### 第4-6周：引入状态管理
-- [ ] 安装和配置Zustand
-- [ ] 迁移TaskContext到Zustand
-- [ ] 迁移ProjectContext到Zustand
+- [x] 安装和配置Zustand（2025-11-06 已完成：引入依赖并搭建 `useTaskStore` 基础状态/动作）
+- [x] 迁移TaskContext到Zustand（2025-11-06 已完成：`TaskProvider` 全面改用 Zustand，实现状态、动作、懒加载和乐观更新接入）
+- [x] 迁移ProjectContext到Zustand（2025-11-06 已完成：新增 `useProjectStore`，`ProjectProvider` 改为 Zustand 驱动并保留原 API 行为）
 - [ ] 移除旧的Context
 
 ### 第7-8周：引入React Query

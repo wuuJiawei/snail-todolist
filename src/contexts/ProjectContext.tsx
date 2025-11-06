@@ -1,9 +1,10 @@
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Project } from "@/types/project";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProjectStore } from "@/store/projectStore";
 
 interface ProjectContextType {
   projects: Project[];
@@ -19,13 +20,21 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasLoaded, setHasLoaded] = useState(false);
+  const projects = useProjectStore(state => state.projects);
+  const loading = useProjectStore(state => state.loading);
+  const hasLoaded = useProjectStore(state => state.hasLoaded);
+  const setProjects = useProjectStore(state => state.setProjects);
+  const setLoading = useProjectStore(state => state.setLoading);
+  const setHasLoaded = useProjectStore(state => state.setHasLoaded);
+  const upsertProject = useProjectStore(state => state.upsertProject);
+  const removeProject = useProjectStore(state => state.removeProject);
+  const reorderProjectsOptimistic = useProjectStore(state => state.reorderProjectsOptimistic);
+  const restoreProjectsOrder = useProjectStore(state => state.restoreProjectsOrder);
+  const updateProjectCountsInStore = useProjectStore(state => state.updateProjectCounts);
   const { user } = useAuth();
 
   // Initial fetch of projects
-  const fetchProjects = async (forceRefresh = false) => {
+  const fetchProjects = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
       if (!user) {
@@ -112,7 +121,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, hasLoaded, setLoading, setProjects, setHasLoaded]);
 
   // Refetch projects when user changes
   useEffect(() => {
@@ -141,16 +150,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   // Update project counts - this receives data from TaskContext
-  const updateProjectCounts = (projectCounts: Record<string, number>) => {
-    setProjects(prev =>
-      prev.map(project => ({
-        ...project,
-        count: projectCounts[project.id] || 0
-      }))
-    );
-  };
+  const updateProjectCounts = useCallback((projectCounts: Record<string, number>) => {
+    updateProjectCountsInStore(projectCounts);
+  }, [updateProjectCountsInStore]);
 
-  const createProject = async (data: Partial<Project>) => {
+  const createProject = useCallback(async (data: Partial<Project>) => {
     try {
       if (!user) {
         toast({
@@ -205,7 +209,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
 
       // Update local state
-      setProjects(prev => [projectWithCount, ...prev]);
+      upsertProject(projectWithCount);
 
       toast({
         title: "清单已创建",
@@ -219,9 +223,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         variant: "destructive"
       });
     }
-  };
+  }, [user, toast, upsertProject]);
 
-  const editProject = async (id: string, data: Partial<Project>) => {
+  const editProject = useCallback(async (id: string, data: Partial<Project>) => {
     try {
       if (!user) {
         toast({
@@ -246,9 +250,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       // Update local state
-      setProjects(prev =>
-        prev.map(project => project.id === id ? { ...project, ...data } : project)
-      );
+      const existing = projects.find(project => project.id === id);
+      if (existing) {
+        upsertProject({ ...existing, ...data, id });
+      }
 
       toast({
         title: "清单已更新",
@@ -262,9 +267,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         variant: "destructive"
       });
     }
-  };
+  }, [user, toast, projects, upsertProject]);
 
-  const deleteProject = async (id: string) => {
+  const deleteProject = useCallback(async (id: string) => {
     try {
       if (!user) {
         toast({
@@ -286,7 +291,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       // Update local state
-      setProjects(prev => prev.filter(project => project.id !== id));
+      removeProject(id);
 
       toast({
         title: "清单已删除",
@@ -300,9 +305,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         variant: "destructive"
       });
     }
-  };
+  }, [user, toast, removeProject]);
 
-  const reorderProjects = async (projectId: string, newIndex: number) => {
+  const reorderProjects = useCallback(async (projectId: string, newIndex: number) => {
     try {
       if (!user) {
         toast({
@@ -314,23 +319,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       // Find the project and its current index
-      const currentIndex = projects.findIndex(p => p.id === projectId);
-      if (currentIndex === -1) return;
-
-      // Create a copy of the projects array
-      const newProjects = [...projects];
-
-      // Remove the project from its current position
-      const [removed] = newProjects.splice(currentIndex, 1);
-
-      // Insert the project at the new position
-      newProjects.splice(newIndex, 0, removed);
-
-      // Update the state immediately for a responsive UI
-      setProjects(newProjects);
-
-      // Assign new sort_order values to the reordered projects (1000 between each project)
-      const updatedProjects = newProjects.map((project, index) => ({
+      const updatedProjects = reorderProjectsOptimistic(projectId, newIndex).map((project, index) => ({
         ...project,
         sort_order: (index + 1) * 1000
       }));
@@ -366,28 +355,26 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
 
       // Revert to original order if there's an error
-      await fetchProjects();
+      await fetchProjects(true);
     }
-  };
+  }, [user, toast, reorderProjectsOptimistic, fetchProjects]);
 
-  const refreshProjects = async () => {
-    // Force a refresh by passing forceRefresh = true
+  const refreshProjects = useCallback(async () => {
     return fetchProjects(true);
-  };
+  }, [fetchProjects]);
+  const value = useMemo(() => ({
+    projects,
+    loading,
+    createProject,
+    editProject,
+    deleteProject,
+    reorderProjects,
+    refreshProjects,
+    updateProjectCounts,
+  }), [projects, loading, createProject, editProject, deleteProject, reorderProjects, refreshProjects, updateProjectCounts]);
 
   return (
-    <ProjectContext.Provider
-      value={{
-        projects,
-        loading,
-        createProject,
-        editProject,
-        deleteProject,
-        reorderProjects,
-        refreshProjects,
-        updateProjectCounts
-      }}
-    >
+    <ProjectContext.Provider value={value}>
       {children}
     </ProjectContext.Provider>
   );

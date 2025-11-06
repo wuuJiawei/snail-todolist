@@ -1,5 +1,5 @@
 
-import React, { useState, ReactNode, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, ReactNode, useEffect, useMemo, useCallback } from "react";
 import { Task } from "@/types/task";
 import {
   fetchTasks,
@@ -21,45 +21,47 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDeadlineNotifications } from "@/hooks/useDeadlineNotifications";
 import { Tag } from "@/types/tag";
 import { fetchAllTags as fetchAllTagsService, getTagsByTaskIds as getTagsByTaskIdsService, attachTagToTask as attachTagToTaskService, detachTagFromTask as detachTagFromTaskService, createTag as createTagService, deleteTagById as deleteTagByIdService, updateTagProject as updateTagProjectService, renameTag as renameTagService } from "@/services/tagService";
+import { useTaskStore } from "@/store/taskStore";
 
 interface TaskProviderProps {
   children: ReactNode;
 }
 
 export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [trashedTasks, setTrashedTasks] = useState<Task[]>([]);
-  const [abandonedTasks, setAbandonedTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [trashedLoading, setTrashedLoading] = useState<boolean>(false);
-  const [abandonedLoading, setAbandonedLoading] = useState<boolean>(false);
-  const [trashedLoaded, setTrashedLoaded] = useState<boolean>(false);
-  const [abandonedLoaded, setAbandonedLoaded] = useState<boolean>(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [selectedProject, setSelectedProject] = useState<string>(getSavedProject());
-  const [hasLoaded, setHasLoaded] = useState<boolean>(false);
-  const [taskIdToTags, setTaskIdToTags] = useState<Record<string, Tag[]>>({});
-  const [tagsCache, setTagsCache] = useState<Record<string, Tag[]>>({});
-  const [tagsVersion, setTagsVersion] = useState<number>(0);
+  const tasks = useTaskStore((state) => state.tasks);
+  const trashedTasks = useTaskStore((state) => state.trashedTasks);
+  const abandonedTasks = useTaskStore((state) => state.abandonedTasks);
+  const loading = useTaskStore((state) => state.loading);
+  const trashedLoading = useTaskStore((state) => state.trashedLoading);
+  const abandonedLoading = useTaskStore((state) => state.abandonedLoading);
+  const trashedLoaded = useTaskStore((state) => state.trashedLoaded);
+  const abandonedLoaded = useTaskStore((state) => state.abandonedLoaded);
+  const hasLoaded = useTaskStore((state) => state.hasLoaded);
+  const selectedTaskId = useTaskStore((state) => state.selectedTaskId);
+  const taskIdToTags = useTaskStore((state) => state.taskIdToTags);
+  const tagsCache = useTaskStore((state) => state.tagsCache);
+  const tagsVersion = useTaskStore((state) => state.tagsVersion);
+  const setTasks = useTaskStore((state) => state.setTasks);
+  const prependTask = useTaskStore((state) => state.prependTask);
+  const replaceTaskById = useTaskStore((state) => state.replaceTaskById);
+  const removeTask = useTaskStore((state) => state.removeTask);
+  const setTrashedTasks = useTaskStore((state) => state.setTrashedTasks);
+  const setAbandonedTasks = useTaskStore((state) => state.setAbandonedTasks);
+  const setSelectedTaskId = useTaskStore((state) => state.setSelectedTaskId);
+  const setLoading = useTaskStore((state) => state.setLoading);
+  const setTrashedLoading = useTaskStore((state) => state.setTrashedLoading);
+  const setAbandonedLoading = useTaskStore((state) => state.setAbandonedLoading);
+  const setTrashedLoaded = useTaskStore((state) => state.setTrashedLoaded);
+  const setAbandonedLoaded = useTaskStore((state) => state.setAbandonedLoaded);
+  const setHasLoaded = useTaskStore((state) => state.setHasLoaded);
+  const setTaskIdToTags = useTaskStore((state) => state.setTaskIdToTags);
+  const setTagsCache = useTaskStore((state) => state.setTagsCache);
+  const incrementTagsVersion = useTaskStore((state) => state.incrementTagsVersion);
+  const insertOptimisticTask = useTaskStore((state) => state.insertOptimisticTask);
 
   const { toast } = useToast();
   const { user } = useAuth();
-
-  const tasksRef = useRef<Task[]>([]);
-  const trashedTasksRef = useRef<Task[]>([]);
-  const abandonedTasksRef = useRef<Task[]>([]);
-
-  useEffect(() => {
-    tasksRef.current = tasks;
-  }, [tasks]);
-
-  useEffect(() => {
-    trashedTasksRef.current = trashedTasks;
-  }, [trashedTasks]);
-
-  useEffect(() => {
-    abandonedTasksRef.current = abandonedTasks;
-  }, [abandonedTasks]);
+  const [selectedProject, setSelectedProject] = useState<string>(getSavedProject());
 
   const selectedTask = useMemo(() => {
     if (!selectedTaskId) return null;
@@ -76,7 +78,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     if (!selectedTask) {
       setSelectedTaskId(null);
     }
-  }, [selectedTaskId, selectedTask]);
+  }, [selectedTaskId, selectedTask, setSelectedTaskId]);
   
   // Enable deadline notifications for all tasks
   useDeadlineNotifications({ 
@@ -132,7 +134,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         }
 
         setHasLoaded(true);
-        setTagsVersion(v => v + 1); // 更新标签版本
+        incrementTagsVersion(); // 更新标签版本
       } catch (error) {
         console.error("Failed to load tasks:", error);
         toast({
@@ -146,7 +148,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     };
 
     loadTasks();
-  }, [toast, user]);
+  }, [toast, user, hasLoaded, setTasks, setTrashedTasks, setAbandonedTasks, setTaskIdToTags, setTagsCache, setTrashedLoaded, setAbandonedLoaded, setTrashedLoading, setAbandonedLoading, setLoading, setHasLoaded, incrementTagsVersion, setSelectedTaskId]);
 
   // Add task
   const addTask = useCallback(async (task: Omit<Task, "id">) => {
@@ -166,22 +168,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         user_id: user.id
       };
       const tempId = `temp-${Date.now()}`;
-      const optimisticTask: Task = {
-        id: tempId,
-        title: taskWithUserId.title,
-        completed: taskWithUserId.completed ?? false,
-        date: taskWithUserId.date,
-        project: taskWithUserId.project,
-        description: taskWithUserId.description,
-        icon: taskWithUserId.icon,
-        attachments: taskWithUserId.attachments ?? [],
-        user_id: user.id,
-        sort_order: taskWithUserId.sort_order,
-        deleted: false,
-        abandoned: false,
-      };
-
-      setTasks((prev) => [optimisticTask, ...prev]);
+      insertOptimisticTask({ tempId, ...taskWithUserId });
 
       try {
         const newTask = await addTaskService(taskWithUserId);
@@ -189,18 +176,16 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
           throw new Error("add task failed");
         }
 
-        setTasks((prev) =>
-          prev.map((existing) => (existing.id === tempId ? newTask : existing))
-        );
+        replaceTaskById(tempId, newTask);
       } catch (error) {
-        setTasks((prev) => prev.filter((existing) => existing.id !== tempId));
+        removeTask(tempId);
         throw error;
       }
     } catch (error) {
       console.error("Failed to add task:", error);
       throw error;
     }
-  }, [user, toast]);
+  }, [user, toast, insertOptimisticTask, replaceTaskById, removeTask]);
 
   // Update task
   const updateTask = useCallback(async (id: string, updatedTask: Partial<Task>) => {
@@ -213,10 +198,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       return;
     }
 
-    const previousTasks = tasksRef.current;
-    setTasks((prev) =>
-      prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
+    const previousTasks = useTaskStore.getState().tasks;
+    const updatedTasks = previousTasks.map((task) =>
+      task.id === id ? { ...task, ...updatedTask } : task
     );
+    setTasks(updatedTasks);
 
     try {
       const updated = await updateTaskService(id, updatedTask);
@@ -225,11 +211,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
     } catch (error) {
       setTasks(previousTasks);
-      tasksRef.current = previousTasks;
       console.error("Failed to update task:", error);
       throw error;
     }
-  }, [toast, user]);
+  }, [toast, user, setTasks]);
 
   const loadTrashedTasks = useCallback(async () => {
     if (!user) return;
@@ -250,7 +235,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     } finally {
       setTrashedLoading(false);
     }
-  }, [user, trashedLoaded, trashedLoading, toast]);
+  }, [user, trashedLoaded, trashedLoading, toast, setTrashedLoading, setTrashedTasks, setTrashedLoaded]);
 
   const loadAbandonedTasks = useCallback(async () => {
     if (!user) return;
@@ -271,7 +256,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     } finally {
       setAbandonedLoading(false);
     }
-  }, [user, abandonedLoaded, abandonedLoading, toast]);
+  }, [user, abandonedLoaded, abandonedLoading, toast, setAbandonedLoading, setAbandonedTasks, setAbandonedLoaded]);
 
   // tags helpers
   const getTaskTags = useCallback((taskId: string): Tag[] => taskIdToTags[taskId] || [], [taskIdToTags]);
@@ -281,16 +266,18 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     if (!ok) return;
     // refresh this task's tags
     const mapping = await getTagsByTaskIdsService([taskId]);
-    setTaskIdToTags(prev => ({ ...prev, ...mapping }));
-  }, []);
+    const current = useTaskStore.getState().taskIdToTags;
+    setTaskIdToTags({ ...current, ...mapping });
+  }, [setTaskIdToTags]);
 
   const detachTagFromTask = useCallback(async (taskId: string, tagId: string) => {
     const ok = await detachTagFromTaskService(taskId, tagId);
     if (!ok) return;
     // refresh this task's tags
     const mapping = await getTagsByTaskIdsService([taskId]);
-    setTaskIdToTags(prev => ({ ...prev, ...mapping }));
-  }, []);
+    const current = useTaskStore.getState().taskIdToTags;
+    setTaskIdToTags({ ...current, ...mapping });
+  }, [setTaskIdToTags]);
 
   const listAllTags = useCallback(async (projectId?: string | null) => {
     // If projectId is undefined, fetch ALL tags (for tag management UI)
@@ -330,8 +317,9 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         }
       });
       
-      setTagsCache(newTagsCache);
-      setTagsVersion(v => v + 1);
+      const store = useTaskStore.getState();
+      store.setTagsCache(newTagsCache);
+      store.incrementTagsVersion();
       return true;
     } catch (error) {
       console.error("Failed to refresh tags:", error);
@@ -346,13 +334,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     if (tag) {
       // 使用快速缓存更新
       const key = (projectId ?? null) === null ? 'global' : (projectId as string);
-      setTagsCache(prev => {
-        const cur = prev[key] || [];
-        // 去重
-        if (cur.some(t => t.id === tag.id)) return prev;
-        return { ...prev, [key]: [tag, ...cur] };
-      });
-      setTagsVersion(v => v + 1);
+      const cache = useTaskStore.getState().tagsCache;
+      const cur = cache[key] || [];
+      if (!cur.some(t => t.id === tag.id)) {
+        const store = useTaskStore.getState();
+        store.setTagsCache({ ...cache, [key]: [tag, ...cur] });
+        store.incrementTagsVersion();
+      }
     }
     return tag;
   }, []);
@@ -362,22 +350,21 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     const ok = await deleteTagByIdService(tagId);
     if (ok) {
       // 从缓存中移除并 bump 版本
-      setTagsCache(prev => {
-        const next: Record<string, Tag[]> = {};
-        Object.keys(prev).forEach(k => {
-          next[k] = (prev[k] || []).filter(t => t.id !== tagId);
-        });
-        return next;
+      const cache = useTaskStore.getState().tagsCache;
+      const nextCache: Record<string, Tag[]> = {};
+      Object.keys(cache).forEach(k => {
+        nextCache[k] = (cache[k] || []).filter(t => t.id !== tagId);
       });
+      const store = useTaskStore.getState();
+      store.setTagsCache(nextCache);
       // 从任务-标签映射中移除该标签
-      setTaskIdToTags(prev => {
-        const next: Record<string, Tag[]> = {};
-        Object.keys(prev).forEach(taskId => {
-          next[taskId] = (prev[taskId] || []).filter(t => t.id !== tagId);
-        });
-        return next;
+      const mapping = useTaskStore.getState().taskIdToTags;
+      const mappingNext: Record<string, Tag[]> = {};
+      Object.keys(mapping).forEach(taskId => {
+        mappingNext[taskId] = (mapping[taskId] || []).filter(t => t.id !== tagId);
       });
-      setTagsVersion(v => v + 1);
+      store.setTaskIdToTags(mappingNext);
+      store.incrementTagsVersion();
     }
     return ok;
   }, []);
@@ -387,29 +374,26 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     const updatedTag = await updateTagProjectService(tagId, projectId);
     if (updatedTag) {
       // 刷新标签缓存
-      setTagsCache(prev => {
-        const next = { ...prev };
-        // 从所有项目缓存中移除这个标签
-        Object.keys(next).forEach(key => {
-          next[key] = (next[key] || []).filter(t => t.id !== tagId);
-        });
-        
-        // 添加到正确的项目缓存中
-        const targetKey = projectId === null ? 'global' : projectId;
-        if (!next[targetKey]) next[targetKey] = [];
-        next[targetKey] = [updatedTag, ...next[targetKey]];
-        
-        return next;
+      const cache = useTaskStore.getState().tagsCache;
+      const next = { ...cache };
+      Object.keys(next).forEach(key => {
+        next[key] = (next[key] || []).filter(t => t.id !== tagId);
       });
-      setTagsVersion(v => v + 1);
+      const targetKey = projectId === null ? 'global' : projectId;
+      const targetList = next[targetKey] || [];
+      next[targetKey] = [updatedTag, ...targetList];
+      const store = useTaskStore.getState();
+      store.setTagsCache(next);
+      store.incrementTagsVersion();
     }
     return updatedTag;
   }, []);
 
   const getAllTagUsageCounts = useCallback(() => {
     const counts: Record<string, number> = {};
-    // 只统计待办状态的任务（未完成且未放弃的任务）
-    const pendingTasks = tasksRef.current.filter(task => !task.completed && !task.abandoned);
+    const pendingTasks = useTaskStore
+      .getState()
+      .tasks.filter(task => !task.completed && !task.abandoned);
     pendingTasks.forEach(task => {
       const tags = taskIdToTags[task.id] || [];
       tags.forEach(tag => {
@@ -444,23 +428,27 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     const key = keyForProject(projectId);
     
     // Skip if we already have tags for this scope
-    if (tagsCache[key] && tagsCache[key].length > 0) return;
+    const cacheSnapshot = useTaskStore.getState().tagsCache;
+    if (cacheSnapshot[key] && cacheSnapshot[key].length > 0) return;
     
     // 由于我们在初始化时已经预加载了所有标签，这里只需要在缓存缺失的情况下重新加载
     // For projects, also ensure we have global tags cached
     if (projectId !== null && projectId !== undefined) {
       const globalKey = 'global';
-      if (!tagsCache[globalKey] || tagsCache[globalKey].length === 0) {
+      if (!cacheSnapshot[globalKey] || cacheSnapshot[globalKey].length === 0) {
         const globalData = await fetchAllTagsService(null);
-        setTagsCache(prev => ({ ...prev, [globalKey]: globalData }));
+        const store = useTaskStore.getState();
+        store.setTagsCache({ ...cacheSnapshot, [globalKey]: globalData });
+        store.incrementTagsVersion();
       }
     }
     
     // 只有在缓存中没有对应项目的标签时才加载
     const data = await fetchAllTagsService(projectId);
-    setTagsCache(prev => ({ ...prev, [key]: data }));
-    setTagsVersion(v => v + 1);
-  }, [tagsCache]);
+    const store = useTaskStore.getState();
+    store.setTagsCache({ ...store.tagsCache, [key]: data });
+    store.incrementTagsVersion();
+  }, []);
 
   // Move task to trash (soft delete)
   const moveToTrash = useCallback(async (id: string) => {
@@ -479,20 +467,18 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         throw new Error("move to trash failed");
       }
 
-      // Find the task before removing it from the tasks list
-      const taskToTrash = tasksRef.current.find(task => task.id === id);
+      const { tasks: currentTasks, trashedTasks: currentTrashed } = useTaskStore.getState();
+      const taskToTrash = currentTasks.find(task => task.id === id);
 
-      // Remove from regular tasks
-      setTasks((prev) => prev.filter((task) => task.id !== id));
+      setTasks(currentTasks.filter((task) => task.id !== id));
 
-      // Add to trashed tasks if found
       if (taskToTrash) {
         const trashedTask = {
           ...taskToTrash,
           deleted: true,
           deleted_at: new Date().toISOString()
         };
-        setTrashedTasks(prev => [trashedTask, ...prev]);
+        setTrashedTasks([trashedTask, ...currentTrashed]);
       }
 
       // Clear selection if the trashed task was selected
@@ -503,7 +489,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       console.error("Failed to move task to trash:", error);
       throw error;
     }
-  }, [user, toast, selectedTaskId]);
+  }, [user, toast, selectedTaskId, setTasks, setTrashedTasks, setSelectedTaskId]);
 
   // Restore task from trash
   const restoreFromTrash = useCallback(async (id: string) => {
@@ -523,10 +509,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       // Find the task before removing it from the trashed tasks list
-      const taskToRestore = trashedTasksRef.current.find(task => task.id === id);
+      const { trashedTasks: currentTrashed, tasks: currentTasks } = useTaskStore.getState();
+      const taskToRestore = currentTrashed.find(task => task.id === id);
 
       // Remove from trashed tasks
-      setTrashedTasks((prev) => prev.filter((task) => task.id !== id));
+      setTrashedTasks(currentTrashed.filter((task) => task.id !== id));
 
       // Add to regular tasks if found
       if (taskToRestore) {
@@ -535,13 +522,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
           deleted: false,
           deleted_at: undefined
         };
-        setTasks(prev => [restoredTask, ...prev]);
+        setTasks([restoredTask, ...currentTasks]);
       }
     } catch (error) {
       console.error("Failed to restore task from trash:", error);
       throw error;
     }
-  }, [user, toast]);
+  }, [user, toast, setTrashedTasks, setTasks]);
 
   // Permanently delete task
   const deleteTask = useCallback(async (id: string) => {
@@ -561,10 +548,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       // Remove from trashed tasks
-      setTrashedTasks((prev) => prev.filter((task) => task.id !== id));
+      const { trashedTasks: currentTrashed, tasks: currentTasks } = useTaskStore.getState();
+      setTrashedTasks(currentTrashed.filter((task) => task.id !== id));
 
       // Also ensure it's removed from regular tasks (just in case)
-      setTasks((prev) => prev.filter((task) => task.id !== id));
+      setTasks(currentTasks.filter((task) => task.id !== id));
 
       if (selectedTaskId === id) {
         setSelectedTaskId(null);
@@ -573,7 +561,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       console.error("Failed to permanently delete task:", error);
       throw error;
     }
-  }, [user, toast, selectedTaskId]);
+  }, [user, toast, selectedTaskId, setTrashedTasks, setTasks, setSelectedTaskId]);
 
   useEffect(() => {
     if (!user) return;
@@ -586,13 +574,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   const selectTask = useCallback((id: string | null) => {
     setSelectedTaskId(id);
-  }, []);
+  }, [setSelectedTaskId]);
 
   const selectProject = useCallback((id: string) => {
     // Save the selected project to localStorage
     localStorage.setItem(SELECTED_PROJECT_KEY, id);
     setSelectedProject(id);
-  }, []);
+  }, [setSelectedProject]);
 
   // Reorder tasks
   const reorderTasks = useCallback(async (projectId: string, sourceIndex: number, destinationIndex: number, isCompletedArea = false) => {
@@ -600,7 +588,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     if (sourceIndex === destinationIndex) return;
 
     // Get only tasks for the specific project based on completion status
-    const projectTasks = tasksRef.current.filter(task =>
+    const currentTasks = useTaskStore.getState().tasks;
+    const projectTasks = currentTasks.filter(task =>
       task.project === projectId && task.completed === isCompletedArea
     );
 
@@ -618,14 +607,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     }));
 
     // Update the tasks state with the new order
-    setTasks(prev => {
-      // First filter out the tasks that were reordered
-      const otherTasks = prev.filter(task =>
-        !(task.project === projectId && task.completed === isCompletedArea)
-      );
-      // Then add the reordered tasks back
-      return [...updatedTasks, ...otherTasks];
-    });
+    const otherTasks = currentTasks.filter(task =>
+      !(task.project === projectId && task.completed === isCompletedArea)
+    );
+    setTasks([...updatedTasks, ...otherTasks]);
 
     // Update the order in Supabase
     try {
@@ -641,10 +626,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         variant: "destructive"
       });
     }
-  }, [toast]);
+  }, [toast, setTasks]);
 
   // Calculate project counts that will be used by both contexts
-  const calculateProjectCounts = () => {
+  const calculateProjectCounts = useCallback(() => {
     // Create a map to store task counts by project ID
     const projectCounts: Record<string, number> = {};
 
@@ -656,7 +641,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     });
 
     return projectCounts;
-  };
+  }, [tasks]);
 
   // Update project counts in ProjectContext whenever tasks change
   useEffect(() => {
@@ -668,7 +653,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       detail: { projectCounts }
     });
     window.dispatchEvent(event);
-  }, [tasks]);
+  }, [tasks, calculateProjectCounts]);
 
   // Abandon a task
   const abandonTask = useCallback(async (id: string) => {
@@ -688,10 +673,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       // Find the task before removing it from the tasks list
-      const taskToAbandon = tasksRef.current.find(task => task.id === id);
+      const { tasks: currentTasks, abandonedTasks: currentAbandoned } = useTaskStore.getState();
+      const taskToAbandon = currentTasks.find(task => task.id === id);
 
       // Remove from regular tasks
-      setTasks((prev) => prev.filter((task) => task.id !== id));
+      setTasks(currentTasks.filter((task) => task.id !== id));
 
       // Add to abandoned tasks if found
       if (taskToAbandon) {
@@ -702,7 +688,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
           completed: false,
           completed_at: undefined
         };
-        setAbandonedTasks(prev => [abandonedTask, ...prev]);
+        setAbandonedTasks([abandonedTask, ...currentAbandoned]);
       }
 
       // Clear selection if the abandoned task was selected
@@ -713,7 +699,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       console.error("Failed to abandon task:", error);
       throw error;
     }
-  }, [user, toast, selectedTaskId]);
+  }, [user, toast, selectedTaskId, setTasks, setAbandonedTasks, setSelectedTaskId]);
 
   // Restore task from abandoned
   const restoreAbandonedTask = useCallback(async (id: string) => {
@@ -733,10 +719,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       // Find the task before removing it from the abandoned tasks list
-      const taskToRestore = abandonedTasksRef.current.find(task => task.id === id);
+      const { abandonedTasks: currentAbandoned, tasks: currentTasks } = useTaskStore.getState();
+      const taskToRestore = currentAbandoned.find(task => task.id === id);
 
       // Remove from abandoned tasks
-      setAbandonedTasks((prev) => prev.filter((task) => task.id !== id));
+      setAbandonedTasks(currentAbandoned.filter((task) => task.id !== id));
 
       // Add to regular tasks if found
       if (taskToRestore) {
@@ -745,26 +732,26 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
           abandoned: false,
           abandoned_at: undefined
         };
-        setTasks(prev => [restoredTask, ...prev]);
+        setTasks([restoredTask, ...currentTasks]);
       }
     } catch (error) {
       console.error("Failed to restore abandoned task:", error);
       throw error;
     }
-  }, [user, toast]);
+  }, [user, toast, setAbandonedTasks, setTasks]);
 
   // Get the count of tasks in trash
   const getTrashCount = useCallback(() => {
-    return trashedTasksRef.current.length;
+    return useTaskStore.getState().trashedTasks.length;
   }, []);
 
   // Get the count of abandoned tasks
   const getAbandonedCount = useCallback(() => {
-    return abandonedTasksRef.current.length;
+    return useTaskStore.getState().abandonedTasks.length;
   }, []);
 
   const getProjectTaskCountForProject = useCallback((projectId: string) => {
-    return getProjectTaskCount(tasksRef.current, projectId);
+    return getProjectTaskCount(useTaskStore.getState().tasks, projectId);
   }, []);
 
   const contextValue = useMemo(() => ({
