@@ -165,12 +165,37 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         ...task,
         user_id: user.id
       };
+      const tempId = `temp-${Date.now()}`;
+      const optimisticTask: Task = {
+        id: tempId,
+        title: taskWithUserId.title,
+        completed: taskWithUserId.completed ?? false,
+        date: taskWithUserId.date,
+        project: taskWithUserId.project,
+        description: taskWithUserId.description,
+        icon: taskWithUserId.icon,
+        attachments: taskWithUserId.attachments ?? [],
+        user_id: user.id,
+        sort_order: taskWithUserId.sort_order,
+        deleted: false,
+        abandoned: false,
+      };
 
-      const newTask = await addTaskService(taskWithUserId);
-      if (!newTask) {
-        throw new Error("add task failed");
+      setTasks((prev) => [optimisticTask, ...prev]);
+
+      try {
+        const newTask = await addTaskService(taskWithUserId);
+        if (!newTask) {
+          throw new Error("add task failed");
+        }
+
+        setTasks((prev) =>
+          prev.map((existing) => (existing.id === tempId ? newTask : existing))
+        );
+      } catch (error) {
+        setTasks((prev) => prev.filter((existing) => existing.id !== tempId));
+        throw error;
       }
-      setTasks((prev) => [newTask, ...prev]);
     } catch (error) {
       console.error("Failed to add task:", error);
       throw error;
@@ -179,25 +204,28 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // Update task
   const updateTask = useCallback(async (id: string, updatedTask: Partial<Task>) => {
-    try {
-      if (!user) {
-        toast({
-          title: "更新失败",
-          description: "您需要登录才能更新任务",
-          variant: "destructive"
-        });
-        return;
-      }
+    if (!user) {
+      toast({
+        title: "更新失败",
+        description: "您需要登录才能更新任务",
+        variant: "destructive"
+      });
+      return;
+    }
 
+    const previousTasks = tasksRef.current;
+    setTasks((prev) =>
+      prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
+    );
+
+    try {
       const updated = await updateTaskService(id, updatedTask);
       if (!updated) {
         throw new Error("update task failed");
       }
-
-      setTasks((prev) =>
-        prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
-      );
     } catch (error) {
+      setTasks(previousTasks);
+      tasksRef.current = previousTasks;
       console.error("Failed to update task:", error);
       throw error;
     }
