@@ -31,6 +31,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const [trashedTasks, setTrashedTasks] = useState<Task[]>([]);
   const [abandonedTasks, setAbandonedTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [trashedLoading, setTrashedLoading] = useState<boolean>(false);
+  const [abandonedLoading, setAbandonedLoading] = useState<boolean>(false);
+  const [trashedLoaded, setTrashedLoaded] = useState<boolean>(false);
+  const [abandonedLoaded, setAbandonedLoaded] = useState<boolean>(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string>(getSavedProject());
   const [hasLoaded, setHasLoaded] = useState<boolean>(false);
@@ -89,6 +93,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         setAbandonedTasks([]);
         setTaskIdToTags({});
         setTagsCache({}); // 清空标签缓存
+        setTrashedLoaded(false);
+        setAbandonedLoaded(false);
+        setTrashedLoading(false);
+        setAbandonedLoading(false);
         setLoading(false);
         setHasLoaded(false);
         setSelectedTaskId(null);
@@ -103,39 +111,25 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
       setLoading(true);
       try {
-        // 并行加载任务数据和所有标签数据
-        const [data, trashedData, abandonedData, allTags] = await Promise.all([
-          fetchTasks(),
-          fetchDeletedTasks(),
-          fetchAbandonedTasks(),
-          fetchAllTagsService(undefined) // 预加载所有标签，不指定项目
-        ]);
-        
+        const data = await fetchTasks();
+
         setTasks(data);
-        setTrashedTasks(trashedData);
-        setAbandonedTasks(abandonedData);
+        setTrashedTasks([]);
+        setAbandonedTasks([]);
+        setTrashedLoaded(false);
+        setAbandonedLoaded(false);
+        setTrashedLoading(false);
+        setAbandonedLoading(false);
 
-        // 构建标签缓存 - 按项目分组
-        const newTagsCache: Record<string, Tag[]> = {
-          'global': allTags.filter(tag => tag.project_id === null)
-        };
-        
-        // 为每个项目建立标签缓存
-        allTags.forEach(tag => {
-          if (tag.project_id) {
-            if (!newTagsCache[tag.project_id]) {
-              newTagsCache[tag.project_id] = [];
-            }
-            newTagsCache[tag.project_id].push(tag);
-          }
-        });
-        
-        setTagsCache(newTagsCache);
+        setTagsCache({});
 
-        // Load tags mapping for fetched tasks
-        const allTaskIds = [...data.map(t => t.id), ...trashedData.map(t => t.id), ...abandonedData.map(t => t.id)];
-        const mapping = await getTagsByTaskIdsService(allTaskIds);
-        setTaskIdToTags(mapping);
+        const activeTaskIds = data.map(t => t.id);
+        if (activeTaskIds.length > 0) {
+          const mapping = await getTagsByTaskIdsService(activeTaskIds);
+          setTaskIdToTags(mapping);
+        } else {
+          setTaskIdToTags({});
+        }
 
         setHasLoaded(true);
         setTagsVersion(v => v + 1); // 更新标签版本
@@ -208,6 +202,48 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       throw error;
     }
   }, [toast, user]);
+
+  const loadTrashedTasks = useCallback(async () => {
+    if (!user) return;
+    if (trashedLoaded || trashedLoading) return;
+
+    setTrashedLoading(true);
+    try {
+      const data = await fetchDeletedTasks();
+      setTrashedTasks(data);
+      setTrashedLoaded(true);
+    } catch (error) {
+      console.error("Failed to load trashed tasks:", error);
+      toast({
+        title: "读取垃圾桶失败",
+        description: "无法获取垃圾桶任务，请稍后再试",
+        variant: "destructive",
+      });
+    } finally {
+      setTrashedLoading(false);
+    }
+  }, [user, trashedLoaded, trashedLoading, toast]);
+
+  const loadAbandonedTasks = useCallback(async () => {
+    if (!user) return;
+    if (abandonedLoaded || abandonedLoading) return;
+
+    setAbandonedLoading(true);
+    try {
+      const data = await fetchAbandonedTasks();
+      setAbandonedTasks(data);
+      setAbandonedLoaded(true);
+    } catch (error) {
+      console.error("Failed to load abandoned tasks:", error);
+      toast({
+        title: "读取已放弃任务失败",
+        description: "无法获取已放弃任务列表，请稍后再试",
+        variant: "destructive",
+      });
+    } finally {
+      setAbandonedLoading(false);
+    }
+  }, [user, abandonedLoaded, abandonedLoading, toast]);
 
   // tags helpers
   const getTaskTags = useCallback((taskId: string): Tag[] => taskIdToTags[taskId] || [], [taskIdToTags]);
@@ -511,6 +547,15 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     }
   }, [user, toast, selectedTaskId]);
 
+  useEffect(() => {
+    if (!user) return;
+    if (selectedProject === "trash") {
+      loadTrashedTasks();
+    } else if (selectedProject === "abandoned") {
+      loadAbandonedTasks();
+    }
+  }, [selectedProject, user, loadTrashedTasks, loadAbandonedTasks]);
+
   const selectTask = useCallback((id: string | null) => {
     setSelectedTaskId(id);
   }, []);
@@ -699,6 +744,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     trashedTasks,
     abandonedTasks,
     loading,
+    trashedLoading,
+    abandonedLoading,
+    trashedLoaded,
+    abandonedLoaded,
     selectedTask,
     selectedProject,
     addTask,
@@ -708,6 +757,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     deleteTask,
     abandonTask,
     restoreAbandonedTask,
+    loadTrashedTasks,
+    loadAbandonedTasks,
     selectTask,
     selectProject,
     reorderTasks,
@@ -731,6 +782,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     trashedTasks,
     abandonedTasks,
     loading,
+    trashedLoading,
+    abandonedLoading,
+    trashedLoaded,
+    abandonedLoaded,
     selectedTask,
     selectedProject,
     addTask,
@@ -740,6 +795,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     deleteTask,
     abandonTask,
     restoreAbandonedTask,
+    loadTrashedTasks,
+    loadAbandonedTasks,
     selectTask,
     selectProject,
     reorderTasks,

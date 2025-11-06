@@ -17,6 +17,10 @@ export interface TaskContextType {
   trashedTasks: Task[];
   abandonedTasks: Task[];
   loading: boolean;
+  trashedLoading: boolean;
+  abandonedLoading: boolean;
+  trashedLoaded: boolean;
+  abandonedLoaded: boolean;
   selectedTask: Task | null;
   selectedProject: string;
   addTask: (task: Omit<Task, "id">) => Promise<void>;
@@ -26,6 +30,8 @@ export interface TaskContextType {
   deleteTask: (id: string) => Promise<void>; // Permanent deletion
   abandonTask: (id: string) => Promise<void>;
   restoreAbandonedTask: (id: string) => Promise<void>;
+  loadTrashedTasks: () => Promise<void>;
+  loadAbandonedTasks: () => Promise<void>;
   selectTask: (id: string | null) => void;
   selectProject: (id: string) => void;
   reorderTasks: (projectId: string, sourceIndex: number, destinationIndex: number, isCompletedArea?: boolean) => Promise<void>;

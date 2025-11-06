@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useTaskContext } from "@/contexts/task";
 import { format, parseISO, isToday, isTomorrow, isYesterday, isValid, isBefore, startOfDay } from "date-fns";
 import { zhCN } from "date-fns/locale";
@@ -20,11 +20,23 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const TrashView: React.FC = () => {
-  const { trashedTasks, restoreFromTrash, deleteTask, selectTask } = useTaskContext();
+  const {
+    trashedTasks,
+    restoreFromTrash,
+    deleteTask,
+    selectTask,
+    trashedLoading,
+    loadTrashedTasks,
+    trashedLoaded,
+  } = useTaskContext();
   const { projects } = useProjectContext();
 
+  useEffect(() => {
+    loadTrashedTasks();
+  }, [loadTrashedTasks]);
+
   // Group tasks by deletion date
-  const groupTasksByDate = () => {
+  const groupedTasks = useMemo(() => {
     const grouped: { [date: string]: typeof trashedTasks } = {};
 
     trashedTasks.forEach(task => {
@@ -42,9 +54,7 @@ const TrashView: React.FC = () => {
     return Object.entries(grouped)
       .map(([date, tasks]) => ({ date, tasks }))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  };
-
-  const groupedTasks = groupTasksByDate();
+  }, [trashedTasks]);
 
   const handleRestoreTask = async (id: string) => {
     await restoreFromTrash(id);
@@ -63,6 +73,14 @@ const TrashView: React.FC = () => {
       return dateStr;
     }
   };
+
+  if (trashedLoading && !trashedLoaded && trashedTasks.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-muted-foreground">
+        正在加载垃圾桶...
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full p-4">

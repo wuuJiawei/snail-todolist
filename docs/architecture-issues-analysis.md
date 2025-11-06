@@ -249,6 +249,9 @@ useEffect(() => {
 }, [selectedProject]);
 ```
 
+**进展记录：**
+- ✅ 2025-11-06：主视图仅加载活跃任务；垃圾桶与已放弃任务在切换时追加加载并带可见的加载状态；标签缓存改为按项目懒加载
+
 ---
 
 ### 5. Context 层级过深，props drilling 严重
@@ -657,8 +660,8 @@ export const useTasks = (projectId: string) => {
 - [x] **修复toast时机** - 30分钟（2025-11-06 已完成）
 - [x] **调整debounce时间** - 5分钟（2025-11-06 已完成）  
 - [x] **添加请求loading指示器** - 1小时（2025-11-06 已完成）
-- [ ] **创建TaskListSkeleton** - 2小时
-- [ ] **优化TaskProvider的重渲染** - 1小时
+- [x] **创建TaskListSkeleton** - 2小时（2025-11-06 已完成）
+- [x] **优化TaskProvider的重渲染** - 1小时（2025-11-06 已完成）
 
 预计可以在1天内完成，立即改善用户体验。
 

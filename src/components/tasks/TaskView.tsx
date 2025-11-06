@@ -28,7 +28,17 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const TaskView: React.FC = () => {
-  const { selectedProject, tasks, trashedTasks, abandonedTasks, deleteTask } = useTaskContext();
+  const {
+    selectedProject,
+    tasks,
+    trashedTasks,
+    abandonedTasks,
+    deleteTask,
+    trashedLoading,
+    abandonedLoading,
+    trashedLoaded,
+    abandonedLoaded,
+  } = useTaskContext();
   const { collapsed, setCollapsed } = useSidebar();
   const [showTopHeader, setShowTopHeader] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -50,12 +60,26 @@ const TaskView: React.FC = () => {
           />
         );
       case "abandoned":
+        if (abandonedLoading && !abandonedLoaded) {
+          return (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              正在加载已放弃任务...
+            </div>
+          );
+        }
         return (
           <AbandonedTasksView
             tasks={abandonedTasks}
           />
         );
       case "trash":
+        if (trashedLoading && !trashedLoaded && trashedTasks.length === 0) {
+          return (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              正在加载垃圾桶...
+            </div>
+          );
+        }
         return <TrashView />;
       default:
         return <TaskList />;
@@ -85,6 +109,10 @@ const TaskView: React.FC = () => {
   // Handle empty trash action
   const handleEmptyTrash = async () => {
     // Delete all tasks in trash
+    if (!trashedLoaded || trashedLoading) {
+      return;
+    }
+
     for (const task of trashedTasks) {
       await deleteTask(task.id);
     }
@@ -117,12 +145,20 @@ const TaskView: React.FC = () => {
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 px-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2"
+              disabled={trashedLoading && !trashedLoaded}
+            >
               <Icon icon="more" size="16" className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setConfirmDeleteAll(true)}>
+            <DropdownMenuItem
+              onClick={() => setConfirmDeleteAll(true)}
+              disabled={trashedLoading || !trashedLoaded || trashedTasks.length === 0}
+            >
               <Icon icon="delete" size="16" className="mr-2 h-4 w-4" />
               <span>清空垃圾桶</span>
             </DropdownMenuItem>
@@ -159,7 +195,12 @@ const TaskView: React.FC = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleEmptyTrash}>确认清空</AlertDialogAction>
+            <AlertDialogAction
+              onClick={handleEmptyTrash}
+              disabled={trashedLoading || trashedTasks.length === 0}
+            >
+              确认清空
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
