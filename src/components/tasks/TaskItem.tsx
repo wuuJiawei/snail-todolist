@@ -81,21 +81,25 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
     // 防止操作进行中的重复点击
     if (operationState.isActive) return;
 
-    await startOperation("complete", async () => {
-      await updateTask(task.id, {
-        completed: !task.completed,
-        // The completed_at will be set in the service layer
-      });
-
-      // Show toast notification
-      if (!task.completed) {
-        toast({
-          title: "任务已完成",
-          description: `「${task.title}」已标记为完成`,
-          variant: "default",
+    try {
+      await startOperation("complete", async () => {
+        await updateTask(task.id, {
+          completed: !task.completed,
+          // The completed_at will be set in the service layer
         });
-      }
-    });
+
+        // Show toast notification
+        if (!task.completed) {
+          toast({
+            title: "任务已完成",
+            description: `「${task.title}」已标记为完成`,
+            variant: "default",
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Failed to toggle completion:", error);
+    }
   };
 
   const handleTitleClick = (e: React.MouseEvent) => {
@@ -162,91 +166,115 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
     // 防止操作进行中的重复点击
     if (operationState.isActive) return;
 
-    await startOperation("delete", async () => {
-      await moveToTrash(task.id);
-    });
+    try {
+      await startOperation("delete", async () => {
+        await moveToTrash(task.id);
+      });
+    } catch (error) {
+      console.error("Failed to move task to trash:", error);
+    }
   };
 
   const handleMoveToProject = async (targetProjectId: string | null) => {
-    await startOperation("update", async () => {
-      await updateTask(task.id, { project: targetProjectId });
-      
-      // 获取目标项目名称
-      let targetProjectName = "";
-      if (targetProjectId) {
-        const targetProject = projects.find(p => p.id === targetProjectId);
-        targetProjectName = targetProject?.name || "未知项目";
-      }
-      
-      toast({
-        title: "任务已移动",
-        description: `「${task.title}」已移动到「${targetProjectName}」`,
-        variant: "default",
+    try {
+      await startOperation("update", async () => {
+        await updateTask(task.id, { project: targetProjectId });
+        
+        // 获取目标项目名称
+        let targetProjectName = "";
+        if (targetProjectId) {
+          const targetProject = projects.find(p => p.id === targetProjectId);
+          targetProjectName = targetProject?.name || "未知项目";
+        }
+        
+        toast({
+          title: "任务已移动",
+          description: `「${task.title}」已移动到「${targetProjectName}」`,
+          variant: "default",
+        });
       });
-    });
+    } catch (error) {
+      console.error("Failed to move task:", error);
+    }
   };
 
   const handleCopyToProject = async (targetProjectId: string | null) => {
-    await startOperation("update", async () => {
-      // 创建任务副本，保留所有属性但生成新ID
-      const taskCopy = {
-        title: task.title,
-        completed: false, // 复制的任务默认为未完成状态  
-        date: task.date,
-        project: targetProjectId,
-        description: task.description,
-        // 不复制 completed_at, updated_at, user_id, sort_order, deleted, deleted_at
-        // 这些会在 addTask 中自动处理
-      };
+    try {
+      await startOperation("update", async () => {
+        // 创建任务副本，保留所有属性但生成新ID
+        const taskCopy = {
+          title: task.title,
+          completed: false, // 复制的任务默认为未完成状态  
+          date: task.date,
+          project: targetProjectId,
+          description: task.description,
+          // 不复制 completed_at, updated_at, user_id, sort_order, deleted, deleted_at
+          // 这些会在 addTask 中自动处理
+        };
 
-      await addTask(taskCopy);
-      
-      // 获取目标项目名称
-      let targetProjectName = "";
-      if (targetProjectId) {
-        const targetProject = projects.find(p => p.id === targetProjectId);
-        targetProjectName = targetProject?.name || "未知项目";
-      }
-      
-      toast({
-        title: "任务已复制",
-        description: `「${task.title}」已复制到「${targetProjectName}」`,
-        variant: "default",
+        await addTask(taskCopy);
+        
+        // 获取目标项目名称
+        let targetProjectName = "";
+        if (targetProjectId) {
+          const targetProject = projects.find(p => p.id === targetProjectId);
+          targetProjectName = targetProject?.name || "未知项目";
+        }
+        
+        toast({
+          title: "任务已复制",
+          description: `「${task.title}」已复制到「${targetProjectName}」`,
+          variant: "default",
+        });
       });
-    });
+    } catch (error) {
+      console.error("Failed to copy task:", error);
+    }
   };
 
   const handleMarkAsCompleted = async () => {
-    await startOperation("complete", async () => {
-      await updateTask(task.id, {
-        completed: true,
-        // completed_at 会在 service 层自动设置
-      });
+    try {
+      await startOperation("complete", async () => {
+        await updateTask(task.id, {
+          completed: true,
+          // completed_at 会在 service 层自动设置
+        });
 
-      toast({
-        title: "任务已完成",
-        description: `「${task.title}」已标记为完成`,
-        variant: "default",
+        toast({
+          title: "任务已完成",
+          description: `「${task.title}」已标记为完成`,
+          variant: "default",
+        });
       });
-    });
+    } catch (error) {
+      console.error("Failed to mark task as completed:", error);
+    }
   };
 
   const handleAbandonTask = async () => {
     // 防止操作进行中的重复点击
     if (operationState.isActive) return;
 
-    await startOperation("abandon", async () => {
-      await abandonTask(task.id);
-    });
+    try {
+      await startOperation("abandon", async () => {
+        await abandonTask(task.id);
+      });
+    } catch (error) {
+      console.error("Failed to abandon task:", error);
+    }
   };
 
   const handleRestoreAbandonedTask = async () => {
     // 防止操作进行中的重复点击
     if (operationState.isActive) return;
 
-    await startOperation("restore", async () => {
-      await restoreAbandonedTask(task.id);
-    });
+    try {
+      await startOperation("restore", async () => {
+        await restoreAbandonedTask(task.id);
+      });
+    } catch (error) {
+      console.error("Failed to restore task:", error);
+    }
   };
 
 

@@ -139,11 +139,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       };
 
       const newTask = await addTaskService(taskWithUserId);
-      if (newTask) {
-        setTasks((prev) => [newTask, ...prev]);
+      if (!newTask) {
+        throw new Error("add task failed");
       }
+      setTasks((prev) => [newTask, ...prev]);
     } catch (error) {
       console.error("Failed to add task:", error);
+      throw error;
     }
   };
 
@@ -160,35 +162,38 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       const updated = await updateTaskService(id, updatedTask);
-      if (updated) {
-        setTasks((prev) =>
-          prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
-        );
+      if (!updated) {
+        throw new Error("update task failed");
+      }
 
-        // 关键优化：智能更新selectedTask，避免不必要的重渲染
-        if (selectedTask?.id === id) {
-          // 检查是否只是description或attachments更新（编辑器相关字段）
-          const isOnlyEditorFieldUpdate = 
-            Object.keys(updatedTask).length === 1 && 
-            (updatedTask.description !== undefined || updatedTask.attachments !== undefined);
-          
-          // 如果只是编辑器相关字段更新，不触发selectedTask更新，避免循环
-          // 其他字段（如completed、date等）正常更新
-          if (!isOnlyEditorFieldUpdate) {
-            setSelectedTask((prev) => (prev ? { ...prev, ...updatedTask } : null));
-          } else {
-            // 对于编辑器字段，静默更新，不触发重渲染
-            setSelectedTask((prev) => {
-              if (!prev) return null;
-              // 直接修改对象，不创建新引用，避免触发useEffect
-              Object.assign(prev, updatedTask);
-              return prev;
-            });
-          }
+      setTasks((prev) =>
+        prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
+      );
+
+      // 关键优化：智能更新selectedTask，避免不必要的重渲染
+      if (selectedTask?.id === id) {
+        // 检查是否只是description或attachments更新（编辑器相关字段）
+        const isOnlyEditorFieldUpdate = 
+          Object.keys(updatedTask).length === 1 && 
+          (updatedTask.description !== undefined || updatedTask.attachments !== undefined);
+        
+        // 如果只是编辑器相关字段更新，不触发selectedTask更新，避免循环
+        // 其他字段（如completed、date等）正常更新
+        if (!isOnlyEditorFieldUpdate) {
+          setSelectedTask((prev) => (prev ? { ...prev, ...updatedTask } : null));
+        } else {
+          // 对于编辑器字段，静默更新，不触发重渲染
+          setSelectedTask((prev) => {
+            if (!prev) return null;
+            // 直接修改对象，不创建新引用，避免触发useEffect
+            Object.assign(prev, updatedTask);
+            return prev;
+          });
         }
       }
     } catch (error) {
       console.error("Failed to update task:", error);
+      throw error;
     }
   };
 
@@ -394,30 +399,33 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       const success = await moveToTrashService(id);
-      if (success) {
-        // Find the task before removing it from the tasks list
-        const taskToTrash = tasks.find(task => task.id === id);
+      if (!success) {
+        throw new Error("move to trash failed");
+      }
 
-        // Remove from regular tasks
-        setTasks((prev) => prev.filter((task) => task.id !== id));
+      // Find the task before removing it from the tasks list
+      const taskToTrash = tasks.find(task => task.id === id);
 
-        // Add to trashed tasks if found
-        if (taskToTrash) {
-          const trashedTask = {
-            ...taskToTrash,
-            deleted: true,
-            deleted_at: new Date().toISOString()
-          };
-          setTrashedTasks(prev => [trashedTask, ...prev]);
-        }
+      // Remove from regular tasks
+      setTasks((prev) => prev.filter((task) => task.id !== id));
 
-        // Clear selection if the trashed task was selected
-        if (selectedTask?.id === id) {
-          setSelectedTask(null);
-        }
+      // Add to trashed tasks if found
+      if (taskToTrash) {
+        const trashedTask = {
+          ...taskToTrash,
+          deleted: true,
+          deleted_at: new Date().toISOString()
+        };
+        setTrashedTasks(prev => [trashedTask, ...prev]);
+      }
+
+      // Clear selection if the trashed task was selected
+      if (selectedTask?.id === id) {
+        setSelectedTask(null);
       }
     } catch (error) {
       console.error("Failed to move task to trash:", error);
+      throw error;
     }
   };
 
@@ -434,25 +442,28 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       const success = await restoreFromTrashService(id);
-      if (success) {
-        // Find the task before removing it from the trashed tasks list
-        const taskToRestore = trashedTasks.find(task => task.id === id);
+      if (!success) {
+        throw new Error("restore from trash failed");
+      }
 
-        // Remove from trashed tasks
-        setTrashedTasks((prev) => prev.filter((task) => task.id !== id));
+      // Find the task before removing it from the trashed tasks list
+      const taskToRestore = trashedTasks.find(task => task.id === id);
 
-        // Add to regular tasks if found
-        if (taskToRestore) {
-          const restoredTask = {
-            ...taskToRestore,
-            deleted: false,
-            deleted_at: undefined
-          };
-          setTasks(prev => [restoredTask, ...prev]);
-        }
+      // Remove from trashed tasks
+      setTrashedTasks((prev) => prev.filter((task) => task.id !== id));
+
+      // Add to regular tasks if found
+      if (taskToRestore) {
+        const restoredTask = {
+          ...taskToRestore,
+          deleted: false,
+          deleted_at: undefined
+        };
+        setTasks(prev => [restoredTask, ...prev]);
       }
     } catch (error) {
       console.error("Failed to restore task from trash:", error);
+      throw error;
     }
   };
 
@@ -469,19 +480,22 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       const success = await deleteTaskService(id);
-      if (success) {
-        // Remove from trashed tasks
-        setTrashedTasks((prev) => prev.filter((task) => task.id !== id));
+      if (!success) {
+        throw new Error("delete task failed");
+      }
 
-        // Also ensure it's removed from regular tasks (just in case)
-        setTasks((prev) => prev.filter((task) => task.id !== id));
+      // Remove from trashed tasks
+      setTrashedTasks((prev) => prev.filter((task) => task.id !== id));
 
-        if (selectedTask?.id === id) {
-          setSelectedTask(null);
-        }
+      // Also ensure it's removed from regular tasks (just in case)
+      setTasks((prev) => prev.filter((task) => task.id !== id));
+
+      if (selectedTask?.id === id) {
+        setSelectedTask(null);
       }
     } catch (error) {
       console.error("Failed to permanently delete task:", error);
+      throw error;
     }
   };
 
@@ -589,32 +603,35 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       const success = await abandonTaskService(id);
-      if (success) {
-        // Find the task before removing it from the tasks list
-        const taskToAbandon = tasks.find(task => task.id === id);
+      if (!success) {
+        throw new Error("abandon task failed");
+      }
 
-        // Remove from regular tasks
-        setTasks((prev) => prev.filter((task) => task.id !== id));
+      // Find the task before removing it from the tasks list
+      const taskToAbandon = tasks.find(task => task.id === id);
 
-        // Add to abandoned tasks if found
-        if (taskToAbandon) {
-          const abandonedTask = {
-            ...taskToAbandon,
-            abandoned: true,
-            abandoned_at: new Date().toISOString(),
-            completed: false,
-            completed_at: undefined
-          };
-          setAbandonedTasks(prev => [abandonedTask, ...prev]);
-        }
+      // Remove from regular tasks
+      setTasks((prev) => prev.filter((task) => task.id !== id));
 
-        // Clear selection if the abandoned task was selected
-        if (selectedTask?.id === id) {
-          setSelectedTask(null);
-        }
+      // Add to abandoned tasks if found
+      if (taskToAbandon) {
+        const abandonedTask = {
+          ...taskToAbandon,
+          abandoned: true,
+          abandoned_at: new Date().toISOString(),
+          completed: false,
+          completed_at: undefined
+        };
+        setAbandonedTasks(prev => [abandonedTask, ...prev]);
+      }
+
+      // Clear selection if the abandoned task was selected
+      if (selectedTask?.id === id) {
+        setSelectedTask(null);
       }
     } catch (error) {
       console.error("Failed to abandon task:", error);
+      throw error;
     }
   };
 
@@ -631,25 +648,28 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       const success = await restoreAbandonedTaskService(id);
-      if (success) {
-        // Find the task before removing it from the abandoned tasks list
-        const taskToRestore = abandonedTasks.find(task => task.id === id);
+      if (!success) {
+        throw new Error("restore abandoned task failed");
+      }
 
-        // Remove from abandoned tasks
-        setAbandonedTasks((prev) => prev.filter((task) => task.id !== id));
+      // Find the task before removing it from the abandoned tasks list
+      const taskToRestore = abandonedTasks.find(task => task.id === id);
 
-        // Add to regular tasks if found
-        if (taskToRestore) {
-          const restoredTask = {
-            ...taskToRestore,
-            abandoned: false,
-            abandoned_at: undefined
-          };
-          setTasks(prev => [restoredTask, ...prev]);
-        }
+      // Remove from abandoned tasks
+      setAbandonedTasks((prev) => prev.filter((task) => task.id !== id));
+
+      // Add to regular tasks if found
+      if (taskToRestore) {
+        const restoredTask = {
+          ...taskToRestore,
+          abandoned: false,
+          abandoned_at: undefined
+        };
+        setTasks(prev => [restoredTask, ...prev]);
       }
     } catch (error) {
       console.error("Failed to restore abandoned task:", error);
+      throw error;
     }
   };
 
