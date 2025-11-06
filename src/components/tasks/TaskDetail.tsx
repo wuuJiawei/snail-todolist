@@ -25,6 +25,7 @@ import { format, parseISO, isValid } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { formatDateText } from "@/utils/taskUtils";
 import VditorEditor from "./VditorEditor";
+import TaskDetailSkeleton from "@/components/tasks/TaskDetailSkeleton";
 import TagSelector from "./TagSelector";
 import TaskAttachments from "./TaskAttachments";
 import { useDebouncedCallback } from 'use-debounce';
@@ -365,6 +366,10 @@ const TaskDetail = () => {
         <p className="text-gray-500">请选择一个任务查看详情</p>
       </div>
     );
+  }
+
+  if (isEditorUpdating) {
+    return <TaskDetailSkeleton />;
   }
 
   return (

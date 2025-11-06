@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Calendar } from "lucide-react";
+import { Plus, Calendar, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { isValid, isBefore, startOfDay } from "date-fns";
 import { formatDateText } from "@/utils/taskUtils";
@@ -41,7 +41,11 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) =>
   return (
     <div className="px-4 py-2">
       <form onSubmit={handleAddTask} className="flex items-center gap-2 bg-gray-50 rounded-lg px-2 py-2 border border-gray-50 hover:border hover:border-black">
-        <Plus className="h-5 w-5 text-gray-400" />
+        {isSubmitting ? (
+          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+        ) : (
+          <Plus className="h-5 w-5 text-gray-400" />
+        )}
         <Input
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}

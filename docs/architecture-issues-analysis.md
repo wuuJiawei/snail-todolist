@@ -653,7 +653,7 @@ export const useTasks = (projectId: string) => {
 
 - [x] **修复toast时机** - 30分钟（2025-11-06 已完成）
 - [x] **调整debounce时间** - 5分钟（2025-11-06 已完成）  
-- [ ] **添加请求loading指示器** - 1小时
+- [x] **添加请求loading指示器** - 1小时（2025-11-06 已完成）
 - [ ] **创建TaskListSkeleton** - 2小时
 - [ ] **优化TaskProvider的重渲染** - 1小时
 
