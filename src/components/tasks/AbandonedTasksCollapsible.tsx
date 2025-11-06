@@ -17,10 +17,23 @@ const AbandonedTasksCollapsible: React.FC<AbandonedTasksCollapsibleProps> = ({
   projectId,
   showProject = false
 }) => {
-  const { abandonedTasks } = useTaskContext();
+  const {
+    abandonedTasks,
+    abandonedLoaded,
+    abandonedLoading,
+    loadAbandonedTasks,
+  } = useTaskContext();
   const { projects } = useProjectContext();
   const [displayCount, setDisplayCount] = useState(TASKS_PER_PAGE);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!abandonedLoaded && !abandonedLoading) {
+      loadAbandonedTasks().catch((error) => {
+        console.error("Failed to load abandoned tasks:", error);
+      });
+    }
+  }, [abandonedLoaded, abandonedLoading, loadAbandonedTasks]);
 
   // 筛选并排序已放弃任务
   const filteredAbandonedTasks = useMemo(() => {

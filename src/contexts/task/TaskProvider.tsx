@@ -199,9 +199,25 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     }
 
     const previousTasks = useTaskStore.getState().tasks;
-    const updatedTasks = previousTasks.map((task) =>
-      task.id === id ? { ...task, ...updatedTask } : task
-    );
+    const timestamp = new Date().toISOString();
+    const updatedTasks = previousTasks.map((task) => {
+      if (task.id !== id) return task;
+
+      const nextTask: Task = {
+        ...task,
+        ...updatedTask,
+      };
+
+      if (Object.prototype.hasOwnProperty.call(updatedTask, "completed")) {
+        if (updatedTask.completed) {
+          nextTask.completed_at = timestamp;
+        } else {
+          nextTask.completed_at = undefined;
+        }
+      }
+
+      return nextTask;
+    });
     setTasks(updatedTasks);
 
     try {
@@ -209,6 +225,9 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       if (!updated) {
         throw new Error("update task failed");
       }
+      setTasks((current) =>
+        current.map((task) => (task.id === id ? { ...task, ...updated } : task))
+      );
     } catch (error) {
       setTasks(previousTasks);
       console.error("Failed to update task:", error);

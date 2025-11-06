@@ -19,7 +19,7 @@ export interface TaskState {
 }
 
 export interface TaskActions {
-  setTasks: (tasks: Task[]) => void;
+  setTasks: (updater: Task[] | ((prev: Task[]) => Task[])) => void;
   prependTask: (task: Task) => void;
   replaceTaskById: (id: string, task: Task) => void;
   removeTask: (id: string) => void;
@@ -68,7 +68,10 @@ const initialState: TaskState = {
 
 export const useTaskStore = create<TaskStore>()((set, get) => ({
   ...initialState,
-  setTasks: (tasks) => set({ tasks }),
+  setTasks: (updater) =>
+    set((state) => ({
+      tasks: typeof updater === "function" ? (updater as (prev: Task[]) => Task[])(state.tasks) : updater,
+    })),
   prependTask: (task) =>
     set((state) => ({
       tasks: [task, ...state.tasks],
