@@ -235,6 +235,65 @@
   }
 
   /* Vditor 编辑器样式优化 */
+  .task-editor-shell {
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .task-editor-shell .vditor {
+    border: none;
+    background: transparent;
+  }
+
+  .task-editor-shell .vditor-content {
+    padding: 0;
+  }
+
+  .task-editor-shell .vditor-reset {
+    margin: 0;
+    background: transparent;
+  }
+
+  .task-editor-shell .vditor-linenumber {
+    padding-left: 1.5rem !important;
+  }
+
+  .task-editor-shell .vditor-linenumber__rows {
+    width: 1.5rem;
+  }
+
+  .task-editor-shell .vditor-reset,
+  .task-editor-shell .vditor-ir,
+  .task-editor-shell .vditor-wysiwyg {
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .task-editor-shell .vditor-reset ul,
+  .task-editor-shell .vditor-reset ol,
+  .task-editor-shell .vditor-ir ul,
+  .task-editor-shell .vditor-ir ol,
+  .task-editor-shell .vditor-wysiwyg ul,
+  .task-editor-shell .vditor-wysiwyg ol {
+    list-style-position: outside;
+    padding-left: 0;
+    margin: 0.6rem 0;
+  }
+
+  .task-editor-shell .vditor-reset ol,
+  .task-editor-shell .vditor-ir ol,
+  .task-editor-shell .vditor-wysiwyg ol {
+    margin-left: 0;
+  }
+
+  .task-editor-shell .vditor-reset li,
+  .task-editor-shell .vditor-ir li,
+  .task-editor-shell .vditor-wysiwyg li {
+    list-style-type: inherit;
+    margin: 0.3rem 0;
+  }
+
   .vditor-container .vditor {
     border: none;
     background: transparent;

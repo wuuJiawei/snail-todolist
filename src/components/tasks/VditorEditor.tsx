@@ -100,7 +100,6 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
         '|',
         'upload',
         'edit-mode',
-        'fullscreen',
       ],
       cache: {
         enable: false, // 禁用缓存，避免与任务切换冲突
@@ -118,7 +117,7 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
         },
         hljs: {
           style: 'github',
-          lineNumber: true,
+          lineNumber: false,
         },
       },
       upload: {

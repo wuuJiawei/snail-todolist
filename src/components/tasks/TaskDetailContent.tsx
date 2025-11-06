@@ -29,7 +29,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
   onAttachmentsChange,
 }) => {
   return (
-    <>
+    <div className="task-editor-shell flex-1 flex flex-col">
       <div className="w-full flex-1 overflow-visible relative">
         {!isEditorUpdating && (
           <VditorEditor
@@ -57,7 +57,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
           />
         </div>
       )}
-    </>
+    </div>
   );
 };
 
