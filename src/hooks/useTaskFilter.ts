@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Task } from "@/types/task";
+import { Tag } from "@/types/tag";
 import { TaskFilterOptions } from "@/components/tasks/TaskFilter";
 import { isToday, isThisWeek, isPast, parseISO } from "date-fns";
 import { useTaskContext } from "@/contexts/task";
@@ -43,7 +44,7 @@ export const useTaskFilter = (tasks: Task[] | { [key: string]: Task[] }, filters
 };
 
 // 应用筛选条件的辅助函数
-const applyFilters = (task: Task, filters: TaskFilterOptions, getTaskTags: (taskId: string) => any[]): boolean => {
+const applyFilters = (task: Task, filters: TaskFilterOptions, getTaskTags: (taskId: string) => Tag[]): boolean => {
   // 状态筛选
   if (filters.status.length > 0) {
     const taskStatus = getTaskStatus(task);
@@ -71,7 +72,7 @@ const applyFilters = (task: Task, filters: TaskFilterOptions, getTaskTags: (task
   // 标签筛选（包含任一标签）
   if ((filters.tags || []).length > 0) {
     const tags = getTaskTags(task.id) || [];
-    const tagIds = new Set(tags.map((t: any) => t.id));
+    const tagIds = new Set(tags.map((t) => t.id));
     const ok = (filters.tags || []).some(id => tagIds.has(id));
     if (!ok) return false;
   }

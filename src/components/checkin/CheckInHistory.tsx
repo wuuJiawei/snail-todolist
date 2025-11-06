@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -49,7 +49,7 @@ const CheckInHistory: React.FC<CheckInHistoryProps> = ({
   const [streak, setStreak] = useState(0);
   const pageSize = 7;
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
       const { records, total } = await getCheckInHistory(page, pageSize);
@@ -64,13 +64,13 @@ const CheckInHistory: React.FC<CheckInHistoryProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
 
   useEffect(() => {
     if (open) {
       fetchHistory();
     }
-  }, [open, page]);
+  }, [open, page, fetchHistory]);
 
   const totalPages = Math.ceil(total / pageSize);
 

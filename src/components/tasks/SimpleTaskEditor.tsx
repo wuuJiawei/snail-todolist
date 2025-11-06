@@ -96,7 +96,7 @@ const SimpleTaskEditor: React.FC<SimpleTaskEditorProps> = ({
     const haystack = markdownContent;
     const needle = findQuery;
     let from = 0;
-    while (true) {
+    while (from < haystack.length) {
       const idx = haystack.indexOf(needle, from);
       if (idx === -1) break;
       result.push({ start: idx, end: idx + needle.length });

@@ -46,7 +46,7 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
   };
 
   // Upload file to Supabase
-  const uploadFile = async (file: File): Promise<TaskAttachment> => {
+  const uploadFile = useCallback(async (file: File): Promise<TaskAttachment> => {
     if (!user) {
       throw new Error('User not authenticated');
     }
@@ -80,7 +80,7 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
       type: file.type,
       uploaded_at: new Date().toISOString()
     };
-  };
+  }, [user]);
 
   // Handle file upload
   const handleFileUpload = useCallback(async (files: FileList) => {
@@ -128,7 +128,7 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
     } finally {
       setUploading(false);
     }
-  }, [attachments, onAttachmentsChange, readOnly, toast, user]);
+  }, [attachments, onAttachmentsChange, readOnly, toast, uploadFile]);
 
   // Handle file input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

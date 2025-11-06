@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTaskContext } from "@/contexts/task";
 import { Tag } from "@/types/tag";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const selected = getTaskTags(taskId);
   const selectedIds = useMemo(() => new Set(selected.map(t => t.id)), [selected]);
 
-  const refreshAvailableTags = async () => {
+  const refreshAvailableTags = useCallback(async () => {
     setLoading(true);
     try {
       // 首先尝试使用缓存数据
@@ -65,26 +65,26 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     } finally {
       setLoading(false);
     }
-  };
+  }, [getCachedTags, ensureTagsLoaded, projectId]);
 
   // 非内联（Popover）时：打开时加载
   useEffect(() => {
     if (open && !inline) {
       refreshAvailableTags();
     }
-  }, [open, inline]);
+  }, [open, inline, refreshAvailableTags]);
 
   // 内联模式：挂载或 projectId 变化时加载
   useEffect(() => {
     if (inline) {
       refreshAvailableTags();
     }
-  }, [inline, projectId]);
+  }, [inline, projectId, refreshAvailableTags]);
 
   // 监听缓存版本变化，保持本地列表同步
   useEffect(() => {
     refreshAvailableTags();
-  }, [tagsVersion]);
+  }, [tagsVersion, refreshAvailableTags]);
 
   const handleToggle = async (tag: Tag) => {
     if (readOnly) return;

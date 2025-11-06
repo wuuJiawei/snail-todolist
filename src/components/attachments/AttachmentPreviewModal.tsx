@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { TaskAttachment } from '@/types/task';
 import {
   Dialog,
@@ -65,7 +65,7 @@ const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
   };
 
   // Download handler
-  const handleDownload = () => {
+  const handleDownload = useCallback(() => {
     if (!attachment) return;
     
     const link = document.createElement('a');
@@ -74,7 +74,7 @@ const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+  }, [attachment]);
 
   // Handle image load events
   const handleImageLoad = () => {
@@ -116,7 +116,7 @@ const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, handleDownload]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

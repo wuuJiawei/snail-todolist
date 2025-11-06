@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useTaskContext } from "@/contexts/task";
 import { Tag } from "@/types/tag";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ const TagSettings = () => {
   const [editedTagName, setEditedTagName] = useState("");
   const [editedTagProject, setEditedTagProject] = useState<string | null>(null);
 
-  const loadTags = async () => {
+  const loadTags = useCallback(async () => {
     setLoading(true);
     try {
       // Load all tags regardless of project scope
@@ -53,10 +53,10 @@ const TagSettings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [listAllTags, projects, getAllTagUsageCounts]);
   
   // 手动刷新所有标签数据
-  const handleRefreshTags = async () => {
+  const handleRefreshTags = useCallback(async () => {
     setRefreshing(true);
     try {
       const success = await refreshAllTags();
@@ -76,11 +76,11 @@ const TagSettings = () => {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [refreshAllTags, loadTags]);
 
   useEffect(() => {
     loadTags();
-  }, [tagsVersion]);
+  }, [loadTags, tagsVersion]);
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return;

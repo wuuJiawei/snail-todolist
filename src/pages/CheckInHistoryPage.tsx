@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +42,7 @@ const CheckInHistoryPage: React.FC = () => {
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const pageSize = 10;
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
       const { records, total } = await getCheckInHistory(page, pageSize);
@@ -61,11 +61,11 @@ const CheckInHistoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
 
   useEffect(() => {
     fetchHistory();
-  }, [page]);
+  }, [page, fetchHistory]);
 
   const totalPages = Math.ceil(total / pageSize);
 

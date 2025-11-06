@@ -123,15 +123,19 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, hasLoaded, setLoading, setProjects, setHasLoaded]);
 
+  const updateProjectCounts = useCallback((projectCounts: Record<string, number>) => {
+    updateProjectCountsInStore(projectCounts);
+  }, [updateProjectCountsInStore]);
+
   // Refetch projects when user changes
   useEffect(() => {
-    if (user) {
-      fetchProjects();
-    } else {
+    if (!user) {
       setProjects([]);
       setLoading(false);
+      return;
     }
-  }, [user]);
+    fetchProjects();
+  }, [user, fetchProjects, setProjects, setLoading]);
 
   // Listen for task count updates from TaskProvider
   useEffect(() => {
@@ -147,12 +151,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       window.removeEventListener('task-counts-updated', handleTaskCountsUpdate as EventListener);
     };
-  }, []);
-
-  // Update project counts - this receives data from TaskContext
-  const updateProjectCounts = useCallback((projectCounts: Record<string, number>) => {
-    updateProjectCountsInStore(projectCounts);
-  }, [updateProjectCountsInStore]);
+  }, [updateProjectCounts]);
 
   const createProject = useCallback(async (data: Partial<Project>) => {
     try {
@@ -223,7 +222,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         variant: "destructive"
       });
     }
-  }, [user, toast, upsertProject]);
+  }, [user, upsertProject]);
 
   const editProject = useCallback(async (id: string, data: Partial<Project>) => {
     try {
@@ -267,7 +266,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         variant: "destructive"
       });
     }
-  }, [user, toast, projects, upsertProject]);
+  }, [user, projects, upsertProject]);
 
   const deleteProject = useCallback(async (id: string) => {
     try {
@@ -305,7 +304,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         variant: "destructive"
       });
     }
-  }, [user, toast, removeProject]);
+  }, [user, removeProject]);
 
   const reorderProjects = useCallback(async (projectId: string, newIndex: number) => {
     try {
@@ -357,7 +356,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Revert to original order if there's an error
       await fetchProjects(true);
     }
-  }, [user, toast, reorderProjectsOptimistic, fetchProjects]);
+  }, [user, reorderProjectsOptimistic, fetchProjects]);
 
   const refreshProjects = useCallback(async () => {
     return fetchProjects(true);

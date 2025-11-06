@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Task } from "@/types/task";
 
 const TrashView: React.FC = () => {
   const {
@@ -131,7 +132,7 @@ const TrashView: React.FC = () => {
 };
 
 interface TrashTaskItemProps {
-  task: any;
+  task: Task;
   projectName?: string;
   onRestore: () => void;
   onDelete: () => void;

@@ -30,6 +30,10 @@ import TagSelector from "./TagSelector";
 import TaskAttachments from "./TaskAttachments";
 import { useDebouncedCallback } from 'use-debounce';
 
+type EditorBridge = {
+  blocksToMarkdownLossy: () => Promise<string>;
+};
+
 const TaskDetail = () => {
   const { selectedTask, updateTask, selectTask, trashedTasks } = useTaskContext();
   const { toast } = useToast();
@@ -39,7 +43,7 @@ const TaskDetail = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [editorContent, setEditorContent] = useState("");
   const [isEditorUpdating, setIsEditorUpdating] = useState(false);
-  const [blockNoteEditor, setBlockNoteEditor] = useState<any>(null);
+  const [blockNoteEditor, setBlockNoteEditor] = useState<EditorBridge | null>(null);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
 
   // Track task switching with a ref to avoid unnecessary re-renders
@@ -64,83 +68,13 @@ const TaskDetail = () => {
   // IME composition state for title input
   const [isTitleComposing, setIsTitleComposing] = useState(false);
 
-  useEffect(() => {
-    if (selectedTask) {
-      // Check if this is a new task selection
-      const isNewTaskSelection = previousTaskIdRef.current !== selectedTask.id;
-      
-      // 关键修复：在任务切换前，强制刷新pending的debounced save
-      if (isNewTaskSelection && previousTaskIdRef.current !== null) {
-        // 立即执行pending的保存操作，防止快速切换导致内容丢失
-        debouncedTitleSave.flush();
-        debouncedContentSave.flush();
-      }
-      
-      previousTaskIdRef.current = selectedTask.id;
-
-      // 关键修复：更新当前正在编辑的任务ID
-      if (isNewTaskSelection) {
-        currentEditingTaskIdRef.current = selectedTask.id;
-      }
-
-      // Only update title if it's a new task selection AND user is not currently typing
-      if (isNewTaskSelection && !isUserTypingRef.current) {
-        setTitle(selectedTask.title);
-      }
-      
-      // Always update completed state
-      setCompleted(selectedTask.completed);
-
-      // Handle editor content update with task switching flag
-      if (isNewTaskSelection) {
-        setIsEditorUpdating(true);
-
-        // Update editor content
-        setEditorContent(selectedTask.description || '');
-
-        // Update attachments
-        setAttachments(selectedTask.attachments || []);
-
-        // Handle date parsing
-        setSelectedDate(undefined);
-        if (selectedTask.date) {
-          try {
-            const date = parseISO(selectedTask.date);
-            if (isValid(date)) {
-              setSelectedDate(date);
-            } else {
-              console.error('Invalid date:', selectedTask.date);
-            }
-          } catch (error) {
-            console.error('Error parsing date:', error);
-          }
-        }
-
-        // Reset textarea height when switching tasks
-        if (titleTextareaRef.current) {
-          // Defer height adjustment to ensure DOM is updated with new title
-          requestAnimationFrame(() => {
-            if (titleTextareaRef.current) { // Check ref again as component might unmount
-              titleTextareaRef.current.style.height = 'auto';
-              titleTextareaRef.current.style.height = `${titleTextareaRef.current.scrollHeight}px`;
-            }
-          });
-        }
-
-        // 关键修复：延长保护期从100ms到300ms，确保编辑器完全初始化
-        setTimeout(() => {
-          setIsEditorUpdating(false);
-        }, 300);
-      }
-    }
-  }, [selectedTask]);
-
   // Sync attachments when selectedTask updates (e.g., after save)
   useEffect(() => {
-    if (selectedTask && !isUserTypingRef.current) {
-      setAttachments(selectedTask.attachments || []);
+    if (!selectedTask || isUserTypingRef.current) {
+      return;
     }
-  }, [selectedTask?.attachments]);
+    setAttachments(selectedTask.attachments || []);
+  }, [selectedTask]);
 
   const saveTask = useCallback(async (updates: Partial<typeof selectedTask>, taskIdToSave?: string) => {
     if (!selectedTask) return;
@@ -180,6 +114,70 @@ const TaskDetail = () => {
     600,
     { maxWait: 2000 }
   );
+
+  useEffect(() => {
+    if (!selectedTask) {
+      return;
+    }
+
+    const isNewTaskSelection = previousTaskIdRef.current !== selectedTask.id;
+
+    if (isNewTaskSelection && previousTaskIdRef.current !== null) {
+      debouncedTitleSave.flush();
+      debouncedContentSave.flush();
+    }
+
+    previousTaskIdRef.current = selectedTask.id;
+
+    if (isNewTaskSelection) {
+      currentEditingTaskIdRef.current = selectedTask.id;
+    }
+
+    if (isNewTaskSelection && !isUserTypingRef.current) {
+      setTitle(selectedTask.title);
+    }
+
+    setCompleted(selectedTask.completed);
+
+    if (!isNewTaskSelection) {
+      return;
+    }
+
+    setIsEditorUpdating(true);
+    setEditorContent(selectedTask.description || '');
+    setAttachments(selectedTask.attachments || []);
+    setSelectedDate(undefined);
+
+    if (selectedTask.date) {
+      try {
+        const date = parseISO(selectedTask.date);
+        if (isValid(date)) {
+          setSelectedDate(date);
+        } else {
+          console.error('Invalid date:', selectedTask.date);
+        }
+      } catch (error) {
+        console.error('Error parsing date:', error);
+      }
+    }
+
+    if (titleTextareaRef.current) {
+      requestAnimationFrame(() => {
+        if (titleTextareaRef.current) {
+          titleTextareaRef.current.style.height = 'auto';
+          titleTextareaRef.current.style.height = `${titleTextareaRef.current.scrollHeight}px`;
+        }
+      });
+    }
+
+    const timer = setTimeout(() => {
+      setIsEditorUpdating(false);
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [selectedTask, debouncedTitleSave, debouncedContentSave]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newTitle = e.target.value;

@@ -95,10 +95,11 @@ const AccountSettings = () => {
         title: "账号已更新",
         description: "您的个人资料已成功更新",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "无法更新个人资料";
       toast({
         title: "更新失败",
-        description: error.message || "无法更新个人资料",
+        description: message,
         variant: "destructive",
       });
     } finally {
