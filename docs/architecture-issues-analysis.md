@@ -137,6 +137,9 @@ const useTaskStore = create((set, get) => ({
 }));
 ```
 
+**进展记录：**
+- ✅ 2025-11-06：已在现有 Context 方案下完成阶段性优化 —— 使用 selectedTaskId + useMemo 派生选中任务，统一 useCallback/ useMemo 提供稳定的 actions/value，移除可变更新，降低 TaskDetail 频繁重渲染风险，为后续引入 Zustand 奠定基础
+
 ---
 
 ### 3. 缺少真实的加载状态骨架屏

@@ -1,5 +1,5 @@
 
-import React, { useState, ReactNode, useEffect } from "react";
+import React, { useState, ReactNode, useEffect, useMemo, useCallback, useRef } from "react";
 import { Task } from "@/types/task";
 import {
   fetchTasks,
@@ -31,7 +31,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const [trashedTasks, setTrashedTasks] = useState<Task[]>([]);
   const [abandonedTasks, setAbandonedTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string>(getSavedProject());
   const [hasLoaded, setHasLoaded] = useState<boolean>(false);
   const [taskIdToTags, setTaskIdToTags] = useState<Record<string, Tag[]>>({});
@@ -40,6 +40,39 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   const { toast } = useToast();
   const { user } = useAuth();
+
+  const tasksRef = useRef<Task[]>([]);
+  const trashedTasksRef = useRef<Task[]>([]);
+  const abandonedTasksRef = useRef<Task[]>([]);
+
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  useEffect(() => {
+    trashedTasksRef.current = trashedTasks;
+  }, [trashedTasks]);
+
+  useEffect(() => {
+    abandonedTasksRef.current = abandonedTasks;
+  }, [abandonedTasks]);
+
+  const selectedTask = useMemo(() => {
+    if (!selectedTaskId) return null;
+    return (
+      tasks.find(task => task.id === selectedTaskId) ||
+      trashedTasks.find(task => task.id === selectedTaskId) ||
+      abandonedTasks.find(task => task.id === selectedTaskId) ||
+      null
+    );
+  }, [selectedTaskId, tasks, trashedTasks, abandonedTasks]);
+
+  useEffect(() => {
+    if (!selectedTaskId) return;
+    if (!selectedTask) {
+      setSelectedTaskId(null);
+    }
+  }, [selectedTaskId, selectedTask]);
   
   // Enable deadline notifications for all tasks
   useDeadlineNotifications({ 
@@ -58,6 +91,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         setTagsCache({}); // 清空标签缓存
         setLoading(false);
         setHasLoaded(false);
+        setSelectedTaskId(null);
         return;
       }
 
@@ -121,7 +155,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [toast, user]);
 
   // Add task
-  const addTask = async (task: Omit<Task, "id">) => {
+  const addTask = useCallback(async (task: Omit<Task, "id">) => {
     try {
       if (!user) {
         toast({
@@ -147,10 +181,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       console.error("Failed to add task:", error);
       throw error;
     }
-  };
+  }, [user, toast]);
 
   // Update task
-  const updateTask = async (id: string, updatedTask: Partial<Task>) => {
+  const updateTask = useCallback(async (id: string, updatedTask: Partial<Task>) => {
     try {
       if (!user) {
         toast({
@@ -169,54 +203,32 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       setTasks((prev) =>
         prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
       );
-
-      // 关键优化：智能更新selectedTask，避免不必要的重渲染
-      if (selectedTask?.id === id) {
-        // 检查是否只是description或attachments更新（编辑器相关字段）
-        const isOnlyEditorFieldUpdate = 
-          Object.keys(updatedTask).length === 1 && 
-          (updatedTask.description !== undefined || updatedTask.attachments !== undefined);
-        
-        // 如果只是编辑器相关字段更新，不触发selectedTask更新，避免循环
-        // 其他字段（如completed、date等）正常更新
-        if (!isOnlyEditorFieldUpdate) {
-          setSelectedTask((prev) => (prev ? { ...prev, ...updatedTask } : null));
-        } else {
-          // 对于编辑器字段，静默更新，不触发重渲染
-          setSelectedTask((prev) => {
-            if (!prev) return null;
-            // 直接修改对象，不创建新引用，避免触发useEffect
-            Object.assign(prev, updatedTask);
-            return prev;
-          });
-        }
-      }
     } catch (error) {
       console.error("Failed to update task:", error);
       throw error;
     }
-  };
+  }, [toast, user]);
 
   // tags helpers
-  const getTaskTags = (taskId: string): Tag[] => taskIdToTags[taskId] || [];
+  const getTaskTags = useCallback((taskId: string): Tag[] => taskIdToTags[taskId] || [], [taskIdToTags]);
 
-  const attachTagToTask = async (taskId: string, tagId: string) => {
+  const attachTagToTask = useCallback(async (taskId: string, tagId: string) => {
     const ok = await attachTagToTaskService(taskId, tagId);
     if (!ok) return;
     // refresh this task's tags
     const mapping = await getTagsByTaskIdsService([taskId]);
     setTaskIdToTags(prev => ({ ...prev, ...mapping }));
-  };
+  }, []);
 
-  const detachTagFromTask = async (taskId: string, tagId: string) => {
+  const detachTagFromTask = useCallback(async (taskId: string, tagId: string) => {
     const ok = await detachTagFromTaskService(taskId, tagId);
     if (!ok) return;
     // refresh this task's tags
     const mapping = await getTagsByTaskIdsService([taskId]);
     setTaskIdToTags(prev => ({ ...prev, ...mapping }));
-  };
+  }, []);
 
-  const listAllTags = async (projectId?: string | null) => {
+  const listAllTags = useCallback(async (projectId?: string | null) => {
     // If projectId is undefined, fetch ALL tags (for tag management UI)
     if (projectId === undefined) {
       return await fetchAllTagsService(undefined);
@@ -232,10 +244,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     
     // If explicitly requesting only global tags
     return await fetchAllTagsService(projectId);
-  };
+  }, []);
 
   // 刷新所有标签缓存
-  const refreshAllTags = async () => {
+  const refreshAllTags = useCallback(async () => {
     try {
       const allTags = await fetchAllTagsService(undefined);
       
@@ -261,10 +273,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       console.error("Failed to refresh tags:", error);
       return false;
     }
-  };
+  }, []);
 
   // 修改createTag函数，更新后刷新缓存
-  const createTag = async (name: string, projectId?: string | null) => {
+  const createTag = useCallback(async (name: string, projectId?: string | null) => {
     const tag = await createTagService(name, projectId);
     // 更新缓存并 bump 版本（若创建成功）
     if (tag) {
@@ -279,10 +291,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       setTagsVersion(v => v + 1);
     }
     return tag;
-  };
+  }, []);
 
   // 修改deleteTagPermanently函数
-  const deleteTagPermanently = async (tagId: string): Promise<boolean> => {
+  const deleteTagPermanently = useCallback(async (tagId: string): Promise<boolean> => {
     const ok = await deleteTagByIdService(tagId);
     if (ok) {
       // 从缓存中移除并 bump 版本
@@ -304,10 +316,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       setTagsVersion(v => v + 1);
     }
     return ok;
-  };
+  }, []);
 
   // 修改updateTagProject函数
-  const updateTagProject = async (tagId: string, projectId: string | null): Promise<Tag | null> => {
+  const updateTagProject = useCallback(async (tagId: string, projectId: string | null): Promise<Tag | null> => {
     const updatedTag = await updateTagProjectService(tagId, projectId);
     if (updatedTag) {
       // 刷新标签缓存
@@ -328,12 +340,12 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       setTagsVersion(v => v + 1);
     }
     return updatedTag;
-  };
+  }, []);
 
-  const getAllTagUsageCounts = () => {
+  const getAllTagUsageCounts = useCallback(() => {
     const counts: Record<string, number> = {};
     // 只统计待办状态的任务（未完成且未放弃的任务）
-    const pendingTasks = tasks.filter(task => !task.completed && !task.abandoned);
+    const pendingTasks = tasksRef.current.filter(task => !task.completed && !task.abandoned);
     pendingTasks.forEach(task => {
       const tags = taskIdToTags[task.id] || [];
       tags.forEach(tag => {
@@ -341,14 +353,14 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       });
     });
     return counts;
-  };
+  }, [taskIdToTags]);
 
   // 全局标签：不再区分 projectId，统一使用 'global' 作为缓存键
   const keyForProject = (projectId?: string | null): string => {
     return (projectId ?? null) === null ? 'global' : projectId as string;
   };
 
-  const getCachedTags = (projectId?: string | null): Tag[] => {
+  const getCachedTags = useCallback((projectId?: string | null): Tag[] => {
     // 获取项目特定的标签
     const key = keyForProject(projectId);
     const projectSpecificTags = tagsCache[key] || [];
@@ -360,10 +372,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     }
     
     return projectSpecificTags;
-  };
+  }, [tagsCache]);
 
   // 优化 ensureTagsLoaded 函数，先从缓存获取，必要时再加载
-  const ensureTagsLoaded = async (projectId?: string | null) => {
+  const ensureTagsLoaded = useCallback(async (projectId?: string | null) => {
     // Generate cache key for the requested scope
     const key = keyForProject(projectId);
     
@@ -384,10 +396,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     const data = await fetchAllTagsService(projectId);
     setTagsCache(prev => ({ ...prev, [key]: data }));
     setTagsVersion(v => v + 1);
-  };
+  }, [tagsCache]);
 
   // Move task to trash (soft delete)
-  const moveToTrash = async (id: string) => {
+  const moveToTrash = useCallback(async (id: string) => {
     try {
       if (!user) {
         toast({
@@ -404,7 +416,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       // Find the task before removing it from the tasks list
-      const taskToTrash = tasks.find(task => task.id === id);
+      const taskToTrash = tasksRef.current.find(task => task.id === id);
 
       // Remove from regular tasks
       setTasks((prev) => prev.filter((task) => task.id !== id));
@@ -420,17 +432,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       // Clear selection if the trashed task was selected
-      if (selectedTask?.id === id) {
-        setSelectedTask(null);
+      if (selectedTaskId === id) {
+        setSelectedTaskId(null);
       }
     } catch (error) {
       console.error("Failed to move task to trash:", error);
       throw error;
     }
-  };
+  }, [user, toast, selectedTaskId]);
 
   // Restore task from trash
-  const restoreFromTrash = async (id: string) => {
+  const restoreFromTrash = useCallback(async (id: string) => {
     try {
       if (!user) {
         toast({
@@ -447,7 +459,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       // Find the task before removing it from the trashed tasks list
-      const taskToRestore = trashedTasks.find(task => task.id === id);
+      const taskToRestore = trashedTasksRef.current.find(task => task.id === id);
 
       // Remove from trashed tasks
       setTrashedTasks((prev) => prev.filter((task) => task.id !== id));
@@ -465,10 +477,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       console.error("Failed to restore task from trash:", error);
       throw error;
     }
-  };
+  }, [user, toast]);
 
   // Permanently delete task
-  const deleteTask = async (id: string) => {
+  const deleteTask = useCallback(async (id: string) => {
     try {
       if (!user) {
         toast({
@@ -490,37 +502,32 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       // Also ensure it's removed from regular tasks (just in case)
       setTasks((prev) => prev.filter((task) => task.id !== id));
 
-      if (selectedTask?.id === id) {
-        setSelectedTask(null);
+      if (selectedTaskId === id) {
+        setSelectedTaskId(null);
       }
     } catch (error) {
       console.error("Failed to permanently delete task:", error);
       throw error;
     }
-  };
+  }, [user, toast, selectedTaskId]);
 
-  const selectTask = (id: string | null) => {
-    if (id === null) {
-      setSelectedTask(null);
-    } else {
-      const task = tasks.find((t) => t.id === id) || null;
-      setSelectedTask(task);
-    }
-  };
+  const selectTask = useCallback((id: string | null) => {
+    setSelectedTaskId(id);
+  }, []);
 
-  const selectProject = (id: string) => {
+  const selectProject = useCallback((id: string) => {
     // Save the selected project to localStorage
     localStorage.setItem(SELECTED_PROJECT_KEY, id);
     setSelectedProject(id);
-  };
+  }, []);
 
   // Reorder tasks
-  const reorderTasks = async (projectId: string, sourceIndex: number, destinationIndex: number, isCompletedArea = false) => {
+  const reorderTasks = useCallback(async (projectId: string, sourceIndex: number, destinationIndex: number, isCompletedArea = false) => {
     // If source and destination are the same, no need to reorder
     if (sourceIndex === destinationIndex) return;
 
     // Get only tasks for the specific project based on completion status
-    const projectTasks = tasks.filter(task =>
+    const projectTasks = tasksRef.current.filter(task =>
       task.project === projectId && task.completed === isCompletedArea
     );
 
@@ -561,7 +568,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         variant: "destructive"
       });
     }
-  };
+  }, [toast]);
 
   // Calculate project counts that will be used by both contexts
   const calculateProjectCounts = () => {
@@ -591,7 +598,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [tasks]);
 
   // Abandon a task
-  const abandonTask = async (id: string) => {
+  const abandonTask = useCallback(async (id: string) => {
     try {
       if (!user) {
         toast({
@@ -608,7 +615,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       // Find the task before removing it from the tasks list
-      const taskToAbandon = tasks.find(task => task.id === id);
+      const taskToAbandon = tasksRef.current.find(task => task.id === id);
 
       // Remove from regular tasks
       setTasks((prev) => prev.filter((task) => task.id !== id));
@@ -626,17 +633,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       // Clear selection if the abandoned task was selected
-      if (selectedTask?.id === id) {
-        setSelectedTask(null);
+      if (selectedTaskId === id) {
+        setSelectedTaskId(null);
       }
     } catch (error) {
       console.error("Failed to abandon task:", error);
       throw error;
     }
-  };
+  }, [user, toast, selectedTaskId]);
 
   // Restore task from abandoned
-  const restoreAbandonedTask = async (id: string) => {
+  const restoreAbandonedTask = useCallback(async (id: string) => {
     try {
       if (!user) {
         toast({
@@ -653,7 +660,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       // Find the task before removing it from the abandoned tasks list
-      const taskToRestore = abandonedTasks.find(task => task.id === id);
+      const taskToRestore = abandonedTasksRef.current.find(task => task.id === id);
 
       // Remove from abandoned tasks
       setAbandonedTasks((prev) => prev.filter((task) => task.id !== id));
@@ -671,54 +678,90 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       console.error("Failed to restore abandoned task:", error);
       throw error;
     }
-  };
+  }, [user, toast]);
 
   // Get the count of tasks in trash
-  const getTrashCount = () => {
-    return trashedTasks.length;
-  };
+  const getTrashCount = useCallback(() => {
+    return trashedTasksRef.current.length;
+  }, []);
 
   // Get the count of abandoned tasks
-  const getAbandonedCount = () => {
-    return abandonedTasks.length;
-  };
+  const getAbandonedCount = useCallback(() => {
+    return abandonedTasksRef.current.length;
+  }, []);
+
+  const getProjectTaskCountForProject = useCallback((projectId: string) => {
+    return getProjectTaskCount(tasksRef.current, projectId);
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    tasks,
+    trashedTasks,
+    abandonedTasks,
+    loading,
+    selectedTask,
+    selectedProject,
+    addTask,
+    updateTask,
+    moveToTrash,
+    restoreFromTrash,
+    deleteTask,
+    abandonTask,
+    restoreAbandonedTask,
+    selectTask,
+    selectProject,
+    reorderTasks,
+    getProjectTaskCount: getProjectTaskCountForProject,
+    getTrashCount,
+    getAbandonedCount,
+    getTaskTags,
+    attachTagToTask,
+    detachTagFromTask,
+    listAllTags,
+    createTag,
+    deleteTagPermanently,
+    updateTagProject,
+    refreshAllTags,
+    getAllTagUsageCounts,
+    getCachedTags,
+    ensureTagsLoaded,
+    tagsVersion,
+  }), [
+    tasks,
+    trashedTasks,
+    abandonedTasks,
+    loading,
+    selectedTask,
+    selectedProject,
+    addTask,
+    updateTask,
+    moveToTrash,
+    restoreFromTrash,
+    deleteTask,
+    abandonTask,
+    restoreAbandonedTask,
+    selectTask,
+    selectProject,
+    reorderTasks,
+    getProjectTaskCountForProject,
+    getTrashCount,
+    getAbandonedCount,
+    getTaskTags,
+    attachTagToTask,
+    detachTagFromTask,
+    listAllTags,
+    createTag,
+    deleteTagPermanently,
+    updateTagProject,
+    refreshAllTags,
+    getAllTagUsageCounts,
+    getCachedTags,
+    ensureTagsLoaded,
+    tagsVersion,
+  ]);
 
   return (
-    <TaskContext.Provider
-      value={{
-        tasks,
-        trashedTasks,
-        abandonedTasks,
-        loading,
-        selectedTask,
-        selectedProject,
-        addTask,
-        updateTask,
-        moveToTrash,
-        restoreFromTrash,
-        deleteTask,
-        abandonTask,
-        restoreAbandonedTask,
-        selectTask,
-        selectProject,
-        reorderTasks,
-        getProjectTaskCount: (projectId: string) => getProjectTaskCount(tasks, projectId),
-        getTrashCount,
-        getAbandonedCount,
-        getTaskTags,
-        attachTagToTask,
-        detachTagFromTask,
-        listAllTags,
-        createTag,
-        deleteTagPermanently,
-        updateTagProject,
-        refreshAllTags,
-        getAllTagUsageCounts,
-        getCachedTags,
-        ensureTagsLoaded,
-        tagsVersion,
-      }}
-    >
+    <TaskContext.Provider value={contextValue}>
       {children}
     </TaskContext.Provider>
   );
