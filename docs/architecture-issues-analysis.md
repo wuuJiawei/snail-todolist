@@ -652,7 +652,7 @@ export const useTasks = (projectId: string) => {
 以下改动成本低但效果明显：
 
 - [x] **修复toast时机** - 30分钟（2025-11-06 已完成）
-- [ ] **调整debounce时间** - 5分钟  
+- [x] **调整debounce时间** - 5分钟（2025-11-06 已完成）  
 - [ ] **添加请求loading指示器** - 1小时
 - [ ] **创建TaskListSkeleton** - 2小时
 - [ ] **优化TaskProvider的重渲染** - 1小时

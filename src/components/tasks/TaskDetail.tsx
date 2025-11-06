@@ -71,7 +71,8 @@ const TaskDetail = () => {
       // 关键修复：在任务切换前，强制刷新pending的debounced save
       if (isNewTaskSelection && previousTaskIdRef.current !== null) {
         // 立即执行pending的保存操作，防止快速切换导致内容丢失
-        debouncedSave.flush();
+        debouncedTitleSave.flush();
+        debouncedContentSave.flush();
       }
       
       previousTaskIdRef.current = selectedTask.id;
@@ -162,8 +163,22 @@ const TaskDetail = () => {
     }
   }, [selectedTask, updateTask, toast]);
 
-  // Reduce debounce time for better responsiveness
-  const debouncedSave = useDebouncedCallback(saveTask, 800);
+  // 更细粒度的防抖：标题与正文分别处理
+  const debouncedTitleSave = useDebouncedCallback(
+    (title: string, taskId?: string) => {
+      saveTask({ title }, taskId);
+    },
+    350,
+    { maxWait: 1200 }
+  );
+
+  const debouncedContentSave = useDebouncedCallback(
+    (content: string, taskId?: string) => {
+      saveTask({ description: content }, taskId);
+    },
+    600,
+    { maxWait: 2000 }
+  );
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newTitle = e.target.value;
@@ -180,7 +195,9 @@ const TaskDetail = () => {
     
     // During IME composition, don't save immediately
     if (!isTitleComposing) {
-      debouncedSave({ title: newTitle });
+      if (selectedTask) {
+        debouncedTitleSave(newTitle, selectedTask.id);
+      }
     }
     
     // Clear existing timeout and set new one to mark end of typing
@@ -204,7 +221,9 @@ const TaskDetail = () => {
     const newTitle = e.currentTarget.value;
     
     // Save the final title when composition ends
-    debouncedSave({ title: newTitle });
+    if (selectedTask) {
+      debouncedTitleSave(newTitle, selectedTask.id);
+    }
   };
 
   const handleCompletedChange = (checked: boolean | 'indeterminate') => {
@@ -256,11 +275,13 @@ const TaskDetail = () => {
       setEditorContent(content);
 
       // Debounce the actual save operation，传入当前任务ID
-      debouncedSave({ description: content }, selectedTask.id);
+      debouncedContentSave(content, selectedTask.id);
     }
   };
 
   const handleClose = () => {
+    debouncedTitleSave.flush();
+    debouncedContentSave.flush();
     selectTask(null);
   };
 
