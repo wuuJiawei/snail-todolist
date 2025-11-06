@@ -1,10 +1,8 @@
 
 import React, { useState, ReactNode, useEffect, useMemo, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task } from "@/types/task";
 import {
-  fetchTasks,
-  fetchDeletedTasks,
-  fetchAbandonedTasks,
   addTask as addTaskService,
   updateTask as updateTaskService,
   deleteTask as deleteTaskService,
@@ -20,8 +18,10 @@ import { SELECTED_PROJECT_KEY } from "./types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeadlineNotifications } from "@/hooks/useDeadlineNotifications";
 import { Tag } from "@/types/tag";
-import { fetchAllTags as fetchAllTagsService, getTagsByTaskIds as getTagsByTaskIdsService, attachTagToTask as attachTagToTaskService, detachTagFromTask as detachTagFromTaskService, createTag as createTagService, deleteTagById as deleteTagByIdService, updateTagProject as updateTagProjectService, renameTag as renameTagService } from "@/services/tagService";
+import { fetchAllTags as fetchAllTagsService, getTagsByTaskIds as getTagsByTaskIdsService, attachTagToTask as attachTagToTaskService, detachTagFromTask as detachTagFromTaskService, createTag as createTagService, deleteTagById as deleteTagByIdService, updateTagProject as updateTagProjectService } from "@/services/tagService";
 import { useTaskStore } from "@/store/taskStore";
+import { taskKeys, taskQueries } from "@/queries/taskQueries";
+import { tagKeys, tagQueries } from "@/queries/tagQueries";
 
 interface TaskProviderProps {
   children: ReactNode;
@@ -86,69 +86,73 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     enabled: true 
   });
 
-  // 加载任务数据和标签数据
+  const queryClient = useQueryClient();
+
+  const {
+    data: activeTasks = [],
+    isPending: isActivePending,
+    isSuccess: isActiveSuccess,
+  } = useQuery({
+    ...taskQueries.active(),
+    enabled: !!user,
+  });
+
   useEffect(() => {
-    const loadTasks = async () => {
-      if (!user) {
-        setTasks([]);
-        setTrashedTasks([]);
-        setAbandonedTasks([]);
+    if (user) return;
+    setTasks([]);
+    setTrashedTasks([]);
+    setAbandonedTasks([]);
+    setTaskIdToTags({});
+    setTagsCache({});
+    setTrashedLoaded(false);
+    setAbandonedLoaded(false);
+    setTrashedLoading(false);
+    setAbandonedLoading(false);
+    setLoading(false);
+    setHasLoaded(false);
+    setSelectedTaskId(null);
+    queryClient.removeQueries({ queryKey: taskKeys.all });
+  }, [user, setTasks, setTrashedTasks, setAbandonedTasks, setTaskIdToTags, setTagsCache, setTrashedLoaded, setAbandonedLoaded, setTrashedLoading, setAbandonedLoading, setLoading, setHasLoaded, setSelectedTaskId, queryClient]);
+
+  useEffect(() => {
+    setLoading(isActivePending);
+  }, [isActivePending, setLoading]);
+
+  useEffect(() => {
+    if (!isActiveSuccess) return;
+
+    setTasks(activeTasks);
+
+    if (!hasLoaded) {
+      setTrashedTasks([]);
+      setAbandonedTasks([]);
+      setTrashedLoaded(false);
+      setAbandonedLoaded(false);
+      setTrashedLoading(false);
+      setAbandonedLoading(false);
+      setTagsCache({});
+    }
+
+    setHasLoaded(true);
+
+    const loadTagsForTasks = async () => {
+      const activeTaskIds = activeTasks.map((task) => task.id);
+      if (activeTaskIds.length === 0) {
         setTaskIdToTags({});
-        setTagsCache({}); // 清空标签缓存
-        setTrashedLoaded(false);
-        setAbandonedLoaded(false);
-        setTrashedLoading(false);
-        setAbandonedLoading(false);
-        setLoading(false);
-        setHasLoaded(false);
-        setSelectedTaskId(null);
         return;
       }
 
-      // Skip if already loaded
-      if (hasLoaded) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
       try {
-        const data = await fetchTasks();
-
-        setTasks(data);
-        setTrashedTasks([]);
-        setAbandonedTasks([]);
-        setTrashedLoaded(false);
-        setAbandonedLoaded(false);
-        setTrashedLoading(false);
-        setAbandonedLoading(false);
-
-        setTagsCache({});
-
-        const activeTaskIds = data.map(t => t.id);
-        if (activeTaskIds.length > 0) {
-          const mapping = await getTagsByTaskIdsService(activeTaskIds);
-          setTaskIdToTags(mapping);
-        } else {
-          setTaskIdToTags({});
-        }
-
-        setHasLoaded(true);
-        incrementTagsVersion(); // 更新标签版本
+        const mapping = await getTagsByTaskIdsService(activeTaskIds);
+        setTaskIdToTags(mapping);
+        incrementTagsVersion();
       } catch (error) {
-        console.error("Failed to load tasks:", error);
-        toast({
-          title: "读取任务失败",
-          description: "无法加载任务，请刷新页面重试",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
+        console.error("Failed to load tags for tasks:", error);
       }
     };
 
-    loadTasks();
-  }, [toast, user, hasLoaded, setTasks, setTrashedTasks, setAbandonedTasks, setTaskIdToTags, setTagsCache, setTrashedLoaded, setAbandonedLoaded, setTrashedLoading, setAbandonedLoading, setLoading, setHasLoaded, incrementTagsVersion, setSelectedTaskId]);
+    loadTagsForTasks();
+  }, [activeTasks, isActiveSuccess, hasLoaded, setTasks, setTrashedTasks, setAbandonedTasks, setTrashedLoaded, setAbandonedLoaded, setTrashedLoading, setAbandonedLoading, setTagsCache, setHasLoaded, setTaskIdToTags, incrementTagsVersion]);
 
   // Add task
   const addTask = useCallback(async (task: Omit<Task, "id">) => {
@@ -177,6 +181,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         }
 
         replaceTaskById(tempId, newTask);
+        queryClient.invalidateQueries({ queryKey: taskKeys.active() });
       } catch (error) {
         removeTask(tempId);
         throw error;
@@ -185,7 +190,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       console.error("Failed to add task:", error);
       throw error;
     }
-  }, [user, toast, insertOptimisticTask, replaceTaskById, removeTask]);
+  }, [user, toast, insertOptimisticTask, replaceTaskById, removeTask, queryClient]);
 
   // Update task
   const updateTask = useCallback(async (id: string, updatedTask: Partial<Task>) => {
@@ -228,12 +233,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       setTasks((current) =>
         current.map((task) => (task.id === id ? { ...task, ...updated } : task))
       );
+      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
       setTasks(previousTasks);
       console.error("Failed to update task:", error);
       throw error;
     }
-  }, [toast, user, setTasks]);
+  }, [toast, user, setTasks, queryClient]);
 
   const loadTrashedTasks = useCallback(async () => {
     if (!user) return;
@@ -241,7 +247,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
     setTrashedLoading(true);
     try {
-      const data = await fetchDeletedTasks();
+      const data = await queryClient.ensureQueryData(taskQueries.trashed());
       setTrashedTasks(data);
       setTrashedLoaded(true);
     } catch (error) {
@@ -254,7 +260,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     } finally {
       setTrashedLoading(false);
     }
-  }, [user, trashedLoaded, trashedLoading, toast, setTrashedLoading, setTrashedTasks, setTrashedLoaded]);
+  }, [user, trashedLoaded, trashedLoading, toast, setTrashedLoading, setTrashedTasks, setTrashedLoaded, queryClient]);
 
   const loadAbandonedTasks = useCallback(async () => {
     if (!user) return;
@@ -262,7 +268,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
     setAbandonedLoading(true);
     try {
-      const data = await fetchAbandonedTasks();
+      const data = await queryClient.ensureQueryData(taskQueries.abandoned());
       setAbandonedTasks(data);
       setAbandonedLoaded(true);
     } catch (error) {
@@ -275,7 +281,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     } finally {
       setAbandonedLoading(false);
     }
-  }, [user, abandonedLoaded, abandonedLoading, toast, setAbandonedLoading, setAbandonedTasks, setAbandonedLoaded]);
+  }, [user, abandonedLoaded, abandonedLoading, toast, setAbandonedLoading, setAbandonedTasks, setAbandonedLoaded, queryClient]);
 
   // tags helpers
   const getTaskTags = useCallback((taskId: string): Tag[] => taskIdToTags[taskId] || [], [taskIdToTags]);
@@ -298,107 +304,130 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     setTaskIdToTags({ ...current, ...mapping });
   }, [setTaskIdToTags]);
 
+  const keyForProject = (projectId?: string | null): string => {
+    return (projectId ?? null) === null ? "global" : (projectId as string);
+  };
+
   const listAllTags = useCallback(async (projectId?: string | null) => {
-    // If projectId is undefined, fetch ALL tags (for tag management UI)
     if (projectId === undefined) {
       return await fetchAllTagsService(undefined);
     }
-    
-    // If requesting a specific project's tags, get project-specific tags + global tags
-    // This mirrors the behavior of getCachedTags
-    if (projectId !== null) {
-      const projectTags = await fetchAllTagsService(projectId);
-      const globalTags = await fetchAllTagsService(null);
-      return [...projectTags, ...globalTags];
+
+    const scope = projectId ?? null;
+    const data = await queryClient.ensureQueryData(tagQueries.forScope(scope));
+    const store = useTaskStore.getState();
+    const nextCache: Record<string, Tag[]> = {
+      ...store.tagsCache,
+      [keyForProject(scope)]: data,
+    };
+
+    let result: Tag[] = data;
+    if (projectId !== null && projectId !== undefined) {
+      const globalData = await queryClient.ensureQueryData(tagQueries.forScope(null));
+      nextCache[keyForProject(null)] = globalData;
+      result = [...data, ...globalData];
     }
-    
-    // If explicitly requesting only global tags
-    return await fetchAllTagsService(projectId);
-  }, []);
+
+    store.setTagsCache(nextCache);
+    store.incrementTagsVersion();
+
+    return result;
+  }, [queryClient]);
 
   // 刷新所有标签缓存
   const refreshAllTags = useCallback(async () => {
     try {
-      const allTags = await fetchAllTagsService(undefined);
-      
-      // 构建新的标签缓存 - 按项目分组
-      const newTagsCache: Record<string, Tag[]> = {
-        'global': allTags.filter(tag => tag.project_id === null)
-      };
-      
-      // 为每个项目建立标签缓存
-      allTags.forEach(tag => {
-        if (tag.project_id) {
-          if (!newTagsCache[tag.project_id]) {
-            newTagsCache[tag.project_id] = [];
-          }
-          newTagsCache[tag.project_id].push(tag);
-        }
+      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
+      const cacheKeys = Object.keys(useTaskStore.getState().tagsCache);
+      const scopes = cacheKeys.length > 0 ? cacheKeys : ["global"];
+      const results = await Promise.all(
+        scopes.map((scope) => {
+          const projectScope = scope === "global" ? null : scope;
+          return queryClient.ensureQueryData(tagQueries.forScope(projectScope));
+        })
+      );
+
+      const nextCache: Record<string, Tag[]> = {};
+      scopes.forEach((scope, index) => {
+        nextCache[scope] = results[index];
       });
-      
+
       const store = useTaskStore.getState();
-      store.setTagsCache(newTagsCache);
+      store.setTagsCache(nextCache);
       store.incrementTagsVersion();
       return true;
     } catch (error) {
       console.error("Failed to refresh tags:", error);
       return false;
     }
-  }, []);
+  }, [queryClient]);
+
+  const ensureTagsLoaded = useCallback(async (projectId?: string | null) => {
+    const store = useTaskStore.getState();
+    const nextCache: Record<string, Tag[]> = { ...store.tagsCache };
+
+    const loadScope = async (scope: string | null) => {
+      const data = await queryClient.ensureQueryData(tagQueries.forScope(scope));
+      nextCache[keyForProject(scope)] = data;
+    };
+
+    if (projectId !== null && projectId !== undefined) {
+      await loadScope(null);
+    }
+
+    await loadScope(projectId ?? null);
+
+    store.setTagsCache(nextCache);
+    store.incrementTagsVersion();
+  }, [queryClient]);
 
   // 修改createTag函数，更新后刷新缓存
   const createTag = useCallback(async (name: string, projectId?: string | null) => {
     const tag = await createTagService(name, projectId);
-    // 更新缓存并 bump 版本（若创建成功）
     if (tag) {
-      // 使用快速缓存更新
-      const key = (projectId ?? null) === null ? 'global' : (projectId as string);
-      const cache = useTaskStore.getState().tagsCache;
-      const cur = cache[key] || [];
-      if (!cur.some(t => t.id === tag.id)) {
-        const store = useTaskStore.getState();
-        store.setTagsCache({ ...cache, [key]: [tag, ...cur] });
-        store.incrementTagsVersion();
+      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
+      if (projectId !== null && projectId !== undefined) {
+        await ensureTagsLoaded(projectId);
       }
+      await ensureTagsLoaded(null);
     }
     return tag;
-  }, []);
+  }, [queryClient, ensureTagsLoaded]);
 
   // 修改deleteTagPermanently函数
   const deleteTagPermanently = useCallback(async (tagId: string): Promise<boolean> => {
     const ok = await deleteTagByIdService(tagId);
     if (ok) {
-      // 从缓存中移除并 bump 版本
+      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       const cache = useTaskStore.getState().tagsCache;
       const nextCache: Record<string, Tag[]> = {};
-      Object.keys(cache).forEach(k => {
-        nextCache[k] = (cache[k] || []).filter(t => t.id !== tagId);
+      Object.keys(cache).forEach((k) => {
+        nextCache[k] = (cache[k] || []).filter((t) => t.id !== tagId);
       });
       const store = useTaskStore.getState();
       store.setTagsCache(nextCache);
-      // 从任务-标签映射中移除该标签
       const mapping = useTaskStore.getState().taskIdToTags;
       const mappingNext: Record<string, Tag[]> = {};
-      Object.keys(mapping).forEach(taskId => {
-        mappingNext[taskId] = (mapping[taskId] || []).filter(t => t.id !== tagId);
+      Object.keys(mapping).forEach((taskId) => {
+        mappingNext[taskId] = (mapping[taskId] || []).filter((t) => t.id !== tagId);
       });
       store.setTaskIdToTags(mappingNext);
       store.incrementTagsVersion();
     }
     return ok;
-  }, []);
+  }, [queryClient]);
 
   // 修改updateTagProject函数
   const updateTagProject = useCallback(async (tagId: string, projectId: string | null): Promise<Tag | null> => {
     const updatedTag = await updateTagProjectService(tagId, projectId);
     if (updatedTag) {
-      // 刷新标签缓存
+      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       const cache = useTaskStore.getState().tagsCache;
       const next = { ...cache };
-      Object.keys(next).forEach(key => {
-        next[key] = (next[key] || []).filter(t => t.id !== tagId);
+      Object.keys(next).forEach((key) => {
+        next[key] = (next[key] || []).filter((t) => t.id !== tagId);
       });
-      const targetKey = projectId === null ? 'global' : projectId;
+      const targetKey = projectId === null ? "global" : projectId;
       const targetList = next[targetKey] || [];
       next[targetKey] = [updatedTag, ...targetList];
       const store = useTaskStore.getState();
@@ -406,7 +435,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       store.incrementTagsVersion();
     }
     return updatedTag;
-  }, []);
+  }, [queryClient]);
 
   const getAllTagUsageCounts = useCallback(() => {
     const counts: Record<string, number> = {};
@@ -423,51 +452,23 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [taskIdToTags]);
 
   // 全局标签：不再区分 projectId，统一使用 'global' 作为缓存键
-  const keyForProject = (projectId?: string | null): string => {
-    return (projectId ?? null) === null ? 'global' : projectId as string;
-  };
-
   const getCachedTags = useCallback((projectId?: string | null): Tag[] => {
-    // 获取项目特定的标签
     const key = keyForProject(projectId);
-    const projectSpecificTags = tagsCache[key] || [];
-    
-    // 如果请求的是特定项目的标签，还需要包括全局标签
+    let projectSpecificTags = tagsCache[key];
+    if (!projectSpecificTags) {
+      projectSpecificTags = queryClient.getQueryData<Tag[]>(tagKeys.forScope(projectId ?? null)) || [];
+    }
+
     if (projectId !== null && projectId !== undefined) {
-      const globalTags = tagsCache['global'] || [];
+      let globalTags = tagsCache["global"];
+      if (!globalTags) {
+        globalTags = queryClient.getQueryData<Tag[]>(tagKeys.forScope(null)) || [];
+      }
       return [...projectSpecificTags, ...globalTags];
     }
-    
-    return projectSpecificTags;
-  }, [tagsCache]);
 
-  // 优化 ensureTagsLoaded 函数，先从缓存获取，必要时再加载
-  const ensureTagsLoaded = useCallback(async (projectId?: string | null) => {
-    // Generate cache key for the requested scope
-    const key = keyForProject(projectId);
-    
-    // Skip if we already have tags for this scope
-    const cacheSnapshot = useTaskStore.getState().tagsCache;
-    if (cacheSnapshot[key] && cacheSnapshot[key].length > 0) return;
-    
-    // 由于我们在初始化时已经预加载了所有标签，这里只需要在缓存缺失的情况下重新加载
-    // For projects, also ensure we have global tags cached
-    if (projectId !== null && projectId !== undefined) {
-      const globalKey = 'global';
-      if (!cacheSnapshot[globalKey] || cacheSnapshot[globalKey].length === 0) {
-        const globalData = await fetchAllTagsService(null);
-        const store = useTaskStore.getState();
-        store.setTagsCache({ ...cacheSnapshot, [globalKey]: globalData });
-        store.incrementTagsVersion();
-      }
-    }
-    
-    // 只有在缓存中没有对应项目的标签时才加载
-    const data = await fetchAllTagsService(projectId);
-    const store = useTaskStore.getState();
-    store.setTagsCache({ ...store.tagsCache, [key]: data });
-    store.incrementTagsVersion();
-  }, []);
+    return projectSpecificTags;
+  }, [tagsCache, queryClient]);
 
   // Move task to trash (soft delete)
   const moveToTrash = useCallback(async (id: string) => {
@@ -504,11 +505,14 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       if (selectedTaskId === id) {
         setSelectedTaskId(null);
       }
+
+      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.trashed() });
     } catch (error) {
       console.error("Failed to move task to trash:", error);
       throw error;
     }
-  }, [user, toast, selectedTaskId, setTasks, setTrashedTasks, setSelectedTaskId]);
+  }, [user, toast, selectedTaskId, setTasks, setTrashedTasks, setSelectedTaskId, queryClient]);
 
   // Restore task from trash
   const restoreFromTrash = useCallback(async (id: string) => {
@@ -543,11 +547,14 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         };
         setTasks([restoredTask, ...currentTasks]);
       }
+
+      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.trashed() });
     } catch (error) {
       console.error("Failed to restore task from trash:", error);
       throw error;
     }
-  }, [user, toast, setTrashedTasks, setTasks]);
+  }, [user, toast, setTrashedTasks, setTasks, queryClient]);
 
   // Permanently delete task
   const deleteTask = useCallback(async (id: string) => {
@@ -576,11 +583,14 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       if (selectedTaskId === id) {
         setSelectedTaskId(null);
       }
+
+      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.trashed() });
     } catch (error) {
       console.error("Failed to permanently delete task:", error);
       throw error;
     }
-  }, [user, toast, selectedTaskId, setTrashedTasks, setTasks, setSelectedTaskId]);
+  }, [user, toast, selectedTaskId, setTrashedTasks, setTasks, setSelectedTaskId, queryClient]);
 
   useEffect(() => {
     if (!user) return;
@@ -714,11 +724,14 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       if (selectedTaskId === id) {
         setSelectedTaskId(null);
       }
+
+      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.abandoned() });
     } catch (error) {
       console.error("Failed to abandon task:", error);
       throw error;
     }
-  }, [user, toast, selectedTaskId, setTasks, setAbandonedTasks, setSelectedTaskId]);
+  }, [user, toast, selectedTaskId, setTasks, setAbandonedTasks, setSelectedTaskId, queryClient]);
 
   // Restore task from abandoned
   const restoreAbandonedTask = useCallback(async (id: string) => {
@@ -753,11 +766,14 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         };
         setTasks([restoredTask, ...currentTasks]);
       }
+
+      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.abandoned() });
     } catch (error) {
       console.error("Failed to restore abandoned task:", error);
       throw error;
     }
-  }, [user, toast, setAbandonedTasks, setTasks]);
+  }, [user, toast, setAbandonedTasks, setTasks, queryClient]);
 
   // Get the count of tasks in trash
   const getTrashCount = useCallback(() => {

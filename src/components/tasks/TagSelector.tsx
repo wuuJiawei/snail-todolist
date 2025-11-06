@@ -27,6 +27,14 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const normalizedProjectId = useMemo(() => {
+    if (typeof projectId !== "string") {
+      return projectId ?? null;
+    }
+    const trimmed = projectId.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }, [projectId]);
+
   // Filter tags based on project scope
   // Tags are visible if:
   // 1. They are global (project_id is null)
@@ -35,37 +43,39 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     const q = query.trim().toLowerCase();
     const filtered = availableTags.filter(tag => 
       // Filter by project scope
-      (tag.project_id === null || tag.project_id === projectId) &&
+      (tag.project_id === null || (normalizedProjectId ? tag.project_id === normalizedProjectId : tag.project_id === null)) &&
       // Filter by search query if present
       (!q || tag.name.toLowerCase().includes(q))
     );
     return filtered;
-  }, [availableTags, query, projectId]);
+  }, [availableTags, query, normalizedProjectId]);
 
   const selected = getTaskTags(taskId);
   const selectedIds = useMemo(() => new Set(selected.map(t => t.id)), [selected]);
 
   const refreshAvailableTags = useCallback(async () => {
+    const scope = normalizedProjectId;
     setLoading(true);
     try {
       // 首先尝试使用缓存数据
-      const cachedTags = getCachedTags(projectId);
-      if (cachedTags && cachedTags.length > 0) {
+      const cachedTags = getCachedTags(scope);
+      const hasProjectSpecific = scope ? cachedTags.some(tag => tag.project_id === scope) : true;
+      if (cachedTags && cachedTags.length > 0 && hasProjectSpecific) {
         setAvailableTags(cachedTags);
         setLoading(false);
         return;
       }
       
       // 如果缓存中没有，则加载
-      await ensureTagsLoaded(projectId);
-      const tags = getCachedTags(projectId);
+      await ensureTagsLoaded(scope);
+      const tags = getCachedTags(scope);
       setAvailableTags(tags);
     } catch (error) {
       console.error("Error loading tags:", error);
     } finally {
       setLoading(false);
     }
-  }, [getCachedTags, ensureTagsLoaded, projectId]);
+  }, [getCachedTags, ensureTagsLoaded, normalizedProjectId]);
 
   // 非内联（Popover）时：打开时加载
   useEffect(() => {
@@ -79,7 +89,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     if (inline) {
       refreshAvailableTags();
     }
-  }, [inline, projectId, refreshAvailableTags]);
+  }, [inline, normalizedProjectId, refreshAvailableTags]);
 
   // 监听缓存版本变化，保持本地列表同步
   useEffect(() => {
@@ -111,7 +121,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
       await attachTagToTask(taskId, created.id);
     } else {
       // 如果没创建成功（可能是已存在），尝试查找同名标签
-      const cachedTags = getCachedTags(projectId);
+      const cachedTags = getCachedTags(normalizedProjectId);
       const found = cachedTags.find(t => t.name.toLowerCase() === trimmed.toLowerCase());
       if (found) {
         await attachTagToTask(taskId, found.id);

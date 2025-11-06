@@ -232,10 +232,10 @@ import { cn } from "@/lib/utils"
 使用 React Context + Custom Hooks 模式：
 
 ```tsx
-// contexts/TaskContext.tsx
+// contexts/task/TaskContext.ts
 export const TaskContext = createContext<TaskContextType | null>(null);
 
-// hooks/useTaskContext.ts
+// contexts/task/useTaskContext.ts
 export const useTaskContext = () => {
   const context = useContext(TaskContext);
   if (!context) {

@@ -1,0 +1,65 @@
+import React from "react";
+import VditorEditor from "./VditorEditor";
+import TaskAttachments from "./TaskAttachments";
+import type { TaskAttachment } from "@/types/task";
+
+export type EditorBridge = {
+  blocksToMarkdownLossy: () => Promise<string>;
+};
+
+export interface TaskDetailContentProps {
+  taskId: string;
+  editorContent: string;
+  isTaskInTrash: boolean;
+  isEditorUpdating: boolean;
+  onEditorChange: (content: string) => void;
+  onEditorReady: (bridge: EditorBridge | null) => void;
+  attachments: TaskAttachment[];
+  onAttachmentsChange: (attachments: TaskAttachment[]) => void;
+}
+
+const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
+  taskId,
+  editorContent,
+  isTaskInTrash,
+  isEditorUpdating,
+  onEditorChange,
+  onEditorReady,
+  attachments,
+  onAttachmentsChange,
+}) => {
+  return (
+    <>
+      <div className="w-full flex-1 overflow-visible relative">
+        {!isEditorUpdating && (
+          <VditorEditor
+            taskId={taskId}
+            content={editorContent}
+            onChange={onEditorChange}
+            readOnly={isTaskInTrash}
+            onEditorReady={onEditorReady}
+            attachments={attachments}
+            onAttachmentsChange={onAttachmentsChange}
+          />
+        )}
+        {isTaskInTrash && (
+          <div className="mt-4 p-3 bg-muted/50 rounded-md text-sm text-muted-foreground">
+            <p>此任务已在垃圾桶中，无法编辑。如需编辑，请先恢复任务。</p>
+          </div>
+        )}
+      </div>
+      {attachments.length > 0 && (
+        <div className="px-3 pb-3 border-t pt-3 mt-2">
+          <TaskAttachments
+            attachments={attachments}
+            onAttachmentsChange={onAttachmentsChange}
+            readOnly={isTaskInTrash}
+          />
+        </div>
+      )}
+    </>
+  );
+};
+
+export default TaskDetailContent;
+

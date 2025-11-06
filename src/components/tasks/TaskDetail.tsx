@@ -1,38 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import { useTaskContext } from "@/contexts/task";
 import { TaskAttachment } from "@/types/task";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Calendar as CalendarIcon, X, MoreHorizontal, Copy } from "lucide-react";
-import { cn } from "@/lib/utils";
-import DueDatePickerContent from "./DueDatePickerContent";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { format, parseISO, isValid } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { formatDateText } from "@/utils/taskUtils";
-import VditorEditor from "./VditorEditor";
 import TaskDetailSkeleton from "@/components/tasks/TaskDetailSkeleton";
-import TagSelector from "./TagSelector";
-import TaskAttachments from "./TaskAttachments";
 import { useDebouncedCallback } from 'use-debounce';
-
-type EditorBridge = {
-  blocksToMarkdownLossy: () => Promise<string>;
-};
+import TaskDetailHeader from "./TaskDetailHeader";
+import TaskDetailTitleSection from "./TaskDetailTitleSection";
+import TaskDetailContent, { EditorBridge } from "./TaskDetailContent";
 
 const TaskDetail = () => {
   const { selectedTask, updateTask, selectTask, trashedTasks } = useTaskContext();
@@ -54,7 +31,6 @@ const TaskDetail = () => {
   
   // Add refs to track user input state
   const isUserTypingRef = useRef(false);
-  const lastUserInputTimeRef = useRef<number>(0);
   const userInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if the selected task is in the trash
@@ -184,7 +160,6 @@ const TaskDetail = () => {
     
     // Mark user as typing and record input time
     isUserTypingRef.current = true;
-    lastUserInputTimeRef.current = Date.now();
     shouldRestoreCursorRef.current = true;
     
     // Store cursor position before state update
@@ -284,6 +259,11 @@ const TaskDetail = () => {
     selectTask(null);
   };
 
+  const handleAttachmentsChange = useCallback((newAttachments: TaskAttachment[]) => {
+    setAttachments(newAttachments);
+    saveTask({ attachments: newAttachments });
+  }, [saveTask]);
+
   const handleCopyAsMarkdown = async () => {
     if (!selectedTask || !blockNoteEditor) return;
     
@@ -370,137 +350,44 @@ const TaskDetail = () => {
     return <TaskDetailSkeleton />;
   }
 
+  const completedAtLabel = formatCompletedAt();
+  const deletedAtLabel = isTaskInTrash ? formatDeletedAt() : "";
+
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
-      <div className="p-3 flex items-center justify-between border-b">
-        <div className="flex items-center gap-3">
-          <Checkbox
-            checked={completed}
-            onCheckedChange={handleCompletedChange}
-            className="rounded-full h-5 w-5"
-            disabled={isTaskInTrash}
-          />
-          <Separator orientation="vertical" />
-          {isTaskInTrash ? (
-            <div className="text-xs px-2 py-1 bg-muted rounded-md flex items-center">
-              <CalendarIcon className="mr-2 h-3 w-3" />
-              {selectedDate ? formatDateText(selectedDate) : "无截止日期"}
-            </div>
-          ) : (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn(
-                  "text-xs h-7",
-                )}>
-                  <CalendarIcon className="mr-2 h-3 w-3" />
-                  {selectedDate ? formatDateText(selectedDate) : "添加截止日期"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <DueDatePickerContent
-                  selectedDate={selectedDate}
-                  onChange={handleDateChange}
-                  removeLabel="移除截止日期"
-                />
-              </PopoverContent>
-          </Popover>
-        )}
-        </div>
-        <div className="flex items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleCopyAsMarkdown}>
-                <Copy className="mr-2 h-4 w-4" />
-                复制为 Markdown
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="ghost" size="icon" onClick={handleClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <TaskDetailHeader
+        completed={completed}
+        isTaskInTrash={isTaskInTrash}
+        selectedDate={selectedDate}
+        onCompletedChange={handleCompletedChange}
+        onDateChange={handleDateChange}
+        onCopyAsMarkdown={handleCopyAsMarkdown}
+        onClose={handleClose}
+      />
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col">
-        <div className="space-y-0">
-          <div className="flex items-center gap-3">
-            {isTaskInTrash ? (
-              <div className="flex-1 text-lg font-medium px-3 min-h-[40px] py-2 overflow-hidden">
-                {title}
-              </div>
-            ) : (
-              <Textarea
-                ref={titleTextareaRef}
-                value={title}
-                onChange={handleTitleChange}
-                onCompositionStart={handleTitleCompositionStart}
-                onCompositionEnd={handleTitleCompositionEnd}
-                className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-lg font-medium px-3 min-h-[32px] resize-none overflow-hidden"
-                placeholder="任务标题"
-                onInput={(e) => {
-                  const target = e.target as HTMLTextAreaElement;
-                  target.style.height = 'auto';
-                  target.style.height = `${target.scrollHeight}px`;
-                }}
-              />
-            )}
-          </div>
-          {/* tags row */}
-          {selectedTask && (
-            <div className="px-3 py-1">
-              <TagSelector taskId={selectedTask.id} projectId={selectedTask.project ?? null} readOnly={isTaskInTrash} />
-            </div>
-          )}
-          <div className="text-xs text-gray-500 ml-1 mt-1 space-y-1">
-            {selectedTask.completed_at && (
-              <div>{formatCompletedAt()}</div>
-            )}
-            {isTaskInTrash && selectedTask.deleted_at && (
-              <div className="text-amber-600">{formatDeletedAt()}</div>
-            )}
-          </div>
-        </div>
+        <TaskDetailTitleSection
+          title={title}
+          titleRef={titleTextareaRef}
+          isTaskInTrash={isTaskInTrash}
+          onTitleChange={handleTitleChange}
+          onCompositionStart={handleTitleCompositionStart}
+          onCompositionEnd={handleTitleCompositionEnd}
+          selectedTask={selectedTask}
+          completedAtLabel={completedAtLabel}
+          deletedAtLabel={deletedAtLabel}
+        />
 
-        <div className="w-full flex-1 overflow-visible relative">
-          {!isEditorUpdating && (
-            <VditorEditor
-              taskId={selectedTask.id}
-              content={editorContent}
-              onChange={handleEditorChange}
-              readOnly={isTaskInTrash}
-              onEditorReady={setBlockNoteEditor}
-              attachments={attachments}
-              onAttachmentsChange={(newAttachments) => {
-                setAttachments(newAttachments);
-                saveTask({ attachments: newAttachments });
-              }}
-            />
-          )}
-          {isTaskInTrash && (
-            <div className="mt-4 p-3 bg-muted/50 rounded-md text-sm text-muted-foreground">
-              <p>此任务已在垃圾桶中，无法编辑。如需编辑，请先恢复任务。</p>
-            </div>
-          )}
-        </div>
-
-        {/* File Attachments Section - 保留在底部，类似邮件附件 */}
-        {attachments.length > 0 && (
-          <div className="px-3 pb-3 border-t pt-3 mt-2">
-            <TaskAttachments
-              attachments={attachments}
-              onAttachmentsChange={(newAttachments) => {
-                setAttachments(newAttachments);
-                saveTask({ attachments: newAttachments });
-              }}
-              readOnly={isTaskInTrash}
-            />
-          </div>
-        )}
+        <TaskDetailContent
+          taskId={selectedTask.id}
+          editorContent={editorContent}
+          isTaskInTrash={isTaskInTrash}
+          isEditorUpdating={isEditorUpdating}
+          onEditorChange={handleEditorChange}
+          onEditorReady={setBlockNoteEditor}
+          attachments={attachments}
+          onAttachmentsChange={handleAttachmentsChange}
+        />
       </div>
     </div>
   );

@@ -637,16 +637,16 @@ export const useTasks = (projectId: string) => {
 - [x] 安装和配置Zustand（2025-11-06 已完成：引入依赖并搭建 `useTaskStore` 基础状态/动作）
 - [x] 迁移TaskContext到Zustand（2025-11-06 已完成：`TaskProvider` 全面改用 Zustand，实现状态、动作、懒加载和乐观更新接入）
 - [x] 迁移ProjectContext到Zustand（2025-11-06 已完成：新增 `useProjectStore`，`ProjectProvider` 改为 Zustand 驱动并保留原 API 行为）
-- [ ] 移除旧的Context
+- [x] 移除旧的Context（2025-11-06 已完成：删除 `TaskContext.tsx`、`task.tsx` 兼容层，更新全局导入路径）
 
 ### 第7-8周：引入React Query
-- [ ] 安装和配置React Query
-- [ ] 重构taskService使用React Query
-- [ ] 实现请求缓存和去重
-- [ ] 添加后台数据同步
+- [x] 安装和配置React Query（2025-11-06 已完成：在 `App.tsx` 配置 `QueryClientProvider`，并为任务数据定义统一的 query keys/options）
+- [x] 重构taskService使用React Query（2025-11-06 已完成：`TaskProvider` 通过 `taskQueries` 使用 `useQuery` 拉取活跃任务，mutation 成功后统一 `invalidateQueries`，同时接入 `queryClient.ensureQueryData` 规避重复请求）
+- [x] 实现请求缓存和去重（2025-11-06 已完成：新增 `taskQueries`、`tagQueries` 与 `useTags` hook，任务/标签懒加载均由 TanStack Query 提供缓存与请求合并，Context 层改为读取 query 缓存并落地到 Zustand）
+- [x] 添加后台数据同步（2025-11-06 已完成：为任务查询启用 60s 后台轮询与断网重连同步，确保窗口非激活时依然定期拉取最新列表）
 
 ### 第9-12周：组件重构
-- [ ] 拆分大组件
+- [x] 拆分大组件（2025-11-06 已完成：将 `TaskDetail` 拆解为 Header/Title/Content 子组件，明确输入输出、复用统一附件回调，降低单文件复杂度）
 - [ ] 统一错误处理
 - [ ] 添加单元测试
 - [ ] 性能优化和监控
