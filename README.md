@@ -1,4 +1,4 @@
-<div align="center">
+<div>
   <img src="./public/logo.png" alt="Snail TodoList Logo" width="120" height="120" />
   
   # 🐌 Snail TodoList
