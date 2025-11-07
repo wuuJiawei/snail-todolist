@@ -20,7 +20,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Auth from "@/pages/Auth";
 import AuthRoute from "@/components/AuthRoute";
 import AuthCallback from "@/pages/AuthCallback";
-import CheckInHistoryPage from "@/pages/CheckInHistoryPage";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -76,17 +75,6 @@ const App = () => {
                             <AppSidebar />
                             <div className="flex-1 overflow-hidden">
                               <Settings />
-                            </div>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="/checkin-history"
-                        element={
-                          <div className="flex h-screen overflow-hidden">
-                            <AppSidebar />
-                            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                              <CheckInHistoryPage />
                             </div>
                           </div>
                         }

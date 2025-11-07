@@ -1,36 +1,19 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { getCheckInHistory, getCheckInStreak, CheckInRecord } from "@/services/checkInService";
 import { Icon } from "@/components/ui/icon-park";
 import { Badge } from "@/components/ui/badge";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious
-} from "@/components/ui/pagination";
+import { Calendar } from "@/components/ui/calendar";
 
 interface CheckInHistoryProps {
   open: boolean;
@@ -41,48 +24,59 @@ const CheckInHistory: React.FC<CheckInHistoryProps> = ({
   open,
   onOpenChange
 }) => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<CheckInRecord[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [streak, setStreak] = useState(0);
-  const pageSize = 7;
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [lastCheckIn, setLastCheckIn] = useState<Date | null>(null);
+  const pageSize = 365; // Load up to one year of history for calendar view
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
-      const { records, total } = await getCheckInHistory(page, pageSize);
+      const { records, total } = await getCheckInHistory(1, pageSize);
       setRecords(records);
-      setTotal(total);
+      setTotalCount(total);
 
       // Get streak
       const currentStreak = await getCheckInStreak();
       setStreak(currentStreak);
+
+      const dates = Array.from(
+        new Set(records.map(record => {
+          const date = new Date(record.check_in_time);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }))
+      ).map(dateStr => {
+        const [year, month, day] = dateStr.split('-').map(Number);
+        return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+      });
+      setSelectedDates(dates);
+      if (records.length > 0) {
+        setLastCheckIn(new Date(records[0].check_in_time));
+      } else {
+        setLastCheckIn(null);
+      }
     } catch (error) {
       console.error("Error fetching check-in history:", error);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [pageSize]);
 
   useEffect(() => {
     if (open) {
       fetchHistory();
     }
-  }, [open, page, fetchHistory]);
-
-  const totalPages = Math.ceil(total / pageSize);
-
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setPage(newPage);
-    }
-  };
+  }, [open, fetchHistory]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <Icon icon="calendar-thirty" className="mr-2 text-gray-700 dark:text-gray-300" />
@@ -98,111 +92,85 @@ const CheckInHistory: React.FC<CheckInHistoryProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[400px] overflow-y-auto custom-scrollbar-thin">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>日期</TableHead>
-                <TableHead>时间</TableHead>
-                <TableHead>备注</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array(5).fill(0).map((_, index) => (
-                  <TableRow key={index}>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  </TableRow>
-                ))
-              ) : records.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center py-4 text-gray-500">
-                    暂无打卡记录
-                  </TableCell>
-                </TableRow>
-              ) : (
-                records.map((record) => {
-                  const date = new Date(record.check_in_time);
-                  return (
-                    <TableRow key={record.id}>
-                      <TableCell>
-                        {format(date, 'yyyy年MM月dd日', { locale: zhCN })}
-                      </TableCell>
-                      <TableCell>
-                        {format(date, 'HH:mm:ss')}
-                      </TableCell>
-                      <TableCell>
-                        {record.note || '-'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+        <div className="space-y-4">
+          {loading ? (
+            <div className="grid gap-2">
+              <Skeleton className="h-80 w-full rounded-md" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-1/3" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border/60 bg-background shadow-inner p-4">
+                <Calendar
+                  mode="multiple"
+                  selected={selectedDates}
+                  onSelect={() => {}}
+                  showOutsideDays={false}
+                  className="rounded-md [--cell-size:2.4rem]"
+                  modifiers={{ checkin: selectedDates }}
+                  modifiersStyles={{
+                    checkin: {
+                      backgroundColor: "var(--primary)",
+                      color: "var(--primary-foreground)",
+                    },
+                  }}
+                />
+              </div>
+
+              <div className="grid gap-3 text-sm text-gray-600 dark:text-gray-300 sm:grid-cols-2">
+                {[
+                  {
+                    label: "最近一次打卡",
+                    value: lastCheckIn ? format(lastCheckIn, "yyyy年MM月dd日 HH:mm", { locale: zhCN }) : "无",
+                    icon: "clock" as const,
+                    gradient: "from-primary/15 via-primary/5 to-transparent"
+                  },
+                  {
+                    label: "累计打卡",
+                    value: `${totalCount} 次`,
+                    icon: "increase" as const,
+                    gradient: "from-blue-200/30 via-blue-100/20 to-transparent dark:from-blue-500/10 dark:via-blue-400/10 dark:to-transparent"
+                  },
+                  {
+                    label: "当前连续",
+                    value: `${streak} 天`,
+                    icon: "fire" as const,
+                    gradient: "from-amber-200/30 via-amber-100/20 to-transparent dark:from-amber-500/10 dark:via-amber-400/10 dark:to-transparent"
+                  },
+                  {
+                    label: "打卡提醒",
+                    value: "坚持就是胜利，明天继续加油！",
+                    icon: "light" as const,
+                    gradient: "from-muted/60 via-muted/40 to-transparent dark:from-muted/30 dark:via-muted/20 dark:to-transparent"
+                  }
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className={`rounded-xl border border-border/60 bg-gradient-to-br ${stat.gradient} p-4`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">{stat.label}</div>
+                        <div className="mt-2 text-base font-semibold text-foreground leading-tight">
+                          {stat.value}
+                        </div>
+                      </div>
+                      <Icon icon={stat.icon} className="h-7 w-7 text-muted-foreground/70" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {records.length === 0 ? (
+                <div className="rounded-md border p-4 text-center text-sm text-gray-500">
+                  还没有任何打卡记录
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
 
-        {totalPages > 1 && (
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => handlePageChange(page - 1)}
-                  className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                // Show pages around current page
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (page <= 3) {
-                  pageNum = i + 1;
-                } else if (page >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = page - 2 + i;
-                }
-
-                return (
-                  <PaginationItem key={i}>
-                    <PaginationLink
-                      onClick={() => handlePageChange(pageNum)}
-                      isActive={page === pageNum}
-                    >
-                      {pageNum}
-                    </PaginationLink>
-                  </PaginationItem>
-                );
-              })}
-
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => handlePageChange(page + 1)}
-                  className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
-
-        <DialogFooter className="flex justify-between sm:justify-between">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            关闭
-          </Button>
-          <Button
-            variant="default"
-            onClick={() => {
-              onOpenChange(false);
-              navigate('/checkin-history');
-            }}
-          >
-            查看完整历史
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

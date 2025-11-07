@@ -8,7 +8,7 @@ import CheckInHistory from "@/components/checkin/CheckInHistory";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Add this configuration flag at the top of the file
-const IS_CHECK_IN_FEATURE_ENABLED = false; // Set to true to enable the check-in feature
+const IS_CHECK_IN_FEATURE_ENABLED = true; // Feature flag for check-in
 
 interface CheckInButtonProps {
   onClick?: () => void;

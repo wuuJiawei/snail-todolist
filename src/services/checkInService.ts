@@ -9,38 +9,38 @@ export type CheckInRecord = {
   created_at?: string;
 };
 
+const getTodayBounds = () => {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  return {
+    startIso: startOfDay.toISOString(),
+    endIso: endOfDay.toISOString(),
+  };
+};
+
 // Check if user has already checked in today
 export const hasCheckedInToday = async (): Promise<boolean> => {
   try {
-    // Get the current date in user's local timezone
-    const now = new Date();
-
-    // Format date to YYYY-MM-DD format in local timezone
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
-
-
-    // Get the current user's ID
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
-    // Query checkin_records for today in user's local timezone
-    // We'll use a raw SQL query with date conversion to handle timezone correctly
+    const { startIso, endIso } = getTodayBounds();
+
     const { data, error } = await supabase
       .from('checkin_records')
       .select('id')
       .eq('user_id', user.id)
-      .filter('check_in_time', 'gte', `${todayStr}T00:00:00`)
-      .filter('check_in_time', 'lt', `${todayStr}T23:59:59`);
+      .gte('check_in_time', startIso)
+      .lte('check_in_time', endIso);
 
     if (error) {
       console.error("Error checking daily check-in status:", error);
       return false;
     }
 
-    return data && data.length > 0;
+    return Array.isArray(data) && data.length > 0;
   } catch (error) {
     console.error("Error checking if user has checked in today:", error);
     return false;
@@ -61,20 +61,7 @@ export const createCheckIn = async (note?: string): Promise<boolean> => {
       return false;
     }
 
-    // Check if already checked in today
-    const alreadyCheckedIn = await hasCheckedInToday();
-    if (alreadyCheckedIn) {
-      toast({
-        title: "已经打过卡了",
-        description: "今天已经打过卡了，明天再来吧！",
-        variant: "default",
-      });
-      return false;
-    }
-
-    // Double check to prevent race conditions
-    const doubleCheck = await hasCheckedInToday();
-    if (doubleCheck) {
+    if (await hasCheckedInToday()) {
       toast({
         title: "已经打过卡了",
         description: "今天已经打过卡了，明天再来吧！",
@@ -192,17 +179,20 @@ export const getCheckInStreak = async (): Promise<number> => {
     data.forEach(record => {
       // Convert to local date string in YYYY-MM-DD format
       const date = new Date(record.check_in_time);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      uniqueDates.add(dateStr);
+      const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const year = localDate.getFullYear();
+      const month = String(localDate.getMonth() + 1).padStart(2, '0');
+      const day = String(localDate.getDate()).padStart(2, '0');
+      uniqueDates.add(`${year}-${month}-${day}`);
     });
 
 
     // Convert to Date objects and sort
-    const dates = Array.from(uniqueDates).map(dateStr => new Date(dateStr));
-    dates.sort((a, b) => b.getTime() - a.getTime()); // Sort descending
+    const dates = Array.from(uniqueDates).map(dateStr => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, (m ?? 1) - 1, d);
+    });
+    dates.sort((a, b) => b.getTime() - a.getTime());
 
     // Get today's date in local timezone
     const now = new Date();

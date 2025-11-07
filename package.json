@@ -34,9 +34,6 @@
     "tauri:build": "npx @tauri-apps/cli@latest build"
   },
   "dependencies": {
-    "@blocknote/core": "^0.32.0-hackdays.0",
-    "@blocknote/react": "^0.32.0-hackdays.0",
-    "@blocknote/shadcn": "^0.32.0-hackdays.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^3.9.0",
     "@icon-park/react": "^1.4.2",
