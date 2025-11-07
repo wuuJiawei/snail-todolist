@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTaskContext } from "@/contexts/task";
 import { Tag } from "@/types/tag";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const [query, setQuery] = useState("");
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
+  const loadedScopesRef = useRef<Map<string | null, boolean>>(new Map());
 
   const normalizedProjectId = useMemo(() => {
     if (typeof projectId !== "string") {
@@ -54,24 +55,33 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
   const selectedIds = useMemo(() => new Set(selected.map(t => t.id)), [selected]);
 
   const refreshAvailableTags = useCallback(async () => {
-    const scope = normalizedProjectId;
+    const scope = normalizedProjectId ?? null;
+    const scopeKey = scope;
     setLoading(true);
     try {
       // 首先尝试使用缓存数据
       const cachedTags = getCachedTags(scope);
-      const hasProjectSpecific = scope ? cachedTags.some(tag => tag.project_id === scope) : true;
-      if (cachedTags && cachedTags.length > 0 && hasProjectSpecific) {
+      const hasCachedData = cachedTags && cachedTags.length > 0;
+      const hasLoadedScope = loadedScopesRef.current.get(scopeKey) === true;
+
+      if (hasCachedData && !hasLoadedScope) {
+        loadedScopesRef.current.set(scopeKey, true);
+      }
+
+      if (hasCachedData || hasLoadedScope) {
         setAvailableTags(cachedTags);
         setLoading(false);
         return;
       }
       
       // 如果缓存中没有，则加载
+      loadedScopesRef.current.set(scopeKey, true);
       await ensureTagsLoaded(scope);
       const tags = getCachedTags(scope);
       setAvailableTags(tags);
     } catch (error) {
       console.error("Error loading tags:", error);
+      loadedScopesRef.current.set(scopeKey, false);
     } finally {
       setLoading(false);
     }
