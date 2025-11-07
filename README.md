@@ -1,260 +1,160 @@
 <div align="center">
   <img src="./public/logo.png" alt="Snail TodoList Logo" width="120" height="120" />
   
-  # 🐌 蜗牛待办 (Snail TodoList)
+  # 🐌 Snail TodoList
   
-  <p align="center">
-    <strong>一个完全由 AI 驱动开发的现代化待办事项管理应用</strong>
-  </p>
+  Snail TodoList 是一款面向个人与小团队的任务管理应用，强调“足够强大但保持轻量”。项目采用 React + Supabase 架构，可自行部署并掌控数据，适合希望在现有工具之外获得更强可定制性的使用者。
   
-  <p align="center">
-    <img src="https://img.shields.io/badge/AI%20Generated-100%25-brightgreen?style=for-the-badge&logo=robot" alt="100% AI Generated" />
-    <img src="https://img.shields.io/badge/Vibe%20Coding-Powered-blue?style=for-the-badge&logo=magic" alt="Vibe Coding" />
-  </p>
+  ## 为什么再写一个 To-Do List？
+  1. **可控的数据与部署**：后端基于 Supabase，既能使用托管服务，也能按需自建。
+  2. **合适的功能密度**：保留拖拽、标签、富文本等常用特性，同时避免臃肿的工作流系统。
+  3. **易于拓展**：采用 shadcn/ui + Tailwind 的组件体系，便于快速新增模块或重新设计界面。
   
-  <p align="center">
-    <img src="https://img.shields.io/badge/Built%20with-Cursor-000000?style=flat-square&logo=cursor&logoColor=white" alt="Built with Cursor" />
-    <img src="https://img.shields.io/badge/Powered%20by-Claude%20Code-FF6B6B?style=flat-square&logo=anthropic&logoColor=white" alt="Powered by Claude Code" />
-    <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=white" alt="React 18" />
-    <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
-    <img src="https://img.shields.io/badge/Supabase-Database-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
-    <img src="https://img.shields.io/badge/Vercel-Deployed-000000?style=flat-square&logo=vercel&logoColor=white" alt="Deployed on Vercel" />
-  </p>
-</div>
+  ---
+  
+  ## ✨ 功能概览
+  - 任务管理：新增、编辑、完成、放弃、恢复，支持项目分组与排序。
+  - 日期视图：快速查看“今天”“最近 7 天”，按需筛选逾期任务。
+  - 标签体系：支持标签增删、过滤、跨项目复用。
+  - 富文本详情：Vditor 提供 Markdown 编辑、图片上传、代码块等能力。
+  - 打卡与统计：内置打卡日历、连续天数统计、总次数概览。
+  - 深浅色主题 + 响应式布局，桌面与移动端体验一致。
+  
+  ---
+  
+  ## 🧱 技术栈
+  | 分类 | 使用技术 |
+  | --- | --- |
+  | 前端框架 | React 18 · TypeScript |
+  | 构建工具 | Vite |
+  | UI 体系 | shadcn/ui · Radix UI · Tailwind CSS |
+  | 状态与数据 | TanStack Query · Zustand · React Context |
+  | 后端服务 | Supabase（PostgreSQL · Auth · Storage · Realtime） |
+  | 富文本 & 日期 | Vditor · react-day-picker · date-fns |
+  | 其它组件 | React Router 6 · React Hook Form · Recharts |
+  | 桌面客户端 | Tauri |
+  
+  ---
+  
+  ## 📁 项目结构
+  ```text
+  src/
+  ├── components/
+  │   ├── checkin/         # 打卡模块
+  │   ├── sidebar/
+  │   ├── tasks/
+  │   └── ui/              # 基础 UI 封装
+  ├── contexts/            # Auth、Task、Project 等全局上下文
+  ├── hooks/               # 自定义 Hooks
+  ├── integrations/        # Supabase client 等集成
+  ├── lib/                 # 公共工具与样式辅助
+  ├── queries/             # TanStack Query 配置与 keys
+  ├── services/            # Supabase 相关 API 调用
+  ├── store/               # Zustand store 定义
+  ├── utils/               # 辅助函数与常量
+  └── pages/               # 路由页面
+  ```
+  
+  ---
+  
+  ## 🚀 快速开始
+  ### 环境要求
+  - Node.js 18+
+  - npm / pnpm / yarn
+  - Supabase 项目（已启用数据库与 Storage）
+  
+  ### 初始化
+  ```bash
+  git clone https://github.com/wuuJiawei/snail-todolist.git
+  cd snail-todolist
+  npm install
+  cp .env.example .env
+  ```
+  在 `.env` 中设置：
+  ```dotenv
+  VITE_SUPABASE_URL=你的_supabase_url
+  VITE_SUPABASE_ANON_KEY=你的_supabase_anon_key
+  ```
+  
+  ### 数据库设置
+  参考 `docs/SETUP.md`（如无，可在 Supabase 控制台创建下列数据表：`projects`、`tasks`、`tags`、`checkin_records` 等，并配置 RLS 规则与 Realtime）。
+  
+  ### 启动开发环境
+  ```bash
+  npm run dev
+  ```
+  默认运行在 <http://localhost:5173>。
+  
+  ### 常用脚本
+  | 命令 | 说明 |
+  | --- | --- |
+  | `npm run dev` | 开发服务器 |
+  | `npm run build` | 生产构建 |
+  | `npm run preview` | 预览生产构建 |
+  | `npm run lint` | ESLint 检查 |
+  | `npm run tauri:dev` | 桌面客户端调试 |
+  | `npm run tauri:build` | 桌面客户端打包 |
+  
+  ---
+  
+  ## 部署
 
-## 🤖 AI 驱动的 Vibe Coding 产物
+### Vercel（推荐）
+1. Fork 或 Clone 本仓库到你的 GitHub 账号。
+2. 登录 [Vercel](https://vercel.com) 并导入项目。
+3. 在 **Project → Settings → Environment Variables** 中添加：
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   分别填入 Supabase 项目的 URL 与 anon key，并确保在 Production / Preview / Development 环境都配置。
+4. 点击 Deploy，稍待片刻即可访问线上版本。
 
-这是一个**完全由人工智能生成**的项目，展示了 AI 驱动开发的强大能力：
+> 若部署后页面提示 “Missing VITE_SUPABASE_URL”，通常是环境变量未正确设置或未推送到所需环境。
 
-- 🎯 **100% AI 生成**: 没有任何人工编写的代码，完全通过 AI 对话生成
-- 🧠 **Vibe Coding**: 通过自然语言描述和需求对话，让 AI 理解并实现功能
-- 🔧 **Cursor + Claude Code**: 主要开发工具，提供智能代码生成和项目管理
-- ⚡ **快速迭代**: 从概念到完整应用，展示 AI 辅助开发的高效性
+### 静态托管或自建服务器
+- 运行 `npm run build` 生成 `dist/` 静态资源。
+- 将 `dist/` 上传至 Netlify、Cloudflare Pages、GitHub Pages、S3/OSS 等平台，或自行托管于 Nginx/Apache。
 
-### 🛠️ 开发工具链
-
-- **主要 IDE**: [Cursor](https://cursor.sh/) - AI 原生代码编辑器
-- **AI 助手**: [Claude Code](https://claude.ai/code) - Anthropic 的编程专用 AI
-- **开发方式**: Vibe Coding - 通过自然语言对话驱动代码生成
-- **设计理念**: AI-First Development - 让 AI 理解需求并自主实现
-
-一个现代化、功能丰富的待办事项管理应用，支持项目分组、任务排序、协作共享等功能。
-
-## 📸 应用预览
-
-<div align="center">
-  <img src="./docs/screenshots/snailtodo-screenshot-1.png" alt="蜗牛待办应用界面预览" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />
-  <p><em>蜗牛待办主界面 - 展示项目管理、任务编辑和富文本支持功能</em></p>
-</div>
-
-## ✨ 特性
-
-- 📝 **智能任务管理** - 创建、编辑、完成、放弃任务
-- 🗂️ **项目分组** - 灵活的项目管理和任务分类
-- 📅 **日期管理** - 支持任务截止日期和时间视图
-- 🔄 **拖拽排序** - 直观的任务优先级调整
-- 👥 **协作共享** - 项目共享和多人协作
-- 📱 **响应式设计** - 完美适配桌面和移动设备
-- 🌙 **深色模式** - 支持明暗主题切换
-- 🔍 **高级搜索** - 全文搜索和筛选功能
-- 🗃️ **存档管理** - 已完成和已放弃任务的分类管理
-- 📊 **数据统计** - 任务完成统计和趋势分析
-
-## 🚀 快速开始
-
-### 环境要求
-
-- Node.js 18+ 
-- npm 或 yarn
-- Supabase 账户（用于后端数据库）
-
-### 安装步骤
-
-1. **克隆项目**
+### 桌面客户端（Tauri）
+#### 构建
 ```bash
-git clone https://github.com/wuuJiawei/snail-todolist.git
-cd snail-todolist
+npm run tauri:build
 ```
+生成的安装包位于 `src-tauri/target/` 对应目录，可按平台分发。
 
-2. **安装依赖**
+#### macOS 安全提醒
+首次打开未签名的应用可能遇到 “应用已损坏，无法打开” 或 “无法验证开发者” 提示，可执行以下命令解除隔离：
 ```bash
-npm install
+xattr -cr "/Applications/Snail TodoList.app"
 ```
+若安装路径不同，请替换为实际路径。之后重新打开应用即可。
 
-3. **配置环境变量**
-```bash
-cp .env.example .env
-```
-
-编辑 `.env` 文件，填入你的 Supabase 配置：
-```env
-VITE_SUPABASE_URL=your_supabase_url_here
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-```
-
-4. **设置数据库**
-
-参考 [数据库设置指南](./docs/SETUP.md) 完成 Supabase 配置
-
-5. **启动开发服务器**
-```bash
-npm run dev
-```
-
-应用将在 `http://localhost:5173` 启动
-
-## 🏗️ 技术栈
-
-- **前端框架**: React 18 + TypeScript
-- **构建工具**: Vite
-- **UI 组件**: shadcn/ui + Radix UI
-- **样式**: Tailwind CSS
-- **状态管理**: React Context + Custom Hooks
-- **路由**: React Router
-- **后端**: Supabase (PostgreSQL + 实时订阅 + 认证)
-- **部署**: Vercel
-
-## 📁 项目结构
-
-```
-src/
-├── components/          # 可复用组件
-│   ├── ui/             # 基础 UI 组件
-│   ├── tasks/          # 任务相关组件
-│   ├── settings/       # 设置页面组件
-│   └── projects/       # 项目管理组件
-├── contexts/           # React Context 状态管理
-├── hooks/              # 自定义 React Hooks
-├── services/           # API 服务层
-├── types/              # TypeScript 类型定义
-├── utils/              # 工具函数
-├── constants/          # 常量定义
-└── integrations/       # 第三方服务集成
-```
-
-## 🎯 核心功能
-
-### 任务管理
-- ✅ 创建、编辑、完成任务
-- 📅 设置截止日期
-- 🏷️ 项目分类
-- 🗑️ 任务放弃和恢复
-- 🔄 拖拽排序
-
-### 项目协作
-- 👥 项目共享
-- 🔗 邀请链接生成
-- 👤 成员权限管理
-
-### 数据统计
-- 📊 完成率统计
-- 📈 任务趋势分析
-- 📋 项目统计概览
-
-### 用户体验
-- 🌙 深色/浅色主题
-- 📱 响应式设计
-- 🔍 实时搜索
-- ⚡ 离线支持
-
-## 🚀 部署
-
-### Vercel 部署（推荐）
-
-1. Fork 此项目到你的 GitHub
-2. 在 [Vercel](https://vercel.com) 中导入项目
-3. **重要**: 设置环境变量
-   - 进入项目 Settings → Environment Variables
-   - 添加 `VITE_SUPABASE_URL` = 你的 Supabase 项目 URL
-   - 添加 `VITE_SUPABASE_ANON_KEY` = 你的 Supabase anon key
-   - 确保选择 Production, Preview, Development 环境
-4. 部署完成
-
-⚠️ **常见错误**: 如果看到 "Missing VITE_SUPABASE_URL" 错误，说明步骤3的环境变量没有正确设置
-
-### 桌面客户端安装说明
-
-#### macOS 安全性提示
-
-如果在 macOS 上安装后遇到 **"应用已损坏，无法打开"** 的提示，这是因为 macOS 的 Gatekeeper 安全机制阻止了未签名应用的运行。解决方法：
-
-1. 打开终端 (Terminal)
-2. 输入以下命令并回车：
-   ```bash
-   xattr -cr "/Applications/Snail TodoList.app"
-   ```
-   或者如果安装在其他位置，请替换为实际路径：
-   ```bash
-   xattr -cr "应用实际路径/Snail TodoList.app"
-   ```
-3. 再次尝试打开应用
-
-> **说明**：此命令移除了应用的隔离属性标志，允许 macOS 运行未签名的应用。这是安全的，只要您确保从可信来源下载了应用。
-
-#### Windows 安全提示
-
-如果 Windows Defender 或其他安全软件阻止应用运行，您可以：
-
-1. 点击"更多信息"
-2. 选择"仍要运行"
-3. 将应用添加到安全软件的白名单中
-
-### 其他平台
-
-支持任何静态网站托管平台：
-- Netlify
-- GitHub Pages
-- CloudFlare Pages
-- 自建服务器
-
-## 🤝 贡献
-
-欢迎贡献代码！请查看 [贡献指南](./CONTRIBUTING.md)
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
-
-## 📝 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](./LICENSE) 文件了解详情
-
-## 🎨 设计理念
-
-蜗牛待办采用"慢工出细活"的设计理念：
-- 🐌 **专注当下** - 避免过度规划，专注当前任务
-- 🌱 **渐进改进** - 支持任务的迭代优化
-- 🎯 **简约高效** - 界面简洁但功能强大
-- 🤝 **协作友好** - 支持团队协作和知识共享
-
-## 🤖 AI 开发历程
-
-这个项目完全通过 AI 驱动的 Vibe Coding 方式开发，展现了人工智能在软件开发领域的巨大潜力：
-
-### 开发过程
-1. **需求对话**: 通过自然语言描述功能需求
-2. **AI 理解**: Claude Code 理解并规划技术实现
-3. **代码生成**: 自动生成完整的组件、服务和配置
-4. **迭代优化**: 通过对话持续改进和新增功能
-5. **部署配置**: AI 自动配置 CI/CD 和生产环境
-
-### 技术亮点
-- 🏗️ **完整架构设计**: 从前端到后端的全栈架构
-- 🔒 **安全最佳实践**: 自动集成安全配置和环境变量管理
-- 📱 **响应式设计**: 自适应各种设备的现代化 UI
-- 🚀 **性能优化**: 代码分割、懒加载等性能优化策略
-- 🧪 **质量保证**: 类型安全、错误处理和用户体验优化
-
-这证明了 AI 不仅能写代码，更能进行系统性的软件工程思考和实践。
-
-## 📞 联系
-
-- 项目主页: [GitHub Repository](https://github.com/wuuJiawei/snail-todolist)
-- 问题反馈: [Issues](https://github.com/wuuJiawei/snail-todolist/issues)
-- 功能建议: [Discussions](https://github.com/wuuJiawei/snail-todolist/discussions)
+#### Windows 安全提醒
+若被 Windows Defender 拦截：
+1. 点击“更多信息”。
+2. 选择“仍要运行”。
+3. 可将程序添加至白名单，避免后续再次提示。
 
 ---
 
-⭐ 如果这个项目对你有帮助，请给个 Star 支持一下！
+## 贡献指南
+1. Fork 仓库并创建分支：`git checkout -b feature/xxx`
+2. 提交修改：`git commit -m "feat: xxx"`
+3. 推送到远程：`git push origin feature/xxx`
+4. 提交 Pull Request，附上修改说明
+  
+如需帮助或想参与讨论，请访问 [Issues](https://github.com/wuuJiawei/snail-todolist/issues)。
+  
+---
+  
+## 许可证
+本项目采用 [MIT License](./LICENSE)。欢迎在遵循许可的前提下自由使用、修改与分发。
+  
+---
+  
+## 致谢
+- [Supabase](https://supabase.com/)
+- [shadcn/ui](https://ui.shadcn.com/) & [Radix UI](https://www.radix-ui.com/)
+- [Vditor](https://b3log.org/vditor/)
+- 所有反馈、提交 Issue 或 PR 的用户
+  
+愿你在蜗牛般的步调中，也能持续推进每一个目标 🐌。
