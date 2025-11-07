@@ -80,18 +80,17 @@ export const groupTasksByDateAndStatus = (tasks: Task[]): GroupedTasks => {
   
   // Sort other dates
   otherDates.sort((a, b) => {
-    // Parse dates and sort them
     const getDateValue = (dateStr: string): number => {
       const match = dateStr.match(/(\d+)月(\d+)日/);
       if (match) {
         const month = parseInt(match[1]);
         const day = parseInt(match[2]);
-        return month * 100 + day; // Simple numeric value for comparison
+        return month * 100 + day;
       }
       return 0;
     };
-    
-    return getDateValue(b) - getDateValue(a); // Descending order
+
+    return getDateValue(b) - getDateValue(a);
   });
   
   // Combine all sorted dates

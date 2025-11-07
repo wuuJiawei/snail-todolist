@@ -25,7 +25,6 @@ export const useTasksFilter = (
     weekAgo.setDate(weekAgo.getDate() - 7);
 
     if (selectedProject === "recent") {
-      // For the "recent" project, get tasks from the last 7 days from all projects
       return tasks.filter(task => {
         if (!task.date) return false;
 
@@ -35,7 +34,12 @@ export const useTasksFilter = (
         }
 
         const taskDate = new Date(task.date);
-        return isValid(taskDate) && taskDate >= weekAgo && taskDate <= now;
+        if (!isValid(taskDate)) return false;
+
+        const isWithinLastWeek = taskDate >= weekAgo && taskDate <= now;
+        const isOverdue = !task.completed && taskDate < now;
+
+        return isWithinLastWeek || isOverdue;
       });
     } else if (selectedProject === "today") {
       // For the "today" project, get tasks for today from all projects
