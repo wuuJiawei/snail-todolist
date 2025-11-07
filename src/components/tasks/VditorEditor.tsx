@@ -287,6 +287,46 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
     }
   }, [readOnly, isReady]);
 
+  useEffect(() => {
+    if (!isReady || !vditorRef.current) return;
+
+    const editorElement = vditorRef.current.vditor?.ir?.element;
+    if (!editorElement) return;
+
+    const sanitizeCopiedText = (value: string) => {
+      return value
+        .replace(/\r\n/g, "\n")
+        .replace(/\n{2,}/g, "\n")
+        .replace(/\\([`*_{}\[\]()#+\-.!\\])/g, "$1")
+        .trimEnd();
+    };
+
+    const handleCopy = (event: ClipboardEvent) => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        return;
+      }
+
+      const selectedText = selection.toString();
+      if (!selectedText) {
+        return;
+      }
+
+      const sanitizedText = sanitizeCopiedText(selectedText);
+      const markdownValue = sanitizeCopiedText(vditorRef.current?.getValue?.() ?? sanitizedText);
+
+      event.preventDefault();
+      event.clipboardData?.setData('text/plain', sanitizedText);
+      event.clipboardData?.setData('text/markdown', markdownValue);
+    };
+
+    editorElement.addEventListener('copy', handleCopy);
+
+    return () => {
+      editorElement.removeEventListener('copy', handleCopy);
+    };
+  }, [isReady]);
+
   return (
     <div 
       ref={containerRef}
