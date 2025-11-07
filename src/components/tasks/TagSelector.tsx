@@ -106,12 +106,16 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     refreshAvailableTags();
   }, [tagsVersion, refreshAvailableTags]);
 
-  const handleToggle = async (tag: Tag) => {
+  const handleToggle = (tag: Tag) => {
     if (readOnly) return;
     if (selectedIds.has(tag.id)) {
-      await detachTagFromTask(taskId, tag.id);
+      detachTagFromTask(taskId, tag.id).catch((error) => {
+        console.error("Failed to detach tag:", error);
+      });
     } else {
-      await attachTagToTask(taskId, tag.id);
+      attachTagToTask(taskId, tag.id).catch((error) => {
+        console.error("Failed to attach tag:", error);
+      });
     }
   };
 
