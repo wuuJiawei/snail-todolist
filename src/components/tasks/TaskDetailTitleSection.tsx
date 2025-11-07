@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import TagSelector from "./TagSelector";
 import type { Task } from "@/types/task";
@@ -26,11 +26,19 @@ const TaskDetailTitleSection: React.FC<TaskDetailTitleSectionProps> = ({
   completedAtLabel,
   deletedAtLabel,
 }) => {
+  useEffect(() => {
+    if (titleRef.current) {
+      const el = titleRef.current;
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }, [title, titleRef]);
+
   return (
-    <div className="space-y-0">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start gap-3">
         {isTaskInTrash ? (
-          <div className="flex-1 text-lg font-medium px-3 min-h-[40px] py-2 overflow-hidden">
+          <div className="flex-1 text-base font-medium leading-tight">
             {title}
           </div>
         ) : (
@@ -40,7 +48,7 @@ const TaskDetailTitleSection: React.FC<TaskDetailTitleSectionProps> = ({
             onChange={onTitleChange}
             onCompositionStart={onCompositionStart}
             onCompositionEnd={onCompositionEnd}
-            className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-lg font-medium px-3 min-h-[32px] resize-none overflow-hidden"
+            className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-base font-semibold px-0 py-0.5 min-h-0 resize-none overflow-hidden bg-transparent leading-tight"
             placeholder="任务标题"
             onInput={(event) => {
               const target = event.target as HTMLTextAreaElement;
@@ -50,10 +58,12 @@ const TaskDetailTitleSection: React.FC<TaskDetailTitleSectionProps> = ({
           />
         )}
       </div>
-      <div className="px-3 py-1">
+
+      <div className="flex flex-wrap items-center gap-1.5 min-h-[24px]">
         <TagSelector taskId={selectedTask.id} projectId={selectedTask.project ?? null} readOnly={isTaskInTrash} />
       </div>
-      <div className="text-xs text-gray-500 ml-1 mt-1 space-y-1">
+
+      <div className="text-xs text-muted-foreground space-y-0.5">
         {completedAtLabel && <div>{completedAtLabel}</div>}
         {deletedAtLabel && <div className="text-amber-600">{deletedAtLabel}</div>}
       </div>

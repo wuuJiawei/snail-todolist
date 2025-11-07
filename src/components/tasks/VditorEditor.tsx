@@ -32,6 +32,7 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
   const lastTaskIdRef = useRef<string | undefined>(undefined);
   const isInitializedRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
+  const attachmentsRef = useRef<TaskAttachment[]>(attachments);
   
   // 标志位：区分程序化更新和用户输入
   const isProgrammaticChangeRef = useRef(false);
@@ -41,6 +42,10 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
   useEffect(() => {
     contentRef.current = content;
   }, [content]);
+
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
 
   // Handle file upload
   const uploadFile = async (file: File): Promise<string> => {
@@ -122,26 +127,10 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
       },
       upload: {
         accept: 'image/*',
-        // 关键修复：添加format函数，确保图片以正确的markdown格式插入
-        format: (files: File[], responseText: string) => {
-          try {
-            const response = JSON.parse(responseText);
-            if (response.code === 0 && response.data && response.data.succMap) {
-              // 构建markdown图片语法
-              let result = '';
-              Object.entries(response.data.succMap).forEach(([fileName, url]) => {
-                // 使用标准的markdown图片语法: ![alt text](url)
-                result += `![${fileName}](${url})\n`;
-              });
-              return result;
-            }
-          } catch (error) {
-            console.error('Error formatting upload response:', error);
-          }
-          return '';
-        },
+        format: () => '',
         handler: async (files: File[]) => {
-          // 关键修复：保持文件名和URL的正确对应关系
+          const pendingAttachments: TaskAttachment[] = [];
+
           const results = await Promise.all(
             files.map(async (file) => {
               try {
@@ -152,10 +141,9 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
 
                 const url = await uploadFile(file);
 
-                // Create attachment record
                 const attachment: TaskAttachment = {
                   id: crypto.randomUUID(),
-                  url: url,
+                  url,
                   filename: file.name,
                   original_name: file.name,
                   type: file.type,
@@ -163,10 +151,13 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
                   uploaded_at: new Date().toISOString(),
                 };
 
-                // Add to attachments list
-                if (onAttachmentsChange) {
-                  const newAttachments = [...attachments, attachment];
-                  onAttachmentsChange(newAttachments);
+                pendingAttachments.push(attachment);
+
+                if (vditorRef.current) {
+                  const markdown = `![${file.name}](${url})`;
+                  const value = vditorRef.current.getValue();
+                  const prefix = value && !value.endsWith('\n') ? '\n' : '';
+                  vditorRef.current.insertValue(`${prefix}${markdown}\n`);
                 }
 
                 toast({
@@ -187,7 +178,18 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
             })
           );
 
-          // 构建succMap，只包含成功的上传，保持文件名和URL的正确对应
+          if (pendingAttachments.length > 0 && onAttachmentsChange) {
+            const latest = attachmentsRef.current;
+            const merged = [...latest];
+            pendingAttachments.forEach((attachment) => {
+              if (!merged.find((item) => item.url === attachment.url)) {
+                merged.push(attachment);
+              }
+            });
+            attachmentsRef.current = merged;
+            onAttachmentsChange(merged);
+          }
+
           const succMap: Record<string, string> = {};
           const errFiles: string[] = [];
 
@@ -199,7 +201,6 @@ const VditorEditor: React.FC<VditorEditorProps> = ({
             }
           });
 
-          // Return success JSON for Vditor
           return JSON.stringify({
             msg: '',
             code: 0,

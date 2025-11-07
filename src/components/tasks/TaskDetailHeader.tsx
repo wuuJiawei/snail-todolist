@@ -37,7 +37,7 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
   onClose,
 }) => {
   return (
-    <div className="p-3 flex items-center justify-between border-b">
+    <div className="p-3 flex items-center justify-between border-b bg-background">
       <div className="flex items-center gap-3">
         <Checkbox
           checked={completed}

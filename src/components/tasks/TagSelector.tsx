@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Globe, X, Trash } from "lucide-react";
+import { Globe, X, Trash, Plus } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -269,7 +269,14 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
         ) : (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 px-2">+ 标签</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 rounded-full border-dashed border-primary/60 text-primary hover:bg-primary/10 hover:text-primary transition-colors"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                添加标签
+              </Button>
             </PopoverTrigger>
             <PopoverContent className="p-0 w-64" align="start">
               {selectorBody}

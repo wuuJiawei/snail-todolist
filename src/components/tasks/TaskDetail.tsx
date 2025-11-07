@@ -354,7 +354,7 @@ const TaskDetail = () => {
   const deletedAtLabel = isTaskInTrash ? formatDeletedAt() : "";
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-muted/10">
       <TaskDetailHeader
         completed={completed}
         isTaskInTrash={isTaskInTrash}
@@ -365,29 +365,33 @@ const TaskDetail = () => {
         onClose={handleClose}
       />
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col">
-        <TaskDetailTitleSection
-          title={title}
-          titleRef={titleTextareaRef}
-          isTaskInTrash={isTaskInTrash}
-          onTitleChange={handleTitleChange}
-          onCompositionStart={handleTitleCompositionStart}
-          onCompositionEnd={handleTitleCompositionEnd}
-          selectedTask={selectedTask}
-          completedAtLabel={completedAtLabel}
-          deletedAtLabel={deletedAtLabel}
-        />
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 flex flex-col gap-6">
+        <section className="bg-background border border-border/60 rounded-xl shadow-sm px-5 py-4">
+          <TaskDetailTitleSection
+            title={title}
+            titleRef={titleTextareaRef}
+            isTaskInTrash={isTaskInTrash}
+            onTitleChange={handleTitleChange}
+            onCompositionStart={handleTitleCompositionStart}
+            onCompositionEnd={handleTitleCompositionEnd}
+            selectedTask={selectedTask}
+            completedAtLabel={completedAtLabel}
+            deletedAtLabel={deletedAtLabel}
+          />
+        </section>
 
-        <TaskDetailContent
-          taskId={selectedTask.id}
-          editorContent={editorContent}
-          isTaskInTrash={isTaskInTrash}
-          isEditorUpdating={isEditorUpdating}
-          onEditorChange={handleEditorChange}
-          onEditorReady={setBlockNoteEditor}
-          attachments={attachments}
-          onAttachmentsChange={handleAttachmentsChange}
-        />
+        <section className="bg-background border border-border/60 rounded-xl shadow-sm px-5 py-4 flex-1 flex flex-col">
+          <TaskDetailContent
+            taskId={selectedTask.id}
+            editorContent={editorContent}
+            isTaskInTrash={isTaskInTrash}
+            isEditorUpdating={isEditorUpdating}
+            onEditorChange={handleEditorChange}
+            onEditorReady={setBlockNoteEditor}
+            attachments={attachments}
+            onAttachmentsChange={handleAttachmentsChange}
+          />
+        </section>
       </div>
     </div>
   );
