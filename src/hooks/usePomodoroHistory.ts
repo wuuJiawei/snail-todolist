@@ -7,23 +7,15 @@ import {
   type PomodoroTodayStats as ServiceTodayStats,
 } from "@/services/pomodoroService";
 
-interface WeeklyStatsDay {
+interface HeatmapDay {
   date: string;
   focusMinutes: number;
-  breakMinutes: number;
-  completedCount: number;
-}
-
-export interface WeeklyPomodoroSummary {
-  days: WeeklyStatsDay[];
-  totalFocusMinutes: number;
-  totalFocusCount: number;
-  totalBreakMinutes: number;
+  focusCount: number;
 }
 
 export interface UsePomodoroHistoryResult {
   today: ServiceTodayStats;
-  weekly: WeeklyPomodoroSummary;
+  heatmap: HeatmapDay[];
   recentSessions: PomodoroSession[];
   loading: boolean;
   refresh: () => Promise<void>;
@@ -38,78 +30,76 @@ const emptyTodayStats: ServiceTodayStats = {
   sessions: [],
 };
 
-const emptyWeeklySummary: WeeklyPomodoroSummary = {
-  days: [],
-  totalFocusMinutes: 0,
-  totalFocusCount: 0,
-  totalBreakMinutes: 0,
-};
-
 const formatDateKey = (date: Date): string => date.toISOString().slice(0, 10);
 
 const isFocus = (session: PomodoroSession | undefined) =>
   session?.type === "focus" && session.completed;
 
-const isBreak = (session: PomodoroSession | undefined) =>
-  (session?.type === "short_break" || session?.type === "long_break") && session.completed;
-
 const getSessionMinutes = (session: PomodoroSession): number => session.duration ?? 0;
+
+const calculateHeatmapStart = (): Date => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - 364);
+  const dayOfWeek = start.getDay();
+  start.setDate(start.getDate() - dayOfWeek);
+  return start;
+};
 
 export const usePomodoroHistory = (): UsePomodoroHistoryResult => {
   const [todayStats, setTodayStats] = useState<ServiceTodayStats>(emptyTodayStats);
-  const [weeklySummary, setWeeklySummary] =
-    useState<WeeklyPomodoroSummary>(emptyWeeklySummary);
+  const [heatmapDays, setHeatmapDays] = useState<HeatmapDay[]>([]);
   const [recentSessions, setRecentSessions] = useState<PomodoroSession[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const buildWeeklySummary = useCallback((sessions: PomodoroSession[]): WeeklyPomodoroSummary => {
-    const days: Record<string, WeeklyStatsDay> = {};
+  const buildHeatmap = useCallback((sessions: PomodoroSession[]): HeatmapDay[] => {
+    const dayMap = new Map<string, HeatmapDay>();
 
     sessions.forEach((session) => {
-      const dayKey = formatDateKey(new Date(session.start_time));
-      if (!days[dayKey]) {
-        days[dayKey] = {
-          date: dayKey,
+      const key = formatDateKey(new Date(session.start_time));
+      if (!dayMap.has(key)) {
+        dayMap.set(key, {
+          date: key,
           focusMinutes: 0,
-          breakMinutes: 0,
-          completedCount: 0,
-        };
-      }
-
-      if (session.completed) {
-        days[dayKey].completedCount += session.type === "focus" ? 1 : 0;
+          focusCount: 0,
+        });
       }
 
       if (isFocus(session)) {
-        days[dayKey].focusMinutes += getSessionMinutes(session);
-      } else if (isBreak(session)) {
-        days[dayKey].breakMinutes += getSessionMinutes(session);
+        const entry = dayMap.get(key)!;
+        entry.focusMinutes += getSessionMinutes(session);
+        entry.focusCount += 1;
       }
     });
 
-    const entries = Object.values(days).sort((a, b) => a.date.localeCompare(b.date));
-    const totalFocusMinutes = entries.reduce((sum, day) => sum + day.focusMinutes, 0);
-    const totalFocusCount = entries.reduce((sum, day) => sum + day.completedCount, 0);
-    const totalBreakMinutes = entries.reduce((sum, day) => sum + day.breakMinutes, 0);
+    const start = calculateHeatmapStart();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    return {
-      days: entries,
-      totalFocusMinutes,
-      totalFocusCount,
-      totalBreakMinutes,
-    };
+    const normalized: HeatmapDay[] = [];
+    const cursor = new Date(start);
+    while (cursor <= today) {
+      const key = formatDateKey(cursor);
+      normalized.push(
+        dayMap.get(key) ?? {
+          date: key,
+          focusMinutes: 0,
+          focusCount: 0,
+        }
+      );
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return normalized;
   }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
+      const startOfRange = calculateHeatmapStart();
 
-      const startOfRange = new Date(startOfToday);
-      startOfRange.setDate(startOfRange.getDate() - 6); // last 7 days including today
-
-      const [today, weeklySessions, recent] = await Promise.all([
+      const [today, rangeSessions, recent] = await Promise.all([
         getTodayStats(),
         fetchPomodoroSessions({
           from: startOfRange.toISOString(),
@@ -131,47 +121,23 @@ export const usePomodoroHistory = (): UsePomodoroHistoryResult => {
         }
       );
 
-      setWeeklySummary(buildWeeklySummary(weeklySessions));
+      setHeatmapDays(buildHeatmap(rangeSessions));
       setRecentSessions(recent);
     } catch (error) {
       console.error("Failed to refresh pomodoro history:", error);
       setTodayStats(emptyTodayStats);
-      setWeeklySummary(emptyWeeklySummary);
+      setHeatmapDays([]);
       setRecentSessions([]);
     } finally {
       setLoading(false);
     }
-  }, [buildWeeklySummary]);
+  }, [buildHeatmap]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  const normalizedWeekly = useMemo(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const dayMap = new Map(weeklySummary.days.map((day) => [day.date, day]));
-    const normalizedDays: WeeklyStatsDay[] = [];
-
-    for (let i = 6; i >= 0; i -= 1) {
-      const day = new Date(startOfToday);
-      day.setDate(day.getDate() - i);
-      const key = formatDateKey(day);
-      normalizedDays.push(
-        dayMap.get(key) ?? {
-          date: key,
-          focusMinutes: 0,
-          breakMinutes: 0,
-          completedCount: 0,
-        }
-      );
-    }
-
-    return {
-      ...weeklySummary,
-      days: normalizedDays,
-    };
-  }, [weeklySummary]);
+  const heatmap = useMemo(() => heatmapDays, [heatmapDays]);
 
   const removeSession = useCallback(
     async (id: string) => {
@@ -186,12 +152,11 @@ export const usePomodoroHistory = (): UsePomodoroHistoryResult => {
 
   return {
     today: todayStats,
-    weekly: normalizedWeekly,
+    heatmap,
     recentSessions,
     loading,
     refresh,
     removeSession,
   };
 };
-
 

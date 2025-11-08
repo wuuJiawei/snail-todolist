@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
   Play,
@@ -24,7 +24,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import CircularProgress from "@/components/ui/circular-progress";
@@ -32,6 +31,7 @@ import { usePomodoroSettings } from "@/hooks/usePomodoroSettings";
 import { usePomodoroTimer } from "@/hooks/usePomodoroTimer";
 import { usePomodoroHistory } from "@/hooks/usePomodoroHistory";
 import { PomodoroSessionType } from "@/services/pomodoroService";
+import { cn } from "@/lib/utils";
 
 const MODE_LABELS: Record<PomodoroSessionType, string> = {
   focus: "专注",
@@ -58,7 +58,7 @@ const Pomodoro = () => {
   const timer = usePomodoroTimer(settings);
   const {
     today: todayStats,
-    weekly: weeklySummary,
+    heatmap,
     recentSessions,
     loading: historyLoading,
     refresh: refreshHistory,
@@ -110,13 +110,110 @@ const Pomodoro = () => {
       }
     };
 
-  const maxFocusMinutes =
-    weeklySummary.days.reduce((max, day) => Math.max(max, day.focusMinutes), 0) || 1;
-
   const focusRemaining =
     timer.mode === "long_break"
       ? settings.cyclesBeforeLongBreak
       : Math.max(0, settings.cyclesBeforeLongBreak - timer.focusStreak);
+
+  const focusSessionsTotal = useMemo(
+    () => todayStats.sessions.filter((item) => item.type === "focus").length,
+    [todayStats.sessions]
+  );
+
+  const completionRate = useMemo(() => {
+    if (focusSessionsTotal === 0) return 0;
+    const rate = (todayStats.focusCount / focusSessionsTotal) * 100;
+    return Number.isFinite(rate) ? Math.round(rate) : 0;
+  }, [focusSessionsTotal, todayStats.focusCount]);
+
+  const heatmapMaxMinutes = useMemo(
+    () => heatmap.reduce((max, day) => Math.max(max, day.focusMinutes), 0),
+    [heatmap]
+  );
+
+  const heatmapWeeks = useMemo(() => {
+    const chunks: Array<typeof heatmap> = [];
+    for (let i = 0; i < heatmap.length; i += 7) {
+      chunks.push(heatmap.slice(i, i + 7));
+    }
+    return chunks;
+  }, [heatmap]);
+
+  const heatmapMonthLabels = useMemo(() => {
+    const labels: { label: string; index: number }[] = [];
+    let lastMonth: string | null = null;
+
+    heatmapWeeks.forEach((week, index) => {
+      if (week.length === 0) return;
+      const firstDate = new Date(week[0].date);
+      const monthLabel = format(firstDate, "MMM");
+      if (monthLabel !== lastMonth) {
+        labels.push({ label: monthLabel, index });
+        lastMonth = monthLabel;
+      }
+    });
+
+    return labels;
+  }, [heatmapWeeks]);
+
+  const heatmapMonthLabelMap = useMemo(() => {
+    const map = new Map<number, string>();
+    heatmapMonthLabels.forEach(({ label, index }) => {
+      map.set(index, label);
+    });
+    return map;
+  }, [heatmapMonthLabels]);
+
+  const heatmapWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [heatmapCellSize, setHeatmapCellSize] = useState(12);
+  const [heatmapGap, setHeatmapGap] = useState(4);
+
+  useEffect(() => {
+    const updateCellSize = () => {
+      const el = heatmapWrapperRef.current;
+      if (!el) return;
+      const columns = heatmapWeeks.length;
+      if (columns === 0) return;
+
+      const labelColumnWidth = 40; // weekday column width
+      const gapBetweenLabelAndGrid = 16;
+      const availableWidth = Math.max(
+        0,
+        el.clientWidth - labelColumnWidth - gapBetweenLabelAndGrid
+      );
+
+      let chosenSize = 2;
+      let chosenGap = 1;
+      for (let size = 16; size >= 2; size -= 1) {
+        const gap = size <= 3 ? 1 : size <= 5 ? 2 : 4;
+        const totalWidth = columns * size + (columns - 1) * gap;
+        if (totalWidth <= availableWidth) {
+          chosenSize = size;
+          chosenGap = gap;
+          break;
+        }
+      }
+
+      setHeatmapCellSize(chosenSize);
+      setHeatmapGap(chosenGap);
+    };
+
+    updateCellSize();
+    window.addEventListener("resize", updateCellSize);
+    return () => window.removeEventListener("resize", updateCellSize);
+  }, [heatmapWeeks.length]);
+
+  const getHeatmapSquareClass = (minutes: number) => {
+    if (!heatmapMaxMinutes || minutes <= 0) {
+      return "bg-muted";
+    }
+    const ratio = minutes / heatmapMaxMinutes;
+    if (ratio >= 0.75) return "bg-emerald-600";
+    if (ratio >= 0.5) return "bg-emerald-500";
+    if (ratio >= 0.35) return "bg-emerald-400";
+    if (ratio >= 0.2) return "bg-emerald-300";
+    return "bg-emerald-200";
+  };
 
   const sessionStatusLabel = timer.session
     ? timer.isRunning
@@ -303,41 +400,78 @@ const Pomodoro = () => {
                   <div className="rounded-lg border bg-background p-4 shadow-sm">
                     <div className="text-muted-foreground">完成率</div>
                     <div className="mt-2 text-3xl font-semibold">
-                      {todayStats.sessions.length
-                        ? Math.round(
-                            (todayStats.focusCount /
-                              todayStats.sessions.filter((item) => item.type === "focus")
-                                .length) *
-                              100
-                          )
-                        : 0}
-                      %
+                      {completionRate}%
                     </div>
                   </div>
                 </div>
                 <Separator />
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium">近七天专注趋势</h4>
-                  <div className="space-y-3">
-                    {weeklySummary.days.map((day) => {
-                      const dayDate = new Date(`${day.date}T00:00:00`);
-                      const focusPercent = Math.min(
-                        100,
-                        Math.round((day.focusMinutes / maxFocusMinutes) * 100)
-                      );
-                      return (
-                        <div key={day.date} className="space-y-1">
-                          <div className="flex items-baseline justify-between text-xs text-muted-foreground">
-                            <span>{format(dayDate, "MM/dd EEE")}</span>
-                            <span>{day.focusMinutes} 分钟</span>
-                          </div>
-                          <Progress value={focusPercent} />
-                          <div className="text-[11px] text-muted-foreground">
-                            休息 {day.breakMinutes} 分钟
-                          </div>
+                <div ref={heatmapWrapperRef} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">近一年专注热力图</h4>
+                    <span className="text-xs text-muted-foreground">颜色越深表示专注越久</span>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-[92px] flex-col justify-between text-[10px] text-muted-foreground">
+                      {["日", "二", "四", "六"].map((label, index) => (
+                        <span key={label} className={index % 2 === 1 ? "opacity-60" : undefined}>
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                    <div
+                      className="flex items-start"
+                      style={{ gap: `${heatmapGap}px`, paddingTop: "20px" }}
+                    >
+                      {heatmapWeeks.map((week, weekIndex) => (
+                        <div
+                          key={weekIndex}
+                          className="relative flex flex-col"
+                          style={{
+                            width: `${heatmapCellSize}px`,
+                            gap: `${heatmapGap}px`,
+                          }}
+                        >
+                          {heatmapMonthLabelMap.has(weekIndex) && (
+                            <span className="absolute -top-5 text-[10px] font-medium uppercase text-muted-foreground">
+                              {heatmapMonthLabelMap.get(weekIndex)}
+                            </span>
+                          )}
+                          {week.map((day, dayIndex) => (
+                            <div
+                              key={`${day.date}-${dayIndex}`}
+                              className={cn(
+                                "border border-foreground/5 transition-colors rounded-none",
+                                getHeatmapSquareClass(day.focusMinutes)
+                              )}
+                              style={{
+                                width: `${heatmapCellSize}px`,
+                                height: `${heatmapCellSize}px`,
+                              }}
+                              title={`${format(new Date(day.date), "MMM dd, EEE")} · ${day.focusMinutes} 分钟 · ${day.focusCount} 次专注`}
+                            />
+                          ))}
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                    <span>较少</span>
+                    {[0, 1, 2, 3, 4].map((level) => (
+                      <span
+                        key={level}
+                        className={cn(
+                          "border border-foreground/5 rounded-none",
+                          getHeatmapSquareClass(
+                            heatmapMaxMinutes === 0 ? 0 : (heatmapMaxMinutes * level) / 4
+                          )
+                        )}
+                        style={{
+                          width: `${Math.max(4, heatmapCellSize)}px`,
+                          height: `${Math.max(4, heatmapCellSize)}px`,
+                        }}
+                      />
+                    ))}
+                    <span>较多</span>
                   </div>
                 </div>
               </>
