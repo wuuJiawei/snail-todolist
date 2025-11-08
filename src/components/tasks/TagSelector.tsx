@@ -59,24 +59,20 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     const scopeKey = scope;
     setLoading(true);
     try {
-      // 首先尝试使用缓存数据
       const cachedTags = getCachedTags(scope);
-      const hasCachedData = cachedTags && cachedTags.length > 0;
+      setAvailableTags(cachedTags);
+
       const hasLoadedScope = loadedScopesRef.current.get(scopeKey) === true;
-
-      if (hasCachedData && !hasLoadedScope) {
-        loadedScopesRef.current.set(scopeKey, true);
+      if (!hasLoadedScope) {
+        try {
+          loadedScopesRef.current.set(scopeKey, true);
+          await ensureTagsLoaded(scope);
+        } catch (error) {
+          loadedScopesRef.current.set(scopeKey, false);
+          throw error;
+        }
       }
 
-      if (hasCachedData || hasLoadedScope) {
-        setAvailableTags(cachedTags);
-        setLoading(false);
-        return;
-      }
-      
-      // 如果缓存中没有，则加载
-      loadedScopesRef.current.set(scopeKey, true);
-      await ensureTagsLoaded(scope);
       const tags = getCachedTags(scope);
       setAvailableTags(tags);
     } catch (error) {

@@ -38,26 +38,31 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
 
   const syncTags = useCallback(async () => {
     setLoadingTags(true);
-    // 传入 selectedProject 以获取当前项目的标签+全局标签
-    const projectId = selectedProject === 'all' ? null : selectedProject;
+    const projectId = selectedProject === "all" ? null : selectedProject;
     const scopeKey = projectId ?? null;
     const hasLoadedScope = loadedScopesRef.current.get(scopeKey) === true;
-    const cached = getCachedTags(projectId);
-    if (cached.length > 0 && !hasLoadedScope) {
-      loadedScopesRef.current.set(scopeKey, true);
-    }
-    if (cached.length === 0 && !hasLoadedScope) {
-      try {
-        loadedScopesRef.current.set(scopeKey, true);
-        await ensureTagsLoaded(projectId);
-      } catch (error) {
-        loadedScopesRef.current.set(scopeKey, false);
-        console.error("Failed to ensure tags for filters:", error);
+
+    try {
+      const cached = getCachedTags(projectId);
+      if (cached.length > 0) {
+        setAllTags(cached.map((t) => ({ id: t.id, name: t.name })));
       }
+
+      if (!hasLoadedScope) {
+        try {
+          loadedScopesRef.current.set(scopeKey, true);
+          await ensureTagsLoaded(projectId);
+        } catch (error) {
+          loadedScopesRef.current.set(scopeKey, false);
+          console.error("Failed to ensure tags for filters:", error);
+        }
+      }
+
+      const current = getCachedTags(projectId);
+      setAllTags(current.map((t) => ({ id: t.id, name: t.name })));
+    } finally {
+      setLoadingTags(false);
     }
-    const current = getCachedTags(projectId);
-    setAllTags(current.map(t => ({ id: t.id, name: t.name })));
-    setLoadingTags(false);
   }, [selectedProject, getCachedTags, ensureTagsLoaded]);
 
   useEffect(() => {
