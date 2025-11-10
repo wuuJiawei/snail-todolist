@@ -10,6 +10,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import TaskDetailHeader from "./TaskDetailHeader";
 import TaskDetailTitleSection from "./TaskDetailTitleSection";
 import TaskDetailContent, { EditorBridge } from "./TaskDetailContent";
+import TaskActivityDialog from "./TaskActivityDialog";
 
 const TaskDetail = () => {
   const { selectedTask, updateTask, selectTask, trashedTasks } = useTaskContext();
@@ -22,6 +23,7 @@ const TaskDetail = () => {
   const [isEditorUpdating, setIsEditorUpdating] = useState(false);
   const [blockNoteEditor, setBlockNoteEditor] = useState<EditorBridge | null>(null);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
+  const [activityDialogOpen, setActivityDialogOpen] = useState(false);
 
   // Track task switching with a ref to avoid unnecessary re-renders
   const previousTaskIdRef = useRef<string | null>(null);
@@ -338,6 +340,10 @@ const TaskDetail = () => {
     };
   }, []);
 
+  useEffect(() => {
+    setActivityDialogOpen(false);
+  }, [selectedTask?.id]);
+
   if (!selectedTask) {
     return (
       <div className="flex-1 flex items-center justify-center h-screen bg-gray-50">
@@ -363,6 +369,7 @@ const TaskDetail = () => {
         onDateChange={handleDateChange}
         onCopyAsMarkdown={handleCopyAsMarkdown}
         onClose={handleClose}
+        onShowActivityLog={() => setActivityDialogOpen(true)}
       />
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 flex flex-col gap-6">
@@ -393,6 +400,12 @@ const TaskDetail = () => {
           />
         </section>
       </div>
+      <TaskActivityDialog
+        taskId={selectedTask.id}
+        taskTitle={selectedTask.title}
+        open={activityDialogOpen}
+        onOpenChange={setActivityDialogOpen}
+      />
     </div>
   );
 };

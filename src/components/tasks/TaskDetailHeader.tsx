@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon, Copy, MoreHorizontal, X } from "lucide-react";
+import { Calendar as CalendarIcon, Copy, MoreHorizontal, X, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +25,7 @@ export interface TaskDetailHeaderProps {
   onDateChange: (date: Date | undefined) => void;
   onCopyAsMarkdown: () => void;
   onClose: () => void;
+  onShowActivityLog: () => void;
 }
 
 const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
@@ -35,6 +36,7 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
   onDateChange,
   onCopyAsMarkdown,
   onClose,
+  onShowActivityLog,
 }) => {
   return (
     <div className="p-3 flex items-center justify-between border-b bg-background">
@@ -77,6 +79,10 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onShowActivityLog}>
+              <History className="mr-2 h-4 w-4" />
+              查看任务动态
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={onCopyAsMarkdown}>
               <Copy className="mr-2 h-4 w-4" />
               复制为 Markdown
@@ -92,4 +98,3 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
 };
 
 export default TaskDetailHeader;
-

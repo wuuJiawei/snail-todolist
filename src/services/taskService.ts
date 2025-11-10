@@ -4,10 +4,10 @@ import { toast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from "uuid";
 
 // 游客ID本地存储key
-const GUEST_ID_KEY = "snail_guest_id";
+export const GUEST_ID_KEY = "snail_guest_id";
 
 // 获取或创建游客ID
-const getOrCreateGuestId = (): string => {
+export const getOrCreateGuestId = (): string => {
   let guestId = localStorage.getItem(GUEST_ID_KEY);
   if (!guestId) {
     guestId = uuidv4();
@@ -17,7 +17,7 @@ const getOrCreateGuestId = (): string => {
 };
 
 // 设置Supabase请求头中的游客ID
-const setGuestIdHeader = () => {
+export const setGuestIdHeader = () => {
   const guestId = getOrCreateGuestId();
   
   // 为请求添加自定义请求头

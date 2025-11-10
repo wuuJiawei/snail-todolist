@@ -1,6 +1,7 @@
 
 import { Task } from "@/types/task";
 import { Tag } from "@/types/tag";
+import type { TaskActivityAction } from "@/types/taskActivity";
 
 export const SELECTED_PROJECT_KEY = 'selected-project';
 
@@ -53,4 +54,5 @@ export interface TaskContextType {
   getCachedTags: (projectId?: string | null) => Tag[];
   ensureTagsLoaded: (projectId?: string | null) => Promise<void>;
   tagsVersion: number; // bump when tags cache changes to trigger subscribers
+  logTaskActivity?: (taskId: string, action: TaskActivityAction, metadata?: Record<string, unknown>) => Promise<void>;
 }
