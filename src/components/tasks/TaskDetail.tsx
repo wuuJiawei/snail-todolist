@@ -327,7 +327,7 @@ const TaskDetail = () => {
     }
   };
 
-  // Removed clipboard image support for title - now handled by Vditor editor
+  // Removed clipboard image support for title - rich text editor handles paste uploads
 
   // Cleanup timeout on unmount
   useEffect(() => {

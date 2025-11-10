@@ -16,7 +16,7 @@
   - 任务管理：新增、编辑、完成、放弃、恢复，支持项目分组与排序。
   - 日期视图：快速查看“今天”“最近 7 天”，按需筛选逾期任务。
   - 标签体系：支持标签增删、过滤、跨项目复用。
-  - 富文本详情：Vditor 提供 Markdown 编辑、图片上传、代码块等能力。
+  - 富文本详情：Milkdown 提供 Markdown 编辑、图片上传、代码块等能力。
   - 打卡与统计：内置打卡日历、连续天数统计、总次数概览。
   - 深浅色主题 + 响应式布局，桌面与移动端体验一致。
   
@@ -30,7 +30,7 @@
   | UI 体系 | shadcn/ui · Radix UI · Tailwind CSS |
   | 状态与数据 | TanStack Query · Zustand · React Context |
   | 后端服务 | Supabase（PostgreSQL · Auth · Storage · Realtime） |
-  | 富文本 & 日期 | Vditor · react-day-picker · date-fns |
+  | 富文本 & 日期 | Milkdown · react-day-picker · date-fns |
   | 其它组件 | React Router 6 · React Hook Form · Recharts |
   | 桌面客户端 | Tauri |
   
@@ -154,7 +154,7 @@ xattr -cr "/Applications/Snail TodoList.app"
 ## 致谢
 - [Supabase](https://supabase.com/)
 - [shadcn/ui](https://ui.shadcn.com/) & [Radix UI](https://www.radix-ui.com/)
-- [Vditor](https://b3log.org/vditor/)
+- [Milkdown](https://milkdown.dev/)
 - 所有反馈、提交 Issue 或 PR 的用户
   
 愿你在蜗牛般的步调中，也能持续推进每一个目标 🐌。

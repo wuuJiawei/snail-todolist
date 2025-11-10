@@ -1,5 +1,5 @@
 import React from "react";
-import VditorEditor from "./VditorEditor";
+import MilkdownEditor from "./MilkdownEditor";
 import TaskAttachments from "./TaskAttachments";
 import type { TaskAttachment } from "@/types/task";
 
@@ -32,7 +32,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
     <div className="task-editor-shell flex-1 flex flex-col gap-4">
       <div className="w-full flex-1 overflow-visible relative">
         {!isEditorUpdating && (
-          <VditorEditor
+          <MilkdownEditor
             taskId={taskId}
             content={editorContent}
             onChange={onEditorChange}
@@ -58,4 +58,3 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
 };
 
 export default TaskDetailContent;
-
