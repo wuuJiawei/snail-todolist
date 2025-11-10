@@ -286,7 +286,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // tags helpers
   const getTaskTags = useCallback((taskId: string): Tag[] => taskIdToTags[taskId] || [], [taskIdToTags]);
 
-  const attachTagToTask = useCallback(async (taskId: string, tagId: string) => {
+  const attachTagToTask = useCallback(async (taskId: string, tagId: string, tagData?: Tag) => {
     const store = useTaskStore.getState();
     const previousMapping = store.taskIdToTags;
     const previousTags = previousMapping[taskId] || [];
@@ -307,7 +307,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       return undefined;
     };
 
-    const optimisticTag = findTagById();
+    const optimisticTag = tagData ?? findTagById();
     const optimisticTags = optimisticTag ? [...previousTags, optimisticTag] : previousTags;
 
     store.setTaskIdToTags({
@@ -351,6 +351,21 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     return (projectId ?? null) === null ? "global" : (projectId as string);
   };
 
+  const mergeTagLists = (incoming: Tag[], existing: Tag[] = []) => {
+    const map = new Map<string, Tag>();
+    incoming.forEach((tag) => {
+      if (!map.has(tag.id)) {
+        map.set(tag.id, tag);
+      }
+    });
+    existing.forEach((tag) => {
+      if (!map.has(tag.id)) {
+        map.set(tag.id, tag);
+      }
+    });
+    return Array.from(map.values());
+  };
+
   const listAllTags = useCallback(async (projectId?: string | null) => {
     if (projectId === undefined) {
       return await fetchAllTagsService(undefined);
@@ -361,14 +376,14 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     const store = useTaskStore.getState();
     const nextCache: Record<string, Tag[]> = {
       ...store.tagsCache,
-      [keyForProject(scope)]: data,
+      [keyForProject(scope)]: mergeTagLists(data, store.tagsCache[keyForProject(scope)]),
     };
 
     let result: Tag[] = data;
     if (projectId !== null && projectId !== undefined) {
       const globalData = await queryClient.ensureQueryData(tagQueries.forScope(null));
-      nextCache[keyForProject(null)] = globalData;
-      result = [...data, ...globalData];
+      nextCache[keyForProject(null)] = mergeTagLists(globalData, nextCache[keyForProject(null)]);
+      result = [...nextCache[keyForProject(scope)], ...nextCache[keyForProject(null)]];
     }
     
     store.setTagsCache(nextCache);
@@ -384,7 +399,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       const cacheKeys = Object.keys(useTaskStore.getState().tagsCache);
       const scopes = cacheKeys.length > 0 ? cacheKeys : ["global"];
       const results = await Promise.all(
-        scopes.map((scope) => {
+      scopes.map((scope) => {
           const projectScope = scope === "global" ? null : scope;
           return queryClient.ensureQueryData(tagQueries.forScope(projectScope));
         })
@@ -392,7 +407,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
       const nextCache: Record<string, Tag[]> = {};
       scopes.forEach((scope, index) => {
-        nextCache[scope] = results[index];
+        const prev = useTaskStore.getState().tagsCache[scope] || [];
+        nextCache[scope] = mergeTagLists(results[index], prev);
       });
 
       const store = useTaskStore.getState();
@@ -411,7 +427,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
     const loadScope = async (scope: string | null) => {
       const data = await queryClient.ensureQueryData(tagQueries.forScope(scope));
-      nextCache[keyForProject(scope)] = data;
+      const key = keyForProject(scope);
+      nextCache[key] = mergeTagLists(data, nextCache[key]);
     };
 
     if (projectId !== null && projectId !== undefined) {
@@ -428,6 +445,15 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const createTag = useCallback(async (name: string, projectId?: string | null) => {
     const tag = await createTagService(name, projectId);
     if (tag) {
+      const store = useTaskStore.getState();
+      const cache = store.tagsCache;
+      const nextCache: Record<string, Tag[]> = { ...cache };
+      const targetKey = keyForProject(projectId);
+      const targetList = nextCache[targetKey] || [];
+      nextCache[targetKey] = [tag, ...targetList.filter((t) => t.id !== tag.id)];
+      store.setTagsCache(nextCache);
+      store.incrementTagsVersion();
+
       await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       if (projectId !== null && projectId !== undefined) {
         await ensureTagsLoaded(projectId);

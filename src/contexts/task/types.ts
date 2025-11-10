@@ -41,7 +41,7 @@ export interface TaskContextType {
 
   // tags
   getTaskTags: (taskId: string) => Tag[];
-  attachTagToTask: (taskId: string, tagId: string) => Promise<void>;
+  attachTagToTask: (taskId: string, tagId: string, tagData?: Tag) => Promise<void>;
   detachTagFromTask: (taskId: string, tagId: string) => Promise<void>;
   listAllTags: (projectId?: string | null) => Promise<Tag[]>;
   createTag: (name: string, projectId?: string | null) => Promise<Tag | null>;

@@ -119,25 +119,32 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     if (readOnly) return;
     const trimmed = name.trim();
     if (!trimmed) return;
-    
+
+    const scopeForCreation = normalizedProjectId ?? null;
+
     // Create tag with current project scope
-    const created = await createTag(trimmed, projectId);
-    
-    // 创建后直接从缓存获取刷新列表
-    refreshAvailableTags();
-    
-    // 尝试找到同名标签并关联
+    const created = await createTag(trimmed, scopeForCreation);
+
     if (created) {
-      await attachTagToTask(taskId, created.id);
+      setAvailableTags((prev) => {
+        const exists = prev.some((tag) => tag.id === created.id);
+        if (exists) {
+          return prev.map((tag) => (tag.id === created.id ? created : tag));
+        }
+        return [created, ...prev];
+      });
+      await attachTagToTask(taskId, created.id, created);
     } else {
       // 如果没创建成功（可能是已存在），尝试查找同名标签
-      const cachedTags = getCachedTags(normalizedProjectId);
+      const cachedTags = getCachedTags(scopeForCreation);
       const found = cachedTags.find(t => t.name.toLowerCase() === trimmed.toLowerCase());
       if (found) {
-        await attachTagToTask(taskId, found.id);
+        await attachTagToTask(taskId, found.id, found);
       }
     }
-    
+
+    await refreshAvailableTags();
+
     // 清空输入框
     setQuery("");
   };
@@ -289,5 +296,4 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
 };
 
 export default TagSelector;
-
 
