@@ -93,6 +93,8 @@ const TaskView: React.FC = () => {
         return { name: "最近7天", icon: "calendar" };
       case "today":
         return { name: "今天", icon: "calendar-days" };
+      case "flagged":
+        return { name: "标记", icon: "flag" };
       case "completed":
         return { name: "已完成", icon: "check-square" };
       case "abandoned":

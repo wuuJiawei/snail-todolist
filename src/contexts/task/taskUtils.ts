@@ -52,6 +52,8 @@ export const getProjectTaskCount = (tasks: Task[], projectId: string): number =>
   } else if (projectId === "completed") {
     // For "completed" project, count completed tasks
     return tasks.filter(task => task.completed).length;
+  } else if (projectId === "flagged") {
+    return tasks.filter(task => task.flagged && !task.completed && !task.deleted && !task.abandoned).length;
   } else if (projectId === "trash") {
     // For "trash" project - currently no actual deleted tasks are stored
     return 0;

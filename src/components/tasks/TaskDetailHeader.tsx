@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon, Copy, MoreHorizontal, X, History } from "lucide-react";
+import { Calendar as CalendarIcon, Copy, MoreHorizontal, X, History, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
@@ -16,12 +16,15 @@ import {
 import DueDatePickerContent from "./DueDatePickerContent";
 import { formatDateText } from "@/utils/taskUtils";
 import React from "react";
+import { cn } from "@/lib/utils";
 
 export interface TaskDetailHeaderProps {
   completed: boolean;
+  flagged: boolean;
   isTaskInTrash: boolean;
   selectedDate: Date | undefined;
   onCompletedChange: (checked: boolean | "indeterminate") => void;
+  onFlagToggle: () => void;
   onDateChange: (date: Date | undefined) => void;
   onCopyAsMarkdown: () => void;
   onClose: () => void;
@@ -30,9 +33,11 @@ export interface TaskDetailHeaderProps {
 
 const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
   completed,
+  flagged,
   isTaskInTrash,
   selectedDate,
   onCompletedChange,
+  onFlagToggle,
   onDateChange,
   onCopyAsMarkdown,
   onClose,
@@ -47,6 +52,20 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
           className="rounded-full h-5 w-5"
           disabled={isTaskInTrash}
         />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onFlagToggle}
+          disabled={isTaskInTrash}
+          className={cn(
+            "h-7 w-7 rounded-full border border-transparent transition-colors",
+            flagged ? "text-amber-500 bg-amber-50 dark:bg-amber-500/10" : "text-muted-foreground hover:text-foreground"
+          )}
+          aria-pressed={flagged}
+          title={flagged ? "取消标记" : "标记任务"}
+        >
+          <Flag className="h-4 w-4" fill={flagged ? "currentColor" : "none"} />
+        </Button>
         <Separator orientation="vertical" />
         {isTaskInTrash ? (
           <div className="text-xs px-2 py-1 bg-muted rounded-md flex items-center">

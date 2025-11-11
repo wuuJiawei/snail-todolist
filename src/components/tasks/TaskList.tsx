@@ -10,7 +10,7 @@ import { useTasksFilter } from "@/hooks/useTasksFilter";
 import { useTaskFilter } from "@/hooks/useTaskFilter";
 import { cn } from "@/lib/utils";
 import ProjectSelector from "@/components/tasks/ProjectSelector";
-import { TODAY_TASKS_FILTERS_KEY, RECENT_TASKS_FILTERS_KEY } from "@/constants/storage-keys";
+import { TODAY_TASKS_FILTERS_KEY, RECENT_TASKS_FILTERS_KEY, FLAGGED_TASKS_FILTERS_KEY } from "@/constants/storage-keys";
 import { Icon } from "@/components/ui/icon-park";
 import { Button } from "@/components/ui/button";
 import TaskFilter, { TaskFilterOptions } from "@/components/tasks/TaskFilter";
@@ -43,6 +43,7 @@ const TaskList: React.FC = () => {
   const getStorageKey = () => {
     if (selectedProject === "today") return TODAY_TASKS_FILTERS_KEY;
     if (selectedProject === "recent") return RECENT_TASKS_FILTERS_KEY;
+    if (selectedProject === "flagged") return FLAGGED_TASKS_FILTERS_KEY;
     return null;
   };
 
@@ -82,6 +83,13 @@ const TaskList: React.FC = () => {
         name: "今天",
         icon: "calendar-days",
         color: "#4CAF50" // 使用绿色作为默认颜色
+      };
+    }
+    if (selectedProject === "flagged") {
+      return {
+        name: "标记",
+        icon: "flag",
+        color: "#F97316"
       };
     }
 
@@ -185,7 +193,7 @@ const TaskList: React.FC = () => {
       />
 
       {/* 在"今天"和"最迗7天"视图中添加项目选择器 */}
-      {(selectedProject === "today" || selectedProject === "recent") && (
+      {(selectedProject === "today" || selectedProject === "recent" || selectedProject === "flagged") && (
         <div className="px-4 py-3 border-b border-border/30">
           <div className="flex items-center mb-1">
             <span className="text-xs text-muted-foreground">按清单筛选：</span>

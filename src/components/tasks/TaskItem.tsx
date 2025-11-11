@@ -251,6 +251,22 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
     }
   };
 
+  const handleToggleFlag = async () => {
+    try {
+      await startOperation("update", async () => {
+        const nextFlagged = !task.flagged;
+        await updateTask(task.id, { flagged: nextFlagged });
+        toast({
+          title: nextFlagged ? "任务已标记" : "标记已取消",
+          description: nextFlagged ? "该任务会出现在“标记”清单中" : "该任务已从“标记”清单移除",
+          variant: "default",
+        });
+      });
+    } catch (error) {
+      console.error("Failed to toggle flag:", error);
+    }
+  };
+
   const handleAbandonTask = async () => {
     // 防止操作进行中的重复点击
     if (operationState.isActive) return;
@@ -343,6 +359,16 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
           <ContextMenuItem onClick={handleRestoreAbandonedTask}>
             <Icon icon="undo" size="16" className="h-4 w-4 mr-2" />
             恢复任务
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+        </>
+      )}
+
+      {!task.abandoned && (
+        <>
+          <ContextMenuItem onClick={handleToggleFlag}>
+            <Icon icon="flag" size="16" className={cn("h-4 w-4 mr-2", task.flagged ? "text-amber-500" : undefined)} />
+            {task.flagged ? "取消标记" : "标记任务"}
           </ContextMenuItem>
           <ContextMenuSeparator />
         </>
@@ -533,6 +559,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
                 >
                   {task.icon}
                 </span>
+              )}
+              {task.flagged && (
+                <Icon icon="flag" size="14" className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
               )}
               {isEditing ? (
                 <input

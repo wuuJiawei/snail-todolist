@@ -16,7 +16,7 @@ import { isToday, isBefore, startOfDay, addDays, parseISO, isValid, isWithinInte
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Sidebar: React.FC = () => {
-  const { tasks, selectProject, selectedProject, getTrashCount } = useTaskContext();
+  const { tasks } = useTaskContext();
   const { projects: dbProjects, loading, createProject, reorderProjects, refreshProjects } = useProjectContext();
   const { collapsed } = useSidebar();
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
@@ -62,12 +62,27 @@ const Sidebar: React.FC = () => {
     return { todayCount: today, recentCount: recent };
   }, [tasks]);
 
-  const fixedProjects: Project[] = [
+  const flaggedCount = useMemo(() => {
+    return tasks.filter(task => task.flagged && !task.deleted && !task.abandoned && !task.completed).length;
+  }, [tasks]);
+
+  const topProjects: Project[] = [
     { id: "recent", name: "最近7天", icon: "calendar", count: recentCount, isFixed: true },
     { id: "today", name: "今天", icon: "calendar-days", count: todayCount, isFixed: true },
-    { id: "completed", name: "已完成", icon: "check-square", count: 0, isFixed: true }, // Completed count might be handled differently or not shown
-    { id: "abandoned", name: "已放弃", icon: "close-one", count: 0, isFixed: true }, // Abandoned count might be handled differently or not shown
-    { id: "trash", name: "垃圾桶", icon: "recycling-pool", count: 0, isFixed: true }, // Removed count for trash
+  ];
+
+  const flaggedProject: Project = {
+    id: "flagged",
+    name: "标记",
+    icon: "flag",
+    count: flaggedCount,
+    isFixed: true,
+  };
+
+  const bottomProjects: Project[] = [
+    { id: "completed", name: "已完成", icon: "check-square", count: 0, isFixed: true },
+    { id: "abandoned", name: "已放弃", icon: "close-one", count: 0, isFixed: true },
+    { id: "trash", name: "垃圾桶", icon: "recycling-pool", count: 0, isFixed: true },
   ];
 
   const customDbProjects = dbProjects.map(p => ({ ...p, isFixed: false }));
@@ -121,8 +136,8 @@ const Sidebar: React.FC = () => {
         collapsed ? "w-0 opacity-0 p-0" : "w-full p-2"
       )}
     >
-      <div className="px-2 py-1 space-y-1 mb-3">
-        {fixedProjects.map((project) => (
+      <div className="px-2 py-1 space-y-1 mb-2">
+        {topProjects.map((project) => (
           <ProjectItem
             key={project.id}
             project={project}
@@ -131,8 +146,15 @@ const Sidebar: React.FC = () => {
         ))}
       </div>
 
+      <div className="px-2 mb-3">
+        <ProjectItem
+          project={flaggedProject}
+          isDraggable={false}
+        />
+      </div>
+
       {!collapsed && (
-        <div className="mt-2 flex-grow flex flex-col">
+        <div className="flex-grow flex flex-col">
           <div className="px-3 py-2 flex items-center justify-between mb-2 border-t border-gray-200 dark:border-gray-600 pt-3">
             <span className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400">清单</span>
             <div className="flex space-x-1">
@@ -204,6 +226,16 @@ const Sidebar: React.FC = () => {
               )}
             </Droppable>
           </DragDropContext>
+
+          <div className="mt-3 px-2 space-y-1 border-t border-gray-200 dark:border-gray-700 pt-3">
+            {bottomProjects.map((project) => (
+              <ProjectItem
+                key={project.id}
+                project={project}
+                isDraggable={false}
+              />
+            ))}
+          </div>
 
           <EditProjectDialog
             open={newProjectDialogOpen}

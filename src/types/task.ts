@@ -14,6 +14,7 @@ export interface Task {
   deleted_at?: string; // ISO string format representing when the task was moved to trash
   abandoned?: boolean; // Whether the task has been abandoned
   abandoned_at?: string; // ISO string format representing when the task was abandoned
+  flagged?: boolean; // Whether the task is flagged for quick access
   attachments?: TaskAttachment[]; // File attachments
 }
 

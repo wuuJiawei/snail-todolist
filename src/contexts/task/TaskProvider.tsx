@@ -71,6 +71,15 @@ const buildTaskActivityDrafts = (
     });
   }
 
+  if (hasProp(updates, "flagged") && updates.flagged !== previous.flagged) {
+    drafts.push({
+      action: updates.flagged ? "task_flagged" : "task_unflagged",
+      metadata: {
+        flagged: updates.flagged ?? false,
+      },
+    });
+  }
+
   if (hasProp(updates, "date") && updates.date !== previous.date) {
     drafts.push({
       action: "due_date_updated",

@@ -18,6 +18,7 @@ const TaskDetail = () => {
   const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [completed, setCompleted] = useState(false);
+  const [flagged, setFlagged] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [editorContent, setEditorContent] = useState("");
   const [isEditorUpdating, setIsEditorUpdating] = useState(false);
@@ -116,6 +117,7 @@ const TaskDetail = () => {
     }
 
     setCompleted(selectedTask.completed);
+    setFlagged(Boolean(selectedTask.flagged));
 
     if (!isNewTaskSelection) {
       return;
@@ -207,6 +209,30 @@ const TaskDetail = () => {
     setCompleted(newCompleted);
     saveTask({ completed: newCompleted });
   };
+
+  const handleFlagToggle = useCallback(async () => {
+    if (!selectedTask || isTaskInTrash) return;
+
+    const previousFlagged = flagged;
+    const nextFlagged = !previousFlagged;
+    setFlagged(nextFlagged);
+
+    try {
+      await updateTask(selectedTask.id, { flagged: nextFlagged });
+      toast({
+        title: nextFlagged ? "任务已标记" : "标记已取消",
+        description: nextFlagged ? "该任务会出现在“标记”清单中" : "该任务已从“标记”清单移除",
+      });
+    } catch (error) {
+      console.error("Failed to toggle flag:", error);
+      setFlagged(previousFlagged);
+      toast({
+        title: "更新标记失败",
+        description: "请稍后再试",
+        variant: "destructive",
+      });
+    }
+  }, [flagged, isTaskInTrash, selectedTask, updateTask, toast]);
 
   const handleDateChange = (date: Date | undefined) => {
     setSelectedDate(date);
@@ -364,8 +390,10 @@ const TaskDetail = () => {
       <TaskDetailHeader
         completed={completed}
         isTaskInTrash={isTaskInTrash}
+        flagged={flagged}
         selectedDate={selectedDate}
         onCompletedChange={handleCompletedChange}
+        onFlagToggle={handleFlagToggle}
         onDateChange={handleDateChange}
         onCopyAsMarkdown={handleCopyAsMarkdown}
         onClose={handleClose}

@@ -64,6 +64,19 @@ export const useTasksFilter = (
 
         return !task.completed && taskDate < today;
       });
+    } else if (selectedProject === "flagged") {
+      return tasks.filter(task => {
+        if (!task.flagged) return false;
+
+        if (filteredProjects.length > 0) {
+          const targetProject = task.project || "";
+          if (!targetProject || !filteredProjects.includes(targetProject)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
     } else {
       // For regular projects, filter by project ID
       return tasks.filter(task => task.project === selectedProject);
@@ -71,7 +84,7 @@ export const useTasksFilter = (
   }, [tasks, selectedProject, filteredProjects]);
 
   // Check if this is a special view that should use date-based grouping
-  const isSpecialView = selectedProject === "recent" || selectedProject === "today";
+  const isSpecialView = selectedProject === "recent" || selectedProject === "today" || selectedProject === "flagged";
 
   // Group and sort tasks by status and date if needed
   const groupedTasks = useMemo(() => {

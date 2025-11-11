@@ -103,9 +103,9 @@ export const useTaskStore = create<TaskStore>()((set, get) => ({
       id: tempId,
       attachments: attachments ?? [],
       completed: completed ?? false,
+      flagged: rest.flagged ?? false,
       ...rest,
     } as Task;
     get().prependTask(optimisticTask);
   },
 }));
-

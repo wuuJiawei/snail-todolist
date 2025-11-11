@@ -172,6 +172,7 @@ const mapTaskData = (item: any): Task => {
     deleted_at: item.deleted_at || undefined,
     abandoned: item.abandoned || false,
     abandoned_at: item.abandoned_at || undefined,
+    flagged: item.flagged ?? false,
     // Note: anonymous_id is used in guest mode flows but not in Task type; omit
     attachments: normalizedAttachments
   };
@@ -290,6 +291,7 @@ export const addTask = async (task: Omit<Task, "id">, isGuest: boolean = false):
         ...task,
         anonymous_id: guestId,
         sort_order: nextSortOrder,
+        flagged: task.flagged ?? false,
         // 转换附件数组为JSON字符串
         attachments: task.attachments ? JSON.stringify(task.attachments) : '[]'
       };
@@ -390,6 +392,7 @@ export const addTask = async (task: Omit<Task, "id">, isGuest: boolean = false):
       ...task,
       user_id: user.id,
       sort_order: nextSortOrder,
+      flagged: task.flagged ?? false,
       // Convert attachments array to JSON string for storage
       attachments: task.attachments ? JSON.stringify(task.attachments) : '[]'
     };
