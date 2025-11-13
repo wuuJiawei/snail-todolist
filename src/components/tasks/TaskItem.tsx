@@ -43,6 +43,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [localTitle, setLocalTitle] = useState(task.title);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isComposingRef = useRef(false);
 
   const { toast } = useToast();
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
@@ -127,6 +128,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
+      const composing = (e.nativeEvent as any)?.isComposing || (e as any)?.isComposing || (e as any)?.keyCode === 229 || isComposingRef.current;
+      if (composing) {
+        e.preventDefault();
+        return;
+      }
       handleTitleSave();
     } else if (e.key === "Escape") {
       setEditedTitle(task.title);
@@ -571,6 +577,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
                   onChange={handleTitleChange}
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
+                  onCompositionStart={() => { isComposingRef.current = true; }}
+                  onCompositionEnd={() => { isComposingRef.current = false; }}
                   className="w-full px-0 border-none focus:outline-none focus:ring-0 bg-transparent"
                 />
               ) : (
