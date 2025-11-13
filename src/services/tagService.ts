@@ -4,6 +4,12 @@ import { toast } from "@/hooks/use-toast";
 
 export const fetchAllTags = async (projectId?: string | null): Promise<Tag[]> => {
   try {
+    if (projectId !== undefined && projectId !== null) {
+      const isValidUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(projectId);
+      if (!isValidUuid) {
+        return [];
+      }
+    }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 

@@ -37,6 +37,12 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
   const loadedScopesRef = useRef<Map<string | null, boolean>>(new Map());
 
   const syncTags = useCallback(async () => {
+    const isSystemList = selectedProject === "today" || selectedProject === "recent" || selectedProject === "flagged";
+    if (isSystemList) {
+      setAllTags([]);
+      return;
+    }
+
     setLoadingTags(true);
     const projectId = selectedProject === "all" ? null : selectedProject;
     const scopeKey = projectId ?? null;
