@@ -167,7 +167,10 @@ const mapTaskData = (item: any): Task => {
     completed_at: item.completed_at || undefined,
     updated_at: item.updated_at || undefined,
     user_id: item.user_id || undefined,
-    sort_order: item.sort_order !== null ? item.sort_order : undefined,
+    sort_order:
+      item.sort_order !== null && item.sort_order !== undefined
+        ? (typeof item.sort_order === 'string' ? parseFloat(item.sort_order) : item.sort_order)
+        : undefined,
     deleted: item.deleted || false,
     deleted_at: item.deleted_at || undefined,
     abandoned: item.abandoned || false,

@@ -1,5 +1,5 @@
 
-import React, { useState, ReactNode, useEffect, useMemo, useCallback } from "react";
+import React, { useState, ReactNode, useEffect, useMemo, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task } from "@/types/task";
 import {
@@ -10,7 +10,6 @@ import {
   restoreFromTrash as restoreFromTrashService,
   abandonTask as abandonTaskService,
   restoreAbandonedTask as restoreAbandonedTaskService,
-  batchUpdateSortOrder
 } from "@/services/taskService";
 import { useToast } from "@/hooks/use-toast";
 import { TaskContext } from "./TaskContext";
@@ -801,6 +800,19 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Reorder tasks
   const SORT_ORDER_STEP = 1000;
 
+  const savingSortRef = useRef(false);
+
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (savingSortRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
   const reorderTasks = useCallback(async (projectId: string, sourceIndex: number, destinationIndex: number, isCompletedArea = false) => {
     // If source and destination are the same, no need to reorder
     if (sourceIndex === destinationIndex) return;
@@ -845,13 +857,27 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         ? Math.min(...existingOrders) - SORT_ORDER_STEP
         : 0;
 
-    // Assign new sort_order values to the reordered tasks keeping even gaps between each task
-    const updatedProjectTasks = reorderedProjectTasks.map((task, index) => ({
-      ...task,
-      sort_order: baseOrder + (index + 1) * SORT_ORDER_STEP,
-    }));
+    const prev = reorderedProjectTasks[destinationIndex - 1];
+    const next = reorderedProjectTasks[destinationIndex + 1];
 
-    const updatedTasksMap = new Map(updatedProjectTasks.map((task) => [task.id, task]));
+    const prevOrder = prev
+      ? extractSortOrder(prev) ?? baseOrder + (reorderedProjectTasks.indexOf(prev) + 1) * SORT_ORDER_STEP
+      : undefined;
+    const nextOrder = next
+      ? extractSortOrder(next) ?? baseOrder + (reorderedProjectTasks.indexOf(next) + 1) * SORT_ORDER_STEP
+      : undefined;
+
+    const newOrder =
+      prevOrder != null && nextOrder != null
+        ? (prevOrder + nextOrder) / 2
+        : prevOrder != null
+          ? prevOrder + SORT_ORDER_STEP
+          : nextOrder != null
+            ? nextOrder - SORT_ORDER_STEP
+            : baseOrder + SORT_ORDER_STEP;
+
+    const movedUpdated = { ...removed, sort_order: newOrder } as Task;
+    const updatedTasksMap = new Map([[movedUpdated.id, movedUpdated]]);
 
     const nextTasks = currentTasks
       .map((task) => updatedTasksMap.get(task.id) ?? task)
@@ -870,22 +896,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     // Optimistically update the local store
     setTasks(nextTasks);
 
-    // Update the order in Supabase using batch update for better performance
+    // Persist only the moved task's order
     try {
+      savingSortRef.current = true;
+      const pendingToast = toast({ title: "正在保存排序…" });
       const isGuest = !user;
-      const updates = updatedProjectTasks.map((task) => ({
-        id: task.id,
-        sort_order: task.sort_order!,
-      }));
-
-      const success = await batchUpdateSortOrder(updates, isGuest);
-      
-      if (!success) {
-        throw new Error("Failed to persist updated sort order");
-      }
+      const saved = await updateTaskService(movedUpdated.id, { sort_order: newOrder }, isGuest);
+      if (!saved) throw new Error("Failed to persist updated sort order");
 
       // Ensure the cached queries know about the change
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+      pendingToast.update({ title: "已保存排序" });
     } catch (error) {
       console.error('Failed to update task order in database:', error);
       // Roll back optimistic update
@@ -895,6 +916,9 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         description: "任务顺序已在本地更新，但未能保存到服务器",
         variant: "destructive"
       });
+    }
+    finally {
+      savingSortRef.current = false;
     }
   }, [toast, setTasks, queryClient, user]);
 
