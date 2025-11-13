@@ -801,6 +801,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const SORT_ORDER_STEP = 1000;
 
   const savingSortRef = useRef(false);
+  type PendingReorder = { projectId: string; movedId: string; prevId?: string; nextId?: string; isCompletedArea: boolean };
+  const pendingReorderRef = useRef<PendingReorder | null>(null);
 
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -896,6 +898,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     // Optimistically update the local store
     setTasks(nextTasks);
 
+    if (savingSortRef.current) {
+      pendingReorderRef.current = {
+        projectId,
+        movedId: movedUpdated.id,
+        prevId: prev?.id,
+        nextId: next?.id,
+        isCompletedArea,
+      };
+      return;
+    }
+
     // Persist only the moved task's order
     try {
       savingSortRef.current = true;
@@ -919,6 +932,60 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     }
     finally {
       savingSortRef.current = false;
+      while (pendingReorderRef.current) {
+        const job = pendingReorderRef.current;
+        pendingReorderRef.current = null;
+
+        const currentTasks2 = useTaskStore.getState().tasks;
+        const projectTasks2 = currentTasks2.filter(
+          (task) => task.project === job.projectId && Boolean(task.completed) === job.isCompletedArea
+        );
+
+        const existingOrders2 = projectTasks2
+          .map(extractSortOrder)
+          .filter((value): value is number => value !== undefined);
+
+        const baseOrder2 =
+          existingOrders2.length > 0 ? Math.min(...existingOrders2) - SORT_ORDER_STEP : 0;
+
+        const prev2 = job.prevId ? projectTasks2.find((t) => t.id === job.prevId) : undefined;
+        const next2 = job.nextId ? projectTasks2.find((t) => t.id === job.nextId) : undefined;
+
+        const prevOrder2 = prev2
+          ? extractSortOrder(prev2) ?? baseOrder2 + (projectTasks2.indexOf(prev2) + 1) * SORT_ORDER_STEP
+          : undefined;
+        const nextOrder2 = next2
+          ? extractSortOrder(next2) ?? baseOrder2 + (projectTasks2.indexOf(next2) + 1) * SORT_ORDER_STEP
+          : undefined;
+
+        const newOrder2 =
+          prevOrder2 != null && nextOrder2 != null
+            ? (prevOrder2 + nextOrder2) / 2
+            : prevOrder2 != null
+              ? prevOrder2 + SORT_ORDER_STEP
+              : nextOrder2 != null
+                ? nextOrder2 - SORT_ORDER_STEP
+                : baseOrder2 + SORT_ORDER_STEP;
+
+        try {
+          savingSortRef.current = true;
+          const pendingToast2 = toast({ title: "正在保存排序…" });
+          const isGuest2 = !user;
+          const saved2 = await updateTaskService(job.movedId, { sort_order: newOrder2 }, isGuest2);
+          if (!saved2) throw new Error("Failed to persist updated sort order");
+          queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+          pendingToast2.update({ title: "已保存排序" });
+        } catch (err) {
+          console.error('Failed to process queued task order:', err);
+          toast({
+            title: "排序保存失败",
+            description: "存在未保存的排序变更未能同步到服务器",
+            variant: "destructive",
+          });
+        } finally {
+          savingSortRef.current = false;
+        }
+      }
     }
   }, [toast, setTasks, queryClient, user]);
 
