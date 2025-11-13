@@ -219,6 +219,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (!isActiveSuccess) return;
+    // Avoid overriding local manual order while saving or shortly after a manual reorder
+    const now = Date.now();
+    if (savingSortRef.current || pendingReorderRef.current || now - lastManualOrderAtRef.current < 1500) {
+      return;
+    }
 
     setTasks(activeTasks);
 
@@ -803,6 +808,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const savingSortRef = useRef(false);
   type PendingReorder = { projectId: string; movedId: string; prevId?: string; nextId?: string; isCompletedArea: boolean };
   const pendingReorderRef = useRef<PendingReorder | null>(null);
+  const lastManualOrderAtRef = useRef<number>(0);
 
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -879,24 +885,16 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
             : baseOrder + SORT_ORDER_STEP;
 
     const movedUpdated = { ...removed, sort_order: newOrder } as Task;
-    const updatedTasksMap = new Map([[movedUpdated.id, movedUpdated]]);
-
-    const nextTasks = currentTasks
-      .map((task) => updatedTasksMap.get(task.id) ?? task)
-      .sort((a, b) => {
-        const orderA = extractSortOrder(a) ?? Number.MAX_SAFE_INTEGER;
-        const orderB = extractSortOrder(b) ?? Number.MAX_SAFE_INTEGER;
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
-
-        const updatedAtA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
-        const updatedAtB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
-        return updatedAtA - updatedAtB;
-      });
+    const areaMatch = (t: Task) => t.project === projectId && Boolean(t.completed) === isCompletedArea;
+    const otherTasks = currentTasks.filter((t) => !areaMatch(t));
+    const nextTasks = [
+      ...reorderedProjectTasks.map((t) => (t.id === movedUpdated.id ? movedUpdated : t)),
+      ...otherTasks,
+    ];
 
     // Optimistically update the local store
     setTasks(nextTasks);
+    lastManualOrderAtRef.current = Date.now();
 
     if (savingSortRef.current) {
       pendingReorderRef.current = {
@@ -917,8 +915,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       const saved = await updateTaskService(movedUpdated.id, { sort_order: newOrder }, isGuest);
       if (!saved) throw new Error("Failed to persist updated sort order");
 
-      // Ensure the cached queries know about the change
-      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+      // Sync query cache without triggering refetch to avoid flicker
+      queryClient.setQueryData(taskKeys.active(), useTaskStore.getState().tasks);
       pendingToast.update({ title: "已保存排序" });
     } catch (error) {
       console.error('Failed to update task order in database:', error);
@@ -973,7 +971,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
           const isGuest2 = !user;
           const saved2 = await updateTaskService(job.movedId, { sort_order: newOrder2 }, isGuest2);
           if (!saved2) throw new Error("Failed to persist updated sort order");
-          queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+          queryClient.setQueryData(taskKeys.active(), useTaskStore.getState().tasks);
           pendingToast2.update({ title: "已保存排序" });
         } catch (err) {
           console.error('Failed to process queued task order:', err);
