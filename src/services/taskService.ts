@@ -934,6 +934,82 @@ export const deleteTask = async (id: string, isGuest: boolean = false): Promise<
   }
 };
 
+// Batch update sort_order for multiple tasks (lightweight, no permission checks)
+export const batchUpdateSortOrder = async (
+  updates: Array<{ id: string; sort_order: number }>,
+  isGuest: boolean = false
+): Promise<boolean> => {
+  try {
+    if (updates.length === 0) return true;
+
+    // 游客模式
+    if (isGuest) {
+      const guestId = setGuestIdHeader();
+      
+      // 并行更新所有任务
+      const updatePromises = updates.map(({ id, sort_order }) =>
+        supabase
+          .from("tasks")
+          .update({ sort_order })
+          .eq("id", id)
+          .eq("anonymous_id", guestId)
+      );
+
+      const results = await Promise.all(updatePromises);
+      const hasError = results.some((result) => result.error);
+      
+      if (hasError) {
+        const errors = results.filter((r) => r.error).map((r) => r.error);
+        console.error("Batch update errors:", errors);
+        throw new Error("Some updates failed");
+      }
+
+      return true;
+    }
+
+    // 正常登录用户模式
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      toast({
+        title: "未登录",
+        description: "请先登录后再更新任务顺序",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // 并行更新所有任务
+    // 注意：依赖数据库 RLS 策略来确保权限，直接更新即可
+    // 如果用户没有权限，RLS 会阻止更新并返回错误
+    const updatePromises = updates.map(({ id, sort_order }) =>
+      supabase
+        .from("tasks")
+        .update({ sort_order })
+        .eq("id", id)
+    );
+
+    const results = await Promise.all(updatePromises);
+    const hasError = results.some((result) => result.error);
+    
+    if (hasError) {
+      const errors = results.filter((r) => r.error).map((r) => r.error);
+      console.error("Batch update errors:", errors);
+      throw new Error("Some updates failed");
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error batch updating sort order:", error);
+    toast({
+      title: "排序失败",
+      description: "无法更新任务顺序，请稍后再试",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
+
 // Update task order in database
 export const updateTaskOrder = async (tasks: Task[], isGuest: boolean = false): Promise<boolean> => {
   try {

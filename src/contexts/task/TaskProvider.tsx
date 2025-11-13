@@ -9,7 +9,8 @@ import {
   moveToTrash as moveToTrashService,
   restoreFromTrash as restoreFromTrashService,
   abandonTask as abandonTaskService,
-  restoreAbandonedTask as restoreAbandonedTaskService
+  restoreAbandonedTask as restoreAbandonedTaskService,
+  batchUpdateSortOrder
 } from "@/services/taskService";
 import { useToast } from "@/hooks/use-toast";
 import { TaskContext } from "./TaskContext";
@@ -798,15 +799,24 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [setSelectedProject]);
 
   // Reorder tasks
+  const SORT_ORDER_STEP = 1000;
+
   const reorderTasks = useCallback(async (projectId: string, sourceIndex: number, destinationIndex: number, isCompletedArea = false) => {
     // If source and destination are the same, no need to reorder
     if (sourceIndex === destinationIndex) return;
 
     // Get only tasks for the specific project based on completion status
     const currentTasks = useTaskStore.getState().tasks;
-    const projectTasks = currentTasks.filter(task =>
-      task.project === projectId && task.completed === isCompletedArea
+    const projectTasks = currentTasks.filter(
+      (task) => task.project === projectId && Boolean(task.completed) === isCompletedArea
     );
+
+    if (projectTasks.length === 0) {
+      return;
+    }
+
+    // Keep a copy of the previous state in case we need to roll back
+    const previousTasksSnapshot = currentTasks.map((task) => ({ ...task }));
 
     // Create a copy of the array
     const reorderedProjectTasks = [...projectTasks];
@@ -815,33 +825,78 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     const [removed] = reorderedProjectTasks.splice(sourceIndex, 1);
     reorderedProjectTasks.splice(destinationIndex, 0, removed);
 
-    // Assign new sort_order values to the reordered tasks (1000 between each task)
-    const updatedTasks = reorderedProjectTasks.map((task, index) => ({
+    const extractSortOrder = (task: Task) => {
+      if (typeof task.sort_order === "number" && !Number.isNaN(task.sort_order)) {
+        return task.sort_order;
+      }
+      if (task.sort_order !== undefined) {
+        const parsed = Number(task.sort_order);
+        return Number.isNaN(parsed) ? undefined : parsed;
+      }
+      return undefined;
+    };
+
+    const existingOrders = projectTasks
+      .map(extractSortOrder)
+      .filter((value): value is number => value !== undefined);
+
+    const baseOrder =
+      existingOrders.length > 0
+        ? Math.min(...existingOrders) - SORT_ORDER_STEP
+        : 0;
+
+    // Assign new sort_order values to the reordered tasks keeping even gaps between each task
+    const updatedProjectTasks = reorderedProjectTasks.map((task, index) => ({
       ...task,
-      sort_order: (index + 1) * 1000
+      sort_order: baseOrder + (index + 1) * SORT_ORDER_STEP,
     }));
 
-    // Update the tasks state with the new order
-    const otherTasks = currentTasks.filter(task =>
-        !(task.project === projectId && task.completed === isCompletedArea)
-      );
-    setTasks([...updatedTasks, ...otherTasks]);
+    const updatedTasksMap = new Map(updatedProjectTasks.map((task) => [task.id, task]));
 
-    // Update the order in Supabase
+    const nextTasks = currentTasks
+      .map((task) => updatedTasksMap.get(task.id) ?? task)
+      .sort((a, b) => {
+        const orderA = extractSortOrder(a) ?? Number.MAX_SAFE_INTEGER;
+        const orderB = extractSortOrder(b) ?? Number.MAX_SAFE_INTEGER;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+
+        const updatedAtA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+        const updatedAtB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+        return updatedAtA - updatedAtB;
+      });
+
+    // Optimistically update the local store
+    setTasks(nextTasks);
+
+    // Update the order in Supabase using batch update for better performance
     try {
-      // Update each task's sort_order in the database
-      for (const task of updatedTasks) {
-        await updateTaskService(task.id, { sort_order: task.sort_order });
+      const isGuest = !user;
+      const updates = updatedProjectTasks.map((task) => ({
+        id: task.id,
+        sort_order: task.sort_order!,
+      }));
+
+      const success = await batchUpdateSortOrder(updates, isGuest);
+      
+      if (!success) {
+        throw new Error("Failed to persist updated sort order");
       }
+
+      // Ensure the cached queries know about the change
+      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
       console.error('Failed to update task order in database:', error);
+      // Roll back optimistic update
+      setTasks(previousTasksSnapshot);
       toast({
         title: "排序保存失败",
         description: "任务顺序已在本地更新，但未能保存到服务器",
         variant: "destructive"
       });
     }
-  }, [toast, setTasks]);
+  }, [toast, setTasks, queryClient, user]);
 
   // Calculate project counts that will be used by both contexts
   const calculateProjectCounts = useCallback(() => {
