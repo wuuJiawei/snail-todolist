@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Calendar, Loader2 } from "lucide-react";
@@ -16,9 +16,13 @@ interface AddTaskFormProps {
 const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) => {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined);
+  const isComposingRef = useRef(false);
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isComposingRef.current) {
+      return;
+    }
     if (newTaskTitle.trim() && !isSubmitting) {
       await onAddTask(newTaskTitle, newTaskDate);
       setNewTaskTitle("");
@@ -28,7 +32,12 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) =>
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      handleAddTask(e as React.FormEvent);
+      const composing = (e.nativeEvent as any)?.isComposing || (e as any)?.isComposing || (e as any)?.keyCode === 229 || isComposingRef.current;
+      if (composing) {
+        e.preventDefault();
+        return;
+      }
+      handleAddTask(e as unknown as React.FormEvent);
     }
   };
 
@@ -50,6 +59,8 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) =>
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
           onKeyDown={handleKeyDown}
+          onCompositionStart={() => { isComposingRef.current = true; }}
+          onCompositionEnd={() => { isComposingRef.current = false; }}
           placeholder="添加任务"
           className="h-6 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm px-0"
           disabled={isSubmitting}
