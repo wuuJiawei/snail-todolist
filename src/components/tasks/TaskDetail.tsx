@@ -159,6 +159,14 @@ const TaskDetail = () => {
     };
   }, [selectedTask, debouncedTitleSave, debouncedContentSave]);
 
+  useEffect(() => {
+    if (!selectedTask) return;
+    const sameTask = previousTaskIdRef.current === selectedTask.id;
+    if (sameTask && !isUserTypingRef.current && !isTitleComposing) {
+      setTitle((prev) => (prev !== selectedTask.title ? selectedTask.title : prev));
+    }
+  }, [selectedTask?.id, selectedTask?.title, isTitleComposing]);
+
   const handleTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newTitle = e.target.value;
     
