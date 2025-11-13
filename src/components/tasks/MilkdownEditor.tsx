@@ -258,6 +258,12 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
           const view = ctx.get(editorViewCtx);
           return serializer(view.state.doc);
         }),
+      focus: () => {
+        editorInstance.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          view.focus();
+        });
+      },
     });
 
     return () => {

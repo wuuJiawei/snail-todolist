@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useRef } from "react";
 import MilkdownEditor from "./MilkdownEditor";
 import TaskAttachments from "./TaskAttachments";
 import type { TaskAttachment } from "@/types/task";
 
 export type EditorBridge = {
   blocksToMarkdownLossy: () => Promise<string>;
+  focus: () => void;
 };
 
 export interface TaskDetailContentProps {
@@ -28,8 +29,18 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
   attachments,
   onAttachmentsChange,
 }) => {
+  const editorBridgeRef = useRef<EditorBridge | null>(null);
+
+  const handleEditorReady = (bridge: EditorBridge | null) => {
+    editorBridgeRef.current = bridge;
+    onEditorReady(bridge);
+  };
+
+  const handleShellClick = () => {
+    editorBridgeRef.current?.focus?.();
+  };
   return (
-    <div className="task-editor-shell flex-1 flex flex-col gap-4">
+    <div className="task-editor-shell flex-1 flex flex-col gap-4" onClick={handleShellClick}>
       <div className="w-full flex-1 overflow-visible relative">
         {!isEditorUpdating && (
           <MilkdownEditor
@@ -37,7 +48,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
             content={editorContent}
             onChange={onEditorChange}
             readOnly={isTaskInTrash}
-            onEditorReady={onEditorReady}
+            onEditorReady={handleEditorReady}
             attachments={attachments}
             onAttachmentsChange={onAttachmentsChange}
           />
