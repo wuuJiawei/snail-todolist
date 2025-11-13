@@ -1,7 +1,8 @@
-import { Calendar as CalendarIcon, Copy, MoreHorizontal, X, History, Flag } from "lucide-react";
+import { Calendar as CalendarIcon, Copy, MoreHorizontal, X, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { Icon } from "@/components/ui/icon-park";
 import {
   Popover,
   PopoverContent,
@@ -58,13 +59,13 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
           onClick={onFlagToggle}
           disabled={isTaskInTrash}
           className={cn(
-            "h-7 w-7 rounded-full border border-transparent transition-colors",
+            "h-5 w-5 rounded-full border border-transparent transition-colors",
             flagged ? "text-amber-500 bg-amber-50 dark:bg-amber-500/10" : "text-muted-foreground hover:text-foreground"
           )}
           aria-pressed={flagged}
           title={flagged ? "取消标记" : "标记任务"}
         >
-          <Flag className="h-4 w-4" fill={flagged ? "currentColor" : "none"} />
+          <Icon icon="flag" size="16" className="h-4 w-4" />
         </Button>
         <Separator orientation="vertical" />
         {isTaskInTrash ? (
