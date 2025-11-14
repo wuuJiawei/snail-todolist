@@ -178,6 +178,33 @@ export type Database = {
         }
         Relationships: []
       }
+      global_chat_messages: {
+        Row: {
+          id: string
+          content: string
+          author_name: string | null
+          user_id: string | null
+          anonymous_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          content: string
+          author_name?: string | null
+          user_id?: string | null
+          anonymous_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          content?: string
+          author_name?: string | null
+          user_id?: string | null
+          anonymous_id?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           abandoned: boolean | null

@@ -167,6 +167,19 @@ const AppSidebar = () => {
               </Button>
             </Link>
 
+            <Link to="/chat" className="w-full">
+              <Button
+                variant={location.pathname === "/chat" ? "secondary" : "ghost"}
+                size="icon"
+                className={cn(
+                  "w-full h-10 rounded-lg",
+                  location.pathname === "/chat" && "bg-brand-orange bg-opacity-10 text-brand-orange hover:bg-brand-orange hover:bg-opacity-20"
+                )}
+              >
+                <Icon icon="message" size="20" className="h-5 w-5" />
+              </Button>
+            </Link>
+
             <Button
               variant="ghost"
               size="icon"

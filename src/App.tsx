@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import Pomodoro from "./pages/Pomodoro";
 import Settings from "./pages/Settings";
 import SearchResults from "./pages/SearchResults";
+import Chat from "./pages/Chat";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { TaskProvider } from "@/contexts/task";
@@ -86,6 +87,17 @@ const App = () => {
                             <AppSidebar />
                             <div className="flex-1 overflow-hidden">
                               <SearchResults />
+                            </div>
+                          </div>
+                        }
+                      />
+                      <Route
+                        path="/chat"
+                        element={
+                          <div className="flex h-screen overflow-hidden">
+                            <AppSidebar />
+                            <div className="flex-1 overflow-hidden">
+                              <Chat />
                             </div>
                           </div>
                         }
