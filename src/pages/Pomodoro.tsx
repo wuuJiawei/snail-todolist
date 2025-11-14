@@ -1,37 +1,35 @@
-
-import { useEffect, useMemo, useRef, useState } from "react";
+ 
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
   Play,
   Pause,
   RotateCcw,
   SkipForward,
-  RefreshCw,
   Trash2,
+  Settings,
+  BarChart3,
   TimerReset,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
 import CircularProgress from "@/components/ui/circular-progress";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from "@/components/ui/drawer";
 import { usePomodoroSettings } from "@/hooks/usePomodoroSettings";
 import { usePomodoroTimer } from "@/hooks/usePomodoroTimer";
 import { usePomodoroHistory } from "@/hooks/usePomodoroHistory";
 import { PomodoroSessionType } from "@/services/pomodoroService";
-import { cn } from "@/lib/utils";
+ 
 
 const MODE_LABELS: Record<PomodoroSessionType, string> = {
   focus: "专注",
@@ -58,13 +56,12 @@ const Pomodoro = () => {
   const timer = usePomodoroTimer(settings);
   const {
     today: todayStats,
-    heatmap,
     recentSessions,
-    loading: historyLoading,
     refresh: refreshHistory,
     removeSession,
-  } = usePomodoroHistory();
+  } = usePomodoroHistory({ includeHeatmap: false });
   const [settingsDirty, setSettingsDirty] = useState(false);
+  const [panel, setPanel] = useState<"none" | "stats" | "settings">("none");
 
   useEffect(() => {
     if (timer.version > 0) {
@@ -126,95 +123,6 @@ const Pomodoro = () => {
     return Number.isFinite(rate) ? Math.round(rate) : 0;
   }, [focusSessionsTotal, todayStats.focusCount]);
 
-  const heatmapMaxMinutes = useMemo(
-    () => heatmap.reduce((max, day) => Math.max(max, day.focusMinutes), 0),
-    [heatmap]
-  );
-
-  const heatmapWeeks = useMemo(() => {
-    const chunks: Array<typeof heatmap> = [];
-    for (let i = 0; i < heatmap.length; i += 7) {
-      chunks.push(heatmap.slice(i, i + 7));
-    }
-    return chunks;
-  }, [heatmap]);
-
-  const heatmapMonthLabels = useMemo(() => {
-    const labels: { label: string; index: number }[] = [];
-    let lastMonth: string | null = null;
-
-    heatmapWeeks.forEach((week, index) => {
-      if (week.length === 0) return;
-      const firstDate = new Date(week[0].date);
-      const monthLabel = format(firstDate, "MMM");
-      if (monthLabel !== lastMonth) {
-        labels.push({ label: monthLabel, index });
-        lastMonth = monthLabel;
-      }
-    });
-
-    return labels;
-  }, [heatmapWeeks]);
-
-  const heatmapMonthLabelMap = useMemo(() => {
-    const map = new Map<number, string>();
-    heatmapMonthLabels.forEach(({ label, index }) => {
-      map.set(index, label);
-    });
-    return map;
-  }, [heatmapMonthLabels]);
-
-  const heatmapWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [heatmapCellSize, setHeatmapCellSize] = useState(12);
-  const [heatmapGap, setHeatmapGap] = useState(4);
-
-  useEffect(() => {
-    const updateCellSize = () => {
-      const el = heatmapWrapperRef.current;
-      if (!el) return;
-      const columns = heatmapWeeks.length;
-      if (columns === 0) return;
-
-      const labelColumnWidth = 40; // weekday column width
-      const gapBetweenLabelAndGrid = 16;
-      const availableWidth = Math.max(
-        0,
-        el.clientWidth - labelColumnWidth - gapBetweenLabelAndGrid
-      );
-
-      let chosenSize = 2;
-      let chosenGap = 1;
-      for (let size = 16; size >= 2; size -= 1) {
-        const gap = size <= 3 ? 1 : size <= 5 ? 2 : 4;
-        const totalWidth = columns * size + (columns - 1) * gap;
-        if (totalWidth <= availableWidth) {
-          chosenSize = size;
-          chosenGap = gap;
-          break;
-        }
-      }
-
-      setHeatmapCellSize(chosenSize);
-      setHeatmapGap(chosenGap);
-    };
-
-    updateCellSize();
-    window.addEventListener("resize", updateCellSize);
-    return () => window.removeEventListener("resize", updateCellSize);
-  }, [heatmapWeeks.length]);
-
-  const getHeatmapSquareClass = (minutes: number) => {
-    if (!heatmapMaxMinutes || minutes <= 0) {
-      return "bg-muted";
-    }
-    const ratio = minutes / heatmapMaxMinutes;
-    if (ratio >= 0.75) return "bg-emerald-600";
-    if (ratio >= 0.5) return "bg-emerald-500";
-    if (ratio >= 0.35) return "bg-emerald-400";
-    if (ratio >= 0.2) return "bg-emerald-300";
-    return "bg-emerald-200";
-  };
-
   const sessionStatusLabel = timer.session
     ? timer.isRunning
       ? "计时中"
@@ -222,454 +130,243 @@ const Pomodoro = () => {
     : "未开始";
 
   return (
-    <div className="w-full space-y-8 px-6 py-8">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
-        <Card className="h-full shadow-sm">
-          <CardHeader>
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <CardTitle className="text-2xl font-semibold">番茄钟</CardTitle>
-                <CardDescription>
-                  参考滴答清单的番茄工作法：自动循环专注与休息，并同步历史记录。
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-3">
-                {(["focus", "short_break", "long_break"] as PomodoroSessionType[]).map((item) => (
-                  <Button
-                    key={item}
-                    variant={timer.mode === item ? "default" : "outline"}
-                    size="sm"
-                    className="h-9 px-4"
-                    onClick={() => void handleModeSelect(item)}
-                  >
-                    {MODE_LABELS[item]}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center gap-8 lg:flex-row lg:items-stretch lg:justify-between">
-              <div className="flex flex-col items-center gap-6">
-                <CircularProgress value={timer.progress} size={260} thickness={22}>
-                  <div className="flex flex-col items-center gap-2">
-                    <span className="text-xs uppercase text-muted-foreground tracking-widest">
-                      当前阶段
-                    </span>
-                    <span className="text-5xl font-semibold tracking-tight">{formattedTime}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {MODE_LABELS[timer.mode]} · {sessionStatusLabel}
-                    </span>
-                  </div>
-                </CircularProgress>
-
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <Button size="lg" className="min-w-[150px]" onClick={handleToggle}>
-                    {timer.isRunning ? (
-                      <Pause className="mr-2 h-5 w-5" />
-                    ) : (
-                      <Play className="mr-2 h-5 w-5" />
-                    )}
-                    {timer.isRunning ? "暂停" : "开始"}
-                  </Button>
-                  <Button variant="outline" size="lg" className="min-w-[150px]" onClick={handleSkip}>
-                    <SkipForward className="mr-2 h-5 w-5" />
-                    跳过
-                  </Button>
-                  <Button variant="ghost" size="lg" className="min-w-[150px]" onClick={handleReset}>
-                    <RotateCcw className="mr-2 h-5 w-5" />
-                    重置当前
-                  </Button>
-                </div>
-
-                <div className="text-sm text-muted-foreground">
-                  即将进入：<span className="font-medium text-foreground">{upcomingLabel}</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  距离长休还差{" "}
-                  <span className="font-semibold text-foreground">
-                    {Math.max(0, focusRemaining)}
-                  </span>{" "}
-                  轮专注
-                </div>
-                {timer.session && (
-                  <div className="text-xs text-muted-foreground">
-                    开始时间：{format(new Date(timer.session.start_time), "HH:mm")}
-                  </div>
-                )}
-              </div>
-
-              <Separator orientation="vertical" className="hidden h-auto lg:block" />
-
-              <div className="flex w-full flex-col gap-4 rounded-xl bg-muted/40 p-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">
-                    {MODE_LABELS[timer.mode]}
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      {MODE_DESCRIPTIONS[timer.mode]}
-                    </span>
-                  </h3>
-                  <Badge variant="outline" className="text-xs">
-                    {timer.session ? "正在记录" : "待开始"}
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="rounded-lg border bg-background p-4 shadow-sm">
-                    <div className="text-xs uppercase text-muted-foreground tracking-wide">
-                      今日专注
-                    </div>
-                    <div className="mt-2 text-2xl font-semibold text-primary">
-                      {todayStats.focusMinutes} 分钟
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      已完成 {todayStats.focusCount} 次番茄
-                    </div>
-                  </div>
-                  <div className="rounded-lg border bg-background p-4 shadow-sm">
-                    <div className="text-xs uppercase text-muted-foreground tracking-wide">
-                      今日休息
-                    </div>
-                    <div className="mt-2 text-2xl font-semibold">
-                      {todayStats.breakMinutes} 分钟
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      休息 {todayStats.breakCount} 次
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground md:grid-cols-3">
-                  <div className="rounded-md bg-background p-3">
-                    <div className="text-[10px] uppercase">循环目标</div>
-                    <div className="mt-1 text-base font-medium text-foreground">
-                      每 {settings.cyclesBeforeLongBreak} 次专注长休
-                    </div>
-                  </div>
-                  <div className="rounded-md bg-background p-3">
-                    <div className="text-[10px] uppercase">自动开始</div>
-                    <div className="mt-1 text-base font-medium text-foreground">
-                      {settings.autoStartFocus ? "专注自动开始 · " : ""}
-                      {settings.autoStartBreak ? "休息自动开始" : "休息手动开始"}
-                      {!settings.autoStartFocus && !settings.autoStartBreak && "全部手动"}
-                    </div>
-                  </div>
-                  <div className="rounded-md bg-background p-3">
-                    <div className="text-[10px] uppercase">提示音</div>
-                    <div className="mt-1 text-base font-medium text-foreground">
-                      {settings.soundEnabled ? "结束播放提示音" : "静音模式"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="h-full shadow-sm">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl">今日概览</CardTitle>
-              <CardDescription>快速回顾今天完成的番茄钟与专注时长。</CardDescription>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => void refreshHistory()}>
-                <RefreshCw className="h-4 w-4" />
-                <span className="sr-only">刷新统计</span>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {historyLoading && (
-              <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <Skeleton key={index} className="h-16 w-full rounded-lg" />
-                ))}
-              </div>
-            )}
-            {!historyLoading && (
-              <>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="rounded-lg border bg-background p-4 shadow-sm">
-                    <div className="text-muted-foreground">专注次数</div>
-                    <div className="mt-2 text-3xl font-semibold">
-                      {todayStats.focusCount}
-                    </div>
-                  </div>
-                  <div className="rounded-lg border bg-background p-4 shadow-sm">
-                    <div className="text-muted-foreground">完成率</div>
-                    <div className="mt-2 text-3xl font-semibold">
-                      {completionRate}%
-                    </div>
-                  </div>
-                </div>
-                <Separator />
-                <div ref={heatmapWrapperRef} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium">近一年专注热力图</h4>
-                    <span className="text-xs text-muted-foreground">颜色越深表示专注越久</span>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-[92px] flex-col justify-between text-[10px] text-muted-foreground">
-                      {["日", "二", "四", "六"].map((label, index) => (
-                        <span key={label} className={index % 2 === 1 ? "opacity-60" : undefined}>
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                    <div
-                      className="flex items-start"
-                      style={{ gap: `${heatmapGap}px`, paddingTop: "20px" }}
-                    >
-                      {heatmapWeeks.map((week, weekIndex) => (
-                        <div
-                          key={weekIndex}
-                          className="relative flex flex-col"
-                          style={{
-                            width: `${heatmapCellSize}px`,
-                            gap: `${heatmapGap}px`,
-                          }}
-                        >
-                          {heatmapMonthLabelMap.has(weekIndex) && (
-                            <span className="absolute -top-5 text-[10px] font-medium uppercase text-muted-foreground">
-                              {heatmapMonthLabelMap.get(weekIndex)}
-                            </span>
-                          )}
-                          {week.map((day, dayIndex) => (
-                            <div
-                              key={`${day.date}-${dayIndex}`}
-                              className={cn(
-                                "border border-foreground/5 transition-colors rounded-none",
-                                getHeatmapSquareClass(day.focusMinutes)
-                              )}
-                              style={{
-                                width: `${heatmapCellSize}px`,
-                                height: `${heatmapCellSize}px`,
-                              }}
-                              title={`${format(new Date(day.date), "MMM dd, EEE")} · ${day.focusMinutes} 分钟 · ${day.focusCount} 次专注`}
-                            />
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                    <span>较少</span>
-                    {[0, 1, 2, 3, 4].map((level) => (
-                      <span
-                        key={level}
-                        className={cn(
-                          "border border-foreground/5 rounded-none",
-                          getHeatmapSquareClass(
-                            heatmapMaxMinutes === 0 ? 0 : (heatmapMaxMinutes * level) / 4
-                          )
-                        )}
-                        style={{
-                          width: `${Math.max(4, heatmapCellSize)}px`,
-                          height: `${Math.max(4, heatmapCellSize)}px`,
-                        }}
-                      />
-                    ))}
-                    <span>较多</span>
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+    <div className="relative flex h-screen w-full items-center justify-center">
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={() => setPanel("stats")}>
+          <BarChart3 className="mr-2 h-4 w-4" /> 统计
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => setPanel("settings")}>
+          <Settings className="mr-2 h-4 w-4" /> 设置
+        </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="h-full shadow-sm">
-          <CardHeader className="pb-4">
-            <div>
-              <CardTitle className="text-xl">计时设置</CardTitle>
-              <CardDescription>根据自己的节奏调整番茄时长与自动化行为。</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="focusDuration">专注时长 (分钟)</Label>
-                <Input
-                  id="focusDuration"
-                  type="number"
-                  min={1}
-                  max={180}
-                  value={settings.focusDuration}
-                  onChange={handleNumberChange("focusDuration")}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="shortBreakDuration">短休时长 (分钟)</Label>
-                <Input
-                  id="shortBreakDuration"
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={settings.shortBreakDuration}
-                  onChange={handleNumberChange("shortBreakDuration")}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="longBreakDuration">长休时长 (分钟)</Label>
-                <Input
-                  id="longBreakDuration"
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={settings.longBreakDuration}
-                  onChange={handleNumberChange("longBreakDuration")}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cyclesBeforeLongBreak">长休前的专注轮数</Label>
-                <Input
-                  id="cyclesBeforeLongBreak"
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={settings.cyclesBeforeLongBreak}
-                  onChange={handleNumberChange("cyclesBeforeLongBreak")}
-                />
-              </div>
-            </div>
+      <div className="flex flex-col items-center gap-8">
+        <div className="flex items-center gap-2">
+          {(["focus", "short_break", "long_break"] as PomodoroSessionType[]).map((item) => (
+            <Button
+              key={item}
+              variant={timer.mode === item ? "default" : "outline"}
+              size="sm"
+              className="h-9 px-4"
+              onClick={() => void handleModeSelect(item)}
+            >
+              {MODE_LABELS[item]}
+            </Button>
+          ))}
+        </div>
 
-            <Separator />
+        <CircularProgress value={timer.progress} size={300} thickness={24}>
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-6xl font-semibold tracking-tight">{formattedTime}</span>
+            <span className="text-xs text-muted-foreground">
+              {MODE_LABELS[timer.mode]} · {sessionStatusLabel}
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              即将进入 {upcomingLabel} · 距长休 {Math.max(0, focusRemaining)} 轮
+            </span>
+          </div>
+        </CircularProgress>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-4">
-                <div>
-                  <div className="text-sm font-medium">专注自动开始</div>
-                  <div className="text-xs text-muted-foreground">
-                    进入专注阶段时自动启动计时器。
-                  </div>
-                </div>
-                <Switch
-                  checked={settings.autoStartFocus}
-                  onCheckedChange={(value) => {
-                    updateSettings({ autoStartFocus: value });
-                    setSettingsDirty(true);
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-4">
-                <div>
-                  <div className="text-sm font-medium">休息自动开始</div>
-                  <div className="text-xs text-muted-foreground">
-                    完成专注后是否自动进入休息。
-                  </div>
-                </div>
-                <Switch
-                  checked={settings.autoStartBreak}
-                  onCheckedChange={(value) => {
-                    updateSettings({ autoStartBreak: value });
-                    setSettingsDirty(true);
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-4 md:col-span-2">
-                <div>
-                  <div className="text-sm font-medium">完成提示音</div>
-                  <div className="text-xs text-muted-foreground">
-                    每次阶段结束时播放提示音提醒。
-                  </div>
-                </div>
-                <Switch
-                  checked={settings.soundEnabled}
-                  onCheckedChange={(value) => {
-                    updateSettings({ soundEnabled: value });
-                    setSettingsDirty(true);
-                  }}
-                />
-              </div>
-            </div>
+        <div className="flex items-center justify-center gap-3">
+          <Button size="lg" className="min-w-[150px]" onClick={handleToggle}>
+            {timer.isRunning ? (
+              <Pause className="mr-2 h-5 w-5" />
+            ) : (
+              <Play className="mr-2 h-5 w-5" />
+            )}
+            {timer.isRunning ? "暂停" : "开始"}
+          </Button>
+          <Button variant="outline" size="lg" className="min-w-[150px]" onClick={handleSkip}>
+            <SkipForward className="mr-2 h-5 w-5" />
+            跳过
+          </Button>
+          <Button variant="ghost" size="lg" className="min-w-[150px]" onClick={handleReset}>
+            <RotateCcw className="mr-2 h-5 w-5" />
+            重置当前
+          </Button>
+        </div>
+      </div>
 
-            <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4 text-xs text-muted-foreground">
+      <Drawer open={panel !== "none"} onOpenChange={(open) => setPanel(open ? panel : "none") }>
+        <DrawerContent className="max-h-[80vh]">
+          <DrawerHeader>
+            <DrawerTitle>{panel === "stats" ? "今日统计" : "计时设置"}</DrawerTitle>
+            <DrawerDescription>
+              {panel === "stats" ? "回顾今天的番茄记录" : "根据你的节奏调整参数"}
+            </DrawerDescription>
+          </DrawerHeader>
+
+          {panel === "stats" ? (
+            <div className="px-4 pb-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="rounded-lg border bg-background p-4">
+                  <div className="text-muted-foreground">专注分钟</div>
+                  <div className="mt-2 text-2xl font-semibold">{todayStats.focusMinutes}</div>
+                  <div className="text-xs text-muted-foreground">完成 {todayStats.focusCount} 次番茄</div>
+                </div>
+                <div className="rounded-lg border bg-background p-4">
+                  <div className="text-muted-foreground">休息分钟</div>
+                  <div className="mt-2 text-2xl font-semibold">{todayStats.breakMinutes}</div>
+                  <div className="text-xs text-muted-foreground">休息 {todayStats.breakCount} 次</div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-background p-4 text-sm">
+                <div className="text-muted-foreground">完成率</div>
+                <div className="mt-2 text-3xl font-semibold">{completionRate}%</div>
+              </div>
+
               <div>
-                {settingsDirty
-                  ? "设置已更新，新的计时将在下一轮生效。"
-                  : "设置与默认一致，可随时调整适合自己的节奏。"}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  resetSettings();
-                  setSettingsDirty(false);
-                }}
-              >
-                <TimerReset className="mr-1 h-4 w-4" />
-                恢复默认
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="h-full shadow-sm">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl">最近会话</CardTitle>
-                <CardDescription>查看刚刚完成或取消的番茄钟，可快速清理错误记录。</CardDescription>
-              </div>
-              <Badge variant="outline" className="text-xs">
-                共 {recentSessions.length} 条
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="max-h-[360px] pr-2">
-              <div className="space-y-4">
-                {recentSessions.length === 0 && (
-                  <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    暂无记录，开始一次番茄钟试试吧。
-                  </div>
-                )}
-                {recentSessions.map((session) => {
-                  const startedAt = format(new Date(session.start_time), "MM/dd HH:mm");
-                  return (
-                    <div
-                      key={session.id}
-                      className="flex items-start justify-between rounded-lg border bg-background p-4 shadow-sm"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={session.completed ? "default" : "secondary"}>
-                            {MODE_LABELS[session.type]}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {session.completed ? "已完成" : "未完成"}
-                          </span>
-                        </div>
-                        <div className="text-sm font-medium text-foreground">
-                          {formatDuration(session.duration)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {startedAt}
-                          {session.end_time
-                            ? ` · 结束于 ${format(new Date(session.end_time), "HH:mm")}`
-                            : ""}
-                        </div>
+                <div className="mb-2 text-sm font-medium">最近会话（{recentSessions.length}）</div>
+                <ScrollArea className="max-h-[320px] pr-2">
+                  <div className="space-y-3">
+                    {recentSessions.length === 0 && (
+                      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                        暂无记录，开始一次番茄钟试试吧。
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => void removeSession(session.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">删除会话</span>
-                      </Button>
-                    </div>
-                  );
-                })}
+                    )}
+                    {recentSessions.map((session) => {
+                      const startedAt = format(new Date(session.start_time), "MM/dd HH:mm");
+                      return (
+                        <div
+                          key={session.id}
+                          className="flex items-start justify-between rounded-lg border bg-background p-4"
+                        >
+                          <div className="space-y-1">
+                            <div className="text-sm font-medium">
+                              {MODE_LABELS[session.type]} · {formatDuration(session.duration)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {session.completed ? "已完成" : "未完成"} · {startedAt}
+                              {session.end_time ? ` · 结束于 ${format(new Date(session.end_time), "HH:mm")}` : ""}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => void removeSession(session.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">删除会话</span>
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
               </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
+            </div>
+          ) : (
+            <div className="px-4 pb-6 space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="focusDuration">专注时长 (分钟)</Label>
+                  <Input
+                    id="focusDuration"
+                    type="number"
+                    min={1}
+                    max={180}
+                    value={settings.focusDuration}
+                    onChange={handleNumberChange("focusDuration")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shortBreakDuration">短休时长 (分钟)</Label>
+                  <Input
+                    id="shortBreakDuration"
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={settings.shortBreakDuration}
+                    onChange={handleNumberChange("shortBreakDuration")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="longBreakDuration">长休时长 (分钟)</Label>
+                  <Input
+                    id="longBreakDuration"
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={settings.longBreakDuration}
+                    onChange={handleNumberChange("longBreakDuration")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cyclesBeforeLongBreak">长休前的专注轮数</Label>
+                  <Input
+                    id="cyclesBeforeLongBreak"
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={settings.cyclesBeforeLongBreak}
+                    onChange={handleNumberChange("cyclesBeforeLongBreak")}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-4">
+                  <div>
+                    <div className="text-sm font-medium">专注自动开始</div>
+                    <div className="text-xs text-muted-foreground">进入专注阶段时自动启动计时器。</div>
+                  </div>
+                  <Switch
+                    checked={settings.autoStartFocus}
+                    onCheckedChange={(value) => {
+                      updateSettings({ autoStartFocus: value });
+                      setSettingsDirty(true);
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-4">
+                  <div>
+                    <div className="text-sm fontmedium">休息自动开始</div>
+                    <div className="text-xs text-muted-foreground">完成专注后是否自动进入休息。</div>
+                  </div>
+                  <Switch
+                    checked={settings.autoStartBreak}
+                    onCheckedChange={(value) => {
+                      updateSettings({ autoStartBreak: value });
+                      setSettingsDirty(true);
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-4 md:col-span-2">
+                  <div>
+                    <div className="text-sm font-medium">完成提示音</div>
+                    <div className="text-xs text-muted-foreground">每次阶段结束时播放提示音提醒。</div>
+                  </div>
+                  <Switch
+                    checked={settings.soundEnabled}
+                    onCheckedChange={(value) => {
+                      updateSettings({ soundEnabled: value });
+                      setSettingsDirty(true);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4 text-xs text-muted-foreground">
+                <div>
+                  {settingsDirty ? "设置已更新，新的计时将在下一轮生效。" : "设置与默认一致，可随时调整适合自己的节奏。"}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    resetSettings();
+                    setSettingsDirty(false);
+                  }}
+                >
+                  <TimerReset className="mr-1 h-4 w-4" /> 恢复默认
+                </Button>
+              </div>
+            </div>
+          )}
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 };

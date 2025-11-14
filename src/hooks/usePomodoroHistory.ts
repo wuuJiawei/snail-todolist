@@ -47,7 +47,10 @@ const calculateHeatmapStart = (): Date => {
   return start;
 };
 
-export const usePomodoroHistory = (): UsePomodoroHistoryResult => {
+export const usePomodoroHistory = (
+  options: { includeHeatmap?: boolean } = {}
+): UsePomodoroHistoryResult => {
+  const { includeHeatmap = true } = options;
   const [todayStats, setTodayStats] = useState<ServiceTodayStats>(emptyTodayStats);
   const [heatmapDays, setHeatmapDays] = useState<HeatmapDay[]>([]);
   const [recentSessions, setRecentSessions] = useState<PomodoroSession[]>([]);
@@ -99,17 +102,18 @@ export const usePomodoroHistory = (): UsePomodoroHistoryResult => {
     try {
       const startOfRange = calculateHeatmapStart();
 
-      const [today, rangeSessions, recent] = await Promise.all([
-        getTodayStats(),
-        fetchPomodoroSessions({
+      const todayPromise = getTodayStats();
+      const recentPromise = fetchPomodoroSessions({ limit: 20, order: "desc" });
+
+      let rangeSessions: PomodoroSession[] = [];
+      if (includeHeatmap) {
+        rangeSessions = await fetchPomodoroSessions({
           from: startOfRange.toISOString(),
           order: "asc",
-        }),
-        fetchPomodoroSessions({
-          limit: 20,
-          order: "desc",
-        }),
-      ]);
+        });
+      }
+
+      const [today, recent] = await Promise.all([todayPromise, recentPromise]);
 
       setTodayStats(
         today ?? {
@@ -121,7 +125,7 @@ export const usePomodoroHistory = (): UsePomodoroHistoryResult => {
         }
       );
 
-      setHeatmapDays(buildHeatmap(rangeSessions));
+      setHeatmapDays(includeHeatmap ? buildHeatmap(rangeSessions) : []);
       setRecentSessions(recent);
     } catch (error) {
       console.error("Failed to refresh pomodoro history:", error);
@@ -131,7 +135,7 @@ export const usePomodoroHistory = (): UsePomodoroHistoryResult => {
     } finally {
       setLoading(false);
     }
-  }, [buildHeatmap]);
+  }, [buildHeatmap, includeHeatmap]);
 
   useEffect(() => {
     void refresh();
