@@ -24,6 +24,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { TaskAttachment } from "@/types/task";
 import { supabase } from "@/integrations/supabase/client";
 import type { EditorBridge } from "./TaskDetailContent";
+import { gfm } from "@milkdown/preset-gfm";
+import { usePluginViewFactory, ProsemirrorAdapterProvider } from "@prosemirror-adapter/react";
+import { tooltip, TooltipView } from "./milkdown/Tooltip";
 
 interface MilkdownEditorProps {
   content: string;
@@ -46,6 +49,7 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const pluginViewFactory = usePluginViewFactory();
 
   const contentRef = useRef(content);
   const taskIdRef = useRef(taskId);
@@ -58,6 +62,9 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
   const isProgrammaticChangeRef = useRef(false);
   const uploadHandlerRef = useRef<UploadOptions["uploader"]>();
   const lastAppliedTaskIdRef = useRef<string | undefined>(undefined);
+  const isEditorReadyRef = useRef(false);
+  const pendingTasksRef = useRef<(() => void)[]>([]);
+  const isUnmountedRef = useRef(false);
 
   useEffect(() => {
     contentRef.current = content;
@@ -227,6 +234,27 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
                 : Promise.resolve([]),
             enableHtmlFileUploader: true,
           }));
+          ctx.set(tooltip.key, {
+            view: pluginViewFactory({
+              component: TooltipView,
+            }),
+          });
+          ctx.get(listenerCtx).mounted(() => {
+            isEditorReadyRef.current = true;
+            const tasks = pendingTasksRef.current;
+            pendingTasksRef.current = [];
+            tasks.forEach((task) => {
+              setTimeout(() => {
+                if (isUnmountedRef.current) return;
+                requestAnimationFrame(() => {
+                  if (isUnmountedRef.current) return;
+                  requestAnimationFrame(() => {
+                    if (!isUnmountedRef.current) task();
+                  });
+                });
+              }, 0);
+            });
+          });
           ctx.get(listenerCtx).markdownUpdated((_, markdown) => {
             if (isProgrammaticChangeRef.current) {
               return;
@@ -236,10 +264,12 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
         })
         .use(nord)
         .use(commonmark)
+        .use(gfm)
         .use(history)
         .use(cursor)
         .use(listener)
-        .use(upload);
+        .use(upload)
+        .use(tooltip);
     },
     []
   );
@@ -252,14 +282,19 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
     }
 
     onEditorReadyRef.current?.({
-      blocksToMarkdownLossy: async () =>
-        editorInstance.action((ctx) => {
+      blocksToMarkdownLossy: async () => {
+        const inst = editor.get();
+        if (!inst) return "";
+        return inst.action((ctx) => {
           const serializer = ctx.get(serializerCtx);
           const view = ctx.get(editorViewCtx);
           return serializer(view.state.doc);
-        }),
+        });
+      },
       focus: () => {
-        editorInstance.action((ctx) => {
+        const inst = editor.get();
+        if (!inst) return;
+        inst.action((ctx) => {
           const view = ctx.get(editorViewCtx);
           view.focus();
         });
@@ -280,26 +315,76 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
       return;
     }
 
+    if (lastAppliedTaskIdRef.current === undefined) {
+      lastAppliedTaskIdRef.current = taskIdRef.current;
+      return;
+    }
+
     lastAppliedTaskIdRef.current = taskIdRef.current;
     isProgrammaticChangeRef.current = true;
-    editorInstance.action(replaceAll(contentRef.current || "", true));
-    requestAnimationFrame(() => {
-      isProgrammaticChangeRef.current = false;
-    });
+    const task = () => {
+      const inst = editor.get();
+      if (!inst) {
+        isProgrammaticChangeRef.current = false;
+        return;
+      }
+      inst.action(replaceAll(contentRef.current || "", true));
+      requestAnimationFrame(() => {
+        isProgrammaticChangeRef.current = false;
+      });
+    };
+    if (isEditorReadyRef.current) {
+      setTimeout(() => {
+        if (isUnmountedRef.current) return;
+        requestAnimationFrame(() => {
+          if (isUnmountedRef.current) return;
+          requestAnimationFrame(() => {
+            if (!isUnmountedRef.current) task();
+          });
+        });
+      }, 0);
+    } else {
+      pendingTasksRef.current.push(task);
+    }
   }, [editorInstance, taskId]);
 
   useEffect(() => {
     if (!editorInstance) {
       return;
     }
-    editorInstance.action((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      view.setProps({
-        ...view.props,
-        editable: () => !readOnlyRef.current,
+    const task = () => {
+      const inst = editor.get();
+      if (!inst) return;
+      inst.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        view.setProps({
+          ...view.props,
+          editable: () => !readOnlyRef.current,
+        });
       });
-    });
+    };
+    if (isEditorReadyRef.current) {
+      setTimeout(() => {
+        if (isUnmountedRef.current) return;
+        requestAnimationFrame(() => {
+          if (isUnmountedRef.current) return;
+          requestAnimationFrame(() => {
+            if (!isUnmountedRef.current) task();
+          });
+        });
+      }, 0);
+    } else {
+      pendingTasksRef.current.push(task);
+    }
   }, [editorInstance, readOnly]);
+
+  useEffect(() => {
+    return () => {
+      isUnmountedRef.current = true;
+      isEditorReadyRef.current = false;
+      pendingTasksRef.current = [];
+    };
+  }, []);
 
   return (
     <div className="milkdown-editor h-full">
@@ -311,7 +396,9 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
 const MilkdownEditor: React.FC<MilkdownEditorProps> = (props) => {
   return (
     <MilkdownProvider>
-      <MilkdownEditorInner {...props} />
+      <ProsemirrorAdapterProvider>
+        <MilkdownEditorInner {...props} />
+      </ProsemirrorAdapterProvider>
     </MilkdownProvider>
   );
 };
