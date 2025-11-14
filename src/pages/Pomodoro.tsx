@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import CircularProgress from "@/components/ui/circular-progress";
 import {
   Drawer,
@@ -29,7 +28,6 @@ import { usePomodoroSettings } from "@/hooks/usePomodoroSettings";
 import { usePomodoroTimer } from "@/hooks/usePomodoroTimer";
 import { usePomodoroHistory } from "@/hooks/usePomodoroHistory";
 import { PomodoroSessionType } from "@/services/pomodoroService";
- 
 
 const MODE_LABELS: Record<PomodoroSessionType, string> = {
   focus: "专注",
@@ -187,9 +185,9 @@ const Pomodoro = () => {
         </div>
       </div>
 
-      <Drawer open={panel !== "none"} onOpenChange={(open) => setPanel(open ? panel : "none") }>
-        <DrawerContent className="max-h-[80vh]">
-          <DrawerHeader>
+      <Drawer shouldScaleBackground={false} open={panel !== "none"} onOpenChange={(open) => setPanel(open ? panel : "none") }>
+        <DrawerContent className="max-h-[80vh] overflow-y-auto">
+          <DrawerHeader className="sticky top-0 z-10 bg-background border-b">
             <DrawerTitle>{panel === "stats" ? "今日统计" : "计时设置"}</DrawerTitle>
             <DrawerDescription>
               {panel === "stats" ? "回顾今天的番茄记录" : "根据你的节奏调整参数"}
@@ -218,7 +216,7 @@ const Pomodoro = () => {
 
               <div>
                 <div className="mb-2 text-sm font-medium">最近会话（{recentSessions.length}）</div>
-                <ScrollArea className="max-h-[320px] pr-2">
+                <div className="pr-2">
                   <div className="space-y-3">
                     {recentSessions.length === 0 && (
                       <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -254,7 +252,7 @@ const Pomodoro = () => {
                       );
                     })}
                   </div>
-                </ScrollArea>
+                </div>
               </div>
             </div>
           ) : (
