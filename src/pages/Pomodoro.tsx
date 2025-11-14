@@ -1,4 +1,3 @@
- 
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
@@ -72,6 +71,12 @@ const Pomodoro = () => {
       setSettingsDirty(false);
     }
   }, [isReady]);
+
+  useEffect(() => {
+    if (panel === "stats") {
+      void refreshHistory();
+    }
+  }, [panel, refreshHistory]);
 
   const formattedTime = useMemo(() => formatTimer(timer.remainingSeconds), [timer.remainingSeconds]);
   const upcomingLabel = MODE_LABELS[timer.upcomingMode];
@@ -185,7 +190,13 @@ const Pomodoro = () => {
         </div>
       </div>
 
-      <Drawer shouldScaleBackground={false} open={panel !== "none"} onOpenChange={(open) => setPanel(open ? panel : "none") }>
+      <Drawer
+        shouldScaleBackground={false}
+        open={panel !== "none"}
+        onOpenChange={(open) => {
+          if (!open) setPanel("none");
+        }}
+      >
         <DrawerContent className="max-h-[80vh] overflow-y-auto">
           <DrawerHeader className="sticky top-0 z-10 bg-background border-b">
             <DrawerTitle>{panel === "stats" ? "今日统计" : "计时设置"}</DrawerTitle>
@@ -320,7 +331,7 @@ const Pomodoro = () => {
                 </div>
                 <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-4">
                   <div>
-                    <div className="text-sm fontmedium">休息自动开始</div>
+                    <div className="text-sm font-medium">休息自动开始</div>
                     <div className="text-xs text-muted-foreground">完成专注后是否自动进入休息。</div>
                   </div>
                   <Switch

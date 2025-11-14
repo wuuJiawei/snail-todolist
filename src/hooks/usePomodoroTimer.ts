@@ -134,16 +134,20 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
   const actionLockRef = useRef(false);
   const completionPendingRef = useRef(false);
 
-  const totalSeconds = useMemo(
-    () => getDurationForMode(mode, settings) * 60,
-    [mode, settings]
-  );
+  const totalSeconds = useMemo(() => {
+    let seconds = getDurationForMode(mode, settings) * 60;
+    if (session && session.type === mode && typeof session.duration === "number") {
+      seconds = session.duration * 60;
+    }
+    return seconds;
+  }, [session, mode, settings]);
 
   const progress = useMemo(() => {
+    if (!session && !isRunning) return 0;
     if (totalSeconds <= 0) return 0;
     const value = 1 - remainingSeconds / totalSeconds;
     return Math.min(1, Math.max(0, value));
-  }, [remainingSeconds, totalSeconds]);
+  }, [remainingSeconds, totalSeconds, session, isRunning]);
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -314,17 +318,17 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
         return;
       }
 
-      if (session) {
-        await cancelPomodoroSession(session.id);
-        setSession(null);
-        sessionRef.current = null;
-      }
-
       completionPendingRef.current = false;
       clearTimer();
       setIsRunning(false);
       setMode(targetMode);
       applyModeDefaults(targetMode);
+
+      if (session) {
+        await cancelPomodoroSession(session.id);
+        setSession(null);
+        sessionRef.current = null;
+      }
     },
     [mode, session, clearTimer, applyModeDefaults]
   );
@@ -362,7 +366,7 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
     (async () => {
       const active = await getActivePomodoroSession();
       if (!mounted || !active) {
-        applyModeDefaults("focus");
+        // Do not override the current selection when no active session is found
         return;
       }
 
@@ -392,7 +396,7 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
     return () => {
       mounted = false;
     };
-  }, [applyModeDefaults, finalizeSession]);
+  }, [finalizeSession]);
 
   const upcomingMode = useMemo(
     () => computeNextState(mode, focusStreak, settings, "complete").nextMode,
