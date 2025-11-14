@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon-park";
 // Keep lucide-react as fallback
-import { Check, Clock, Search } from "lucide-react";
+import { Check, Clock, Search, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -93,6 +93,17 @@ const AppSidebar = () => {
     navigate(`/search?query=${encodeURIComponent(searchQuery)}`);
   };
 
+  // 刷新页面（兼容 Web 与 Tauri WebView）
+  const handleReload = () => {
+    try {
+      if (typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
+        window.location.reload();
+      }
+    } catch (e) {
+      console.error('Reload failed:', e);
+    }
+  };
+
   // 快捷键监听
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -168,18 +179,29 @@ const AppSidebar = () => {
           </div>
 
           <div className="mt-auto mb-4 flex justify-center w-full">
-            <Link to="/settings" className="w-full">
+            <div className="w-full flex flex-col items-center gap-2">
               <Button
-                variant={location.pathname === "/settings" ? "secondary" : "ghost"}
+                variant="ghost"
                 size="icon"
-                className={cn(
-                  "w-full h-10 rounded-lg",
-                  location.pathname === "/settings" && "bg-brand-orange bg-opacity-10 text-brand-orange hover:bg-brand-orange hover:bg-opacity-20"
-                )}
+                className="w-full h-10 rounded-lg"
+                onClick={handleReload}
+                title="刷新页面"
               >
-                <Icon icon="setting" size="20" className="h-5 w-5" />
+                <RefreshCw className="h-5 w-5" />
               </Button>
-            </Link>
+              <Link to="/settings" className="w-full">
+                <Button
+                  variant={location.pathname === "/settings" ? "secondary" : "ghost"}
+                  size="icon"
+                  className={cn(
+                    "w-full h-10 rounded-lg",
+                    location.pathname === "/settings" && "bg-brand-orange bg-opacity-10 text-brand-orange hover:bg-brand-orange hover:bg-opacity-20"
+                  )}
+                >
+                  <Icon icon="setting" size="20" className="h-5 w-5" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
