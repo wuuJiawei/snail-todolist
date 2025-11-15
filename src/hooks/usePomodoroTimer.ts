@@ -224,6 +224,10 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
       if (actionLockRef.current) {
         return;
       }
+      if (reason === "complete" && !sessionRef.current) {
+        completionPendingRef.current = false;
+        return;
+      }
       actionLockRef.current = true;
 
       try {
@@ -245,9 +249,15 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
           }
         }
 
-        const { nextMode, nextFocusStreak } = computeNextState(mode, focusStreak, settings, reason);
+        const currentForTransition = activeSession ? activeSession.type : mode;
+        const { nextMode, nextFocusStreak } = computeNextState(
+          currentForTransition,
+          focusStreak,
+          settings,
+          reason
+        );
 
-        if (activeSession && reason === "complete" && mode === "focus") {
+        if (activeSession && reason === "complete" && currentForTransition === "focus") {
           updateFocusStreak(nextFocusStreak);
         }
 
@@ -354,12 +364,12 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
   }, [isRunning, clearTimer]);
 
   useEffect(() => {
-    if (!completionPendingRef.current || remainingSeconds > 0) {
+    if (!isRunning || !completionPendingRef.current || remainingSeconds > 0) {
       return;
     }
     completionPendingRef.current = false;
     void finalizeSession("complete");
-  }, [remainingSeconds, finalizeSession]);
+  }, [remainingSeconds, finalizeSession, isRunning]);
 
   useEffect(() => {
     let mounted = true;
@@ -377,16 +387,14 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
       );
       const remaining = Math.max(0, durationSeconds - elapsedSeconds);
 
-      setMode(active.type);
-      setSession(active);
-      setRemainingSeconds(remaining);
-
       if (remaining > 0) {
+        setMode(active.type);
+        setSession(active);
+        setRemainingSeconds(remaining);
         setIsRunning(true);
       } else {
-        // Session already exceeded planned duration -> mark complete
-        completionPendingRef.current = true;
-        setIsRunning(false);
+        // Session already exceeded planned duration -> complete it without flashing UI back to the old mode
+        sessionRef.current = active;
         setTimeout(() => {
           void finalizeSession("complete");
         }, 0);
@@ -396,7 +404,7 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
     return () => {
       mounted = false;
     };
-  }, [finalizeSession]);
+  }, []);
 
   const upcomingMode = useMemo(
     () => computeNextState(mode, focusStreak, settings, "complete").nextMode,
