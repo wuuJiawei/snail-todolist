@@ -132,9 +132,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const tagsCache = useTaskStore((state) => state.tagsCache);
   const tagsVersion = useTaskStore((state) => state.tagsVersion);
   const setTasks = useTaskStore((state) => state.setTasks);
-  const prependTask = useTaskStore((state) => state.prependTask);
-  const replaceTaskById = useTaskStore((state) => state.replaceTaskById);
-  const removeTask = useTaskStore((state) => state.removeTask);
   const setTrashedTasks = useTaskStore((state) => state.setTrashedTasks);
   const setAbandonedTasks = useTaskStore((state) => state.setAbandonedTasks);
   const setSelectedTaskId = useTaskStore((state) => state.setSelectedTaskId);
@@ -147,7 +144,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const setTaskIdToTags = useTaskStore((state) => state.setTaskIdToTags);
   const setTagsCache = useTaskStore((state) => state.setTagsCache);
   const incrementTagsVersion = useTaskStore((state) => state.incrementTagsVersion);
-  const insertOptimisticTask = useTaskStore((state) => state.insertOptimisticTask);
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -275,27 +271,19 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         ...task,
         user_id: user.id
       };
-      const tempId = `temp-${Date.now()}`;
-      insertOptimisticTask({ tempId, ...taskWithUserId });
-
-      try {
       const newTask = await addTaskService(taskWithUserId);
-        if (!newTask) {
-          throw new Error("add task failed");
-        }
-
-        replaceTaskById(tempId, newTask);
-        await recordTaskActivity(newTask.id, "task_created", { title: newTask.title });
-        queryClient.invalidateQueries({ queryKey: taskKeys.active() });
-      } catch (error) {
-        removeTask(tempId);
-        throw error;
+      if (!newTask) {
+        throw new Error("add task failed");
       }
+
+      setTasks((current) => [newTask, ...current]);
+      await recordTaskActivity(newTask.id, "task_created", { title: newTask.title });
+      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
       console.error("Failed to add task:", error);
       throw error;
     }
-  }, [user, toast, insertOptimisticTask, replaceTaskById, removeTask, queryClient, recordTaskActivity]);
+  }, [user, toast, setTasks, queryClient, recordTaskActivity]);
 
   // Update task
   const updateTask = useCallback(async (id: string, updatedTask: Partial<Task>) => {
