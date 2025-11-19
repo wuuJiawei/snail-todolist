@@ -79,27 +79,33 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const handleCompletionToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
-    // 防止操作进行中的重复点击
-    if (operationState.isActive) return;
+    if (operationState.isActive && operationState.operationType !== "update") return;
 
+    const nextCompleted = !task.completed;
     try {
       await startOperation("complete", async () => {
-        await updateTask(task.id, {
-          completed: !task.completed,
-          // The completed_at will be set in the service layer
-        });
-
-        // Show toast notification
-        if (!task.completed) {
-          toast({
-            title: "任务已完成",
-            description: `「${task.title}」已标记为完成`,
-            variant: "default",
-          });
-        }
+        await updateTask(task.id, { completed: nextCompleted });
       });
+      if (nextCompleted) {
+        toast({
+          title: "任务已完成",
+          description: `「${task.title}」已标记为完成`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "已取消完成",
+          description: `「${task.title}」已恢复为未完成`,
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error("Failed to toggle completion:", error);
+      toast({
+        title: "更新失败",
+        description: "无法更新完成状态，请稍后重试",
+        variant: "destructive",
+      });
     }
   };
 
@@ -518,7 +524,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
         className={cn(
           "py-2 px-4 flex items-center gap-3 hover:bg-gray-100 rounded-lg cursor-pointer group transition-opacity duration-300 relative",
           task.completed && "opacity-60",
-          operationState.isActive && "opacity-60 pointer-events-none",
+          operationState.isActive && operationState.operationType !== "update" && "opacity-60 pointer-events-none",
           selectedTask?.id === task.id && "bg-gray-200",
           isContextMenuOpen && "bg-gray-200",
           isDragging && "bg-gray-100 shadow-md"
@@ -543,7 +549,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
           )}
           onClick={handleCompletionToggle}
         >
-            {operationState.isActive ? (
+            {operationState.isActive && operationState.operationType === "complete" ? (
               <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
             ) : (
               task.completed && (
