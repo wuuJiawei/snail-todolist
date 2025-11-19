@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/context-menu";
 import DueDatePickerContent from "./DueDatePickerContent";
 import { Draggable } from "@hello-pangea/dnd";
-import TaskOperationProgress from "@/components/ui/task-operation-progress";
+import { Loader2 } from "lucide-react";
 import { useTaskOperation } from "@/hooks/useTaskOperation";
 import TagSelector from "./TagSelector";
 
@@ -115,10 +115,20 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   };
 
   const handleTitleSave = async () => {
-    if (editedTitle.trim() !== "") {
-      setLocalTitle(editedTitle.trim());
-      setIsEditing(false);
-      await updateTask(task.id, { title: editedTitle.trim() });
+    const next = editedTitle.trim();
+    if (next !== "") {
+      try {
+        await startOperation("update", async () => {
+          await updateTask(task.id, { title: next });
+        });
+        setLocalTitle(next);
+        setIsEditing(false);
+      } catch (err) {
+        console.error("Failed to save title:", err);
+        setEditedTitle(task.title);
+        setLocalTitle(task.title);
+        setIsEditing(false);
+      }
     } else {
       setEditedTitle(task.title);
       setLocalTitle(task.title);
@@ -505,21 +515,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   // Render the task content
   const renderTaskContent = (dragHandleProps?: React.HTMLAttributes<HTMLDivElement>, isDragging?: boolean) => (
     <div
-      className={cn(
-        "py-2 px-4 flex items-center gap-3 hover:bg-gray-100 rounded-lg cursor-pointer group transition-opacity duration-300 relative",
-        task.completed && "opacity-60",
-        selectedTask?.id === task.id && "bg-gray-200",
-        isContextMenuOpen && "bg-gray-200",
-        isDragging && "bg-gray-100 shadow-md"
-      )}
-      onClick={handleTaskSelect}
-    >
+        className={cn(
+          "py-2 px-4 flex items-center gap-3 hover:bg-gray-100 rounded-lg cursor-pointer group transition-opacity duration-300 relative",
+          task.completed && "opacity-60",
+          operationState.isActive && "opacity-60 pointer-events-none",
+          selectedTask?.id === task.id && "bg-gray-200",
+          isContextMenuOpen && "bg-gray-200",
+          isDragging && "bg-gray-100 shadow-md"
+        )}
+        onClick={handleTaskSelect}
+      >
       {/* 任务操作进度条覆盖层 */}
-      <TaskOperationProgress
-        isVisible={operationState.isActive}
-        operationType={operationState.operationType}
-        progress={operationState.progress}
-      />
+      
       {isDraggable && (
         <div
           className="h-5 w-5 flex-shrink-0 flex items-center justify-center text-gray-300 group-hover:text-gray-500 transition-colors cursor-grab"
@@ -530,27 +537,27 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
       )}
           <div
             className={cn(
-              "h-5 w-5 flex-shrink-0 border border-gray-300 rounded-full flex items-center justify-center transition-all duration-300",
-              operationState.isActive && operationState.operationType === "complete" && !task.completed && "scale-125 border-green-500",
-              "hover:bg-gray-200",
-              task.completed && "border-black bg-black hover:bg-black"
-            )}
-            onClick={handleCompletionToggle}
-          >
-            {task.completed && (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="white"
-                width="12"
-                height="12"
-                className="transition-transform duration-300"
-              >
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-              </svg>
-            )}
-            {operationState.isActive && operationState.operationType === "complete" && !task.completed && (
-              <Icon icon="check-small" size="12" className="h-3 w-3 text-green-500 animate-[pulse_0.5s_ease-in-out]" />
+            "h-5 w-5 flex-shrink-0 border border-gray-300 rounded-full flex items-center justify-center transition-all duration-300",
+            "hover:bg-gray-200",
+            task.completed && "border-black bg-black hover:bg-black"
+          )}
+          onClick={handleCompletionToggle}
+        >
+            {operationState.isActive ? (
+              <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+            ) : (
+              task.completed && (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="white"
+                  width="12"
+                  height="12"
+                  className="transition-transform duration-300"
+                >
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                </svg>
+              )
             )}
           </div>
 
