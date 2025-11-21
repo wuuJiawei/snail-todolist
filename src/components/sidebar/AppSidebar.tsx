@@ -129,6 +129,14 @@ const AppSidebar = () => {
     };
   }, [searchOpen]); // 依赖 searchOpen 状态
 
+  // 路由切换到 /search 时，强制关闭搜索对话框，避免遮罩残留阻塞点击
+  useEffect(() => {
+    if (searchOpen && location.pathname.startsWith('/search')) {
+      setSearchOpen(false);
+      setSearchQuery('');
+    }
+  }, [location.pathname, searchOpen]);
+
   return (
     <>
       <div
@@ -219,7 +227,7 @@ const AppSidebar = () => {
         </div>
       </div>
 
-      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+      <Dialog open={searchOpen && !location.pathname.startsWith('/search')} onOpenChange={setSearchOpen}>
         <DialogContent className="max-w-2xl p-0">
           <div className="flex flex-col max-h-[70vh]">
             {/* 搜索输入框 */}
