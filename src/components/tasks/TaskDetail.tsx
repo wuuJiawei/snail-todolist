@@ -11,6 +11,7 @@ import TaskDetailHeader from "./TaskDetailHeader";
 import TaskDetailTitleSection from "./TaskDetailTitleSection";
 import TaskDetailContent, { EditorBridge } from "./TaskDetailContent";
 import TaskActivityDialog from "./TaskActivityDialog";
+import { useTaskOperation } from "@/hooks/useTaskOperation";
 
 const TaskDetail = () => {
   const { selectedTask, updateTask, selectTask, trashedTasks } = useTaskContext();
@@ -25,6 +26,8 @@ const TaskDetail = () => {
   const [blockNoteEditor, setBlockNoteEditor] = useState<EditorBridge | null>(null);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
+  const { operationState, startOperation } = useTaskOperation();
+  const isCompletionLoading = operationState.isActive && operationState.operationType === "complete";
 
   // Track task switching with a ref to avoid unnecessary re-renders
   const previousTaskIdRef = useRef<string | null>(null);
@@ -213,9 +216,12 @@ const TaskDetail = () => {
   };
 
   const handleCompletedChange = (checked: boolean | 'indeterminate') => {
+    if (!selectedTask || isTaskInTrash) return;
     const newCompleted = checked === true;
-    setCompleted(newCompleted);
-    saveTask({ completed: newCompleted });
+    startOperation("complete", async () => {
+      await updateTask(selectedTask.id, { completed: newCompleted });
+      setCompleted(newCompleted);
+    });
   };
 
   const handleFlagToggle = useCallback(async () => {
@@ -406,9 +412,10 @@ const TaskDetail = () => {
         onCopyAsMarkdown={handleCopyAsMarkdown}
         onClose={handleClose}
         onShowActivityLog={() => setActivityDialogOpen(true)}
+        isCompletionLoading={isCompletionLoading}
       />
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 flex flex-col gap-6">
+      <div className={`flex-1 overflow-y-auto custom-scrollbar px-6 py-5 flex flex-col gap-6 ${isCompletionLoading ? "opacity-60 pointer-events-none" : ""}`}>
         <section className="bg-background border border-border/60 rounded-xl shadow-sm px-5 py-4">
           <TaskDetailTitleSection
             title={title}

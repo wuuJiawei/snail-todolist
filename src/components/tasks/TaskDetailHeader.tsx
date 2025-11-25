@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon, Copy, MoreHorizontal, X, History } from "lucide-react";
+import { Calendar as CalendarIcon, Copy, MoreHorizontal, X, History, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
@@ -30,6 +30,7 @@ export interface TaskDetailHeaderProps {
   onCopyAsMarkdown: () => void;
   onClose: () => void;
   onShowActivityLog: () => void;
+  isCompletionLoading: boolean;
 }
 
 const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
@@ -43,21 +44,25 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
   onCopyAsMarkdown,
   onClose,
   onShowActivityLog,
+  isCompletionLoading,
 }) => {
   return (
     <div className="p-3 flex items-center justify-between border-b bg-background">
       <div className="flex items-center gap-3">
+        {isCompletionLoading && (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        )}
         <Checkbox
           checked={completed}
           onCheckedChange={onCompletedChange}
           className="rounded-full h-5 w-5"
-          disabled={isTaskInTrash}
+          disabled={isTaskInTrash || isCompletionLoading}
         />
         <Button
           variant="ghost"
           size="icon"
           onClick={onFlagToggle}
-          disabled={isTaskInTrash}
+          disabled={isTaskInTrash || isCompletionLoading}
           className={cn(
             "h-5 w-5 rounded-full border border-transparent transition-colors",
             flagged ? "text-amber-500 bg-amber-50 dark:bg-amber-500/10" : "text-muted-foreground hover:text-foreground"
@@ -76,7 +81,7 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
         ) : (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="text-xs h-7">
+              <Button variant="outline" size="sm" className="text-xs h-7" disabled={isCompletionLoading}>
                 <CalendarIcon className="mr-2 h-3 w-3" />
                 {selectedDate ? formatDateText(selectedDate) : "添加截止日期"}
               </Button>

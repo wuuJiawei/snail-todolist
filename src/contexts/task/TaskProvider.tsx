@@ -299,6 +299,30 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     const previousTasks = useTaskStore.getState().tasks;
     const previousTask = previousTasks.find((task) => task.id === id);
     const drafts = buildTaskActivityDrafts(previousTask, updatedTask);
+    const isCompletionToggle = Object.prototype.hasOwnProperty.call(updatedTask, "completed");
+
+    if (isCompletionToggle) {
+      try {
+        const updated = await updateTaskService(id, updatedTask);
+        if (!updated) {
+          throw new Error("update task failed");
+        }
+        setTasks((current) =>
+          current.map((task) => (task.id === id ? { ...task, ...updated } : task))
+        );
+        if (drafts.length && previousTask) {
+          await Promise.all(
+            drafts.map((draft) => recordTaskActivity(id, draft.action, draft.metadata))
+          );
+        }
+        queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+      } catch (error) {
+        console.error("Failed to update task:", error);
+        throw error;
+      }
+      return;
+    }
+
     const timestamp = new Date().toISOString();
     const updatedTasks = previousTasks.map((task) => {
       if (task.id !== id) return task;
