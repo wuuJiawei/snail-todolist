@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getOrCreateGuestId } from "@/services/taskService";
 
 type ChatMessage = Tables<"global_chat_messages">;
@@ -23,10 +24,15 @@ const Chat: React.FC = () => {
   const [hasMore, setHasMore] = useState(false);
   const pageSize = 50;
   const [online, setOnline] = useState<Array<{ key: string; name: string }>>([]);
+  const [showNewTip, setShowNewTip] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const isAtBottomRef = useRef(true);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
 
   const displayName = useMemo(() => {
     if (user) {
-      const name = (user.user_metadata as any)?.full_name || user.email || "用户";
+      const meta: any = user.user_metadata || {};
+      const name = meta.name || meta.full_name || user.email || "用户";
       return name as string;
     }
     const gid = getOrCreateGuestId();
@@ -64,8 +70,13 @@ const Chat: React.FC = () => {
         { event: "INSERT", schema: "public", table: "global_chat_messages" },
         (payload) => {
           const m = payload.new as ChatMessage;
+          const auto = isAtBottomRef.current;
           setMessages((prev) => [...prev, m]);
-          scrollToBottom();
+          if (auto) {
+            scrollToBottom();
+          } else {
+            setShowNewTip(true);
+          }
         }
       )
       .on("presence", { event: "sync" }, () => {
@@ -91,6 +102,23 @@ const Chat: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [user, displayName]);
+
+  useEffect(() => {
+    const viewport = listRef.current?.parentElement as HTMLDivElement | null;
+    if (!viewport) return;
+    viewportRef.current = viewport;
+    const onScroll = () => {
+      const at = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 40;
+      isAtBottomRef.current = at;
+      setIsAtBottom(at);
+      if (at) setShowNewTip(false);
+    };
+    onScroll();
+    viewport.addEventListener("scroll", onScroll);
+    return () => {
+      viewport.removeEventListener("scroll", onScroll);
+    };
+  }, []);
 
   const loadMore = async () => {
     if (loadingMore || messages.length === 0) return;
@@ -130,7 +158,9 @@ const Chat: React.FC = () => {
     }
 
     setInput("");
-    scrollToBottom();
+    if (isAtBottomRef.current) {
+      scrollToBottom();
+    }
   };
 
   return (
@@ -139,7 +169,7 @@ const Chat: React.FC = () => {
         <div className="h-12 shrink-0 border-b px-4 flex items-center text-sm font-medium">
           全局聊天室
         </div>
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden relative">
           <ScrollArea className="h-full">
             <div ref={listRef} className="p-4 space-y-3">
               {hasMore && (
@@ -164,11 +194,14 @@ const Chat: React.FC = () => {
                       </div>
                     );
                   }
+                  const isSelf = (user && m.user_id === user.id) || (!user && m.anonymous_id && m.anonymous_id === getOrCreateGuestId());
+                  const avatarUrl = isSelf ? (user?.user_metadata as any)?.avatar_url || "" : "";
                   items.push(
                     <div key={m.id} className="flex items-start gap-3">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs">
-                        {m.author_name?.slice(0, 1) || "?"}
-                      </div>
+                      <Avatar className="h-8 w-8 border">
+                        <AvatarImage src={avatarUrl} />
+                        <AvatarFallback>{m.author_name?.slice(0, 1) || "?"}</AvatarFallback>
+                      </Avatar>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 text-sm">
                           <span className="font-medium truncate max-w-[160px]">{m.author_name || (m.user_id ? "用户" : "游客")}</span>
@@ -184,6 +217,11 @@ const Chat: React.FC = () => {
               })()}
             </div>
           </ScrollArea>
+          {showNewTip && !isAtBottom && (
+            <div className="absolute bottom-4 right-4">
+              <Button size="sm" variant="secondary" onClick={scrollToBottom}>有新消息，点击查看</Button>
+            </div>
+          )}
         </div>
         <div className="border-t p-3">
           <div className="flex items-end gap-2">
