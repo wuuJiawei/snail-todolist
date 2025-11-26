@@ -76,6 +76,21 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         throw memberError;
       }
 
+      // Check which owned projects have other members (so owner lists show as shared)
+      const ownedIds = ownedProjects.map(p => p.id);
+      let ownedSharedSet = new Set<string>();
+      if (ownedIds.length > 0) {
+        const { data: ownedMemberRows, error: ownedMembersError } = await supabase
+          .from('project_members')
+          .select('project_id')
+          .in('project_id', ownedIds);
+        if (ownedMembersError) {
+          console.error('Error fetching owned project member rows:', ownedMembersError);
+        } else {
+          ownedSharedSet = new Set((ownedMemberRows || []).map((r: any) => r.project_id));
+        }
+      }
+
       // Process member projects to match the format of owned projects
       const formattedMemberProjects = memberProjects
         .filter(item => item.project) // Filter out any null projects
@@ -92,8 +107,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         project => !ownedProjectIds.has(project.id)
       );
 
-      // Combine both sets of projects
-      const allProjects = [...ownedProjects, ...uniqueMemberProjects];
+      // Combine both sets of projects; mark owned projects with shared icon if they have members
+      const ownedWithShareFlag = ownedProjects.map((p) => ({
+        ...p,
+        is_shared: ownedSharedSet.has(p.id) || Boolean(p.is_shared),
+      }));
+      const allProjects = [...ownedWithShareFlag, ...uniqueMemberProjects];
 
       console.log("Fetched projects:", {
         ownedProjects: ownedProjects.length,
@@ -136,6 +155,31 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     fetchProjects();
   }, [user, fetchProjects, setProjects, setLoading]);
+
+  // Realtime: refresh on project membership changes (filtered)
+  useEffect(() => {
+    if (!user) return;
+    const ownedIds = (projects || []).filter(p => p.user_id === user.id).map(p => p.id);
+    const channel = supabase.channel(`projects:members:${user.id}`);
+    const refresh = () => fetchProjects(true);
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "project_members", filter: `user_id=eq.${user.id}` },
+      refresh
+    );
+    if (ownedIds.length > 0) {
+      const inList = ownedIds.map(id => `"${id}"`).join(",");
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "project_members", filter: `project_id=in.(${inList})` },
+        refresh
+      );
+    }
+    channel.subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, projects, fetchProjects]);
 
   // Listen for task count updates from TaskProvider
   useEffect(() => {

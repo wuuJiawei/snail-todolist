@@ -1,5 +1,6 @@
 
 import React, { useState, ReactNode, useEffect, useMemo, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task } from "@/types/task";
 import {
@@ -25,6 +26,7 @@ import { tagKeys, tagQueries } from "@/queries/tagQueries";
 import { createTaskActivity } from "@/services/taskActivityService";
 import { taskActivityKeys } from "@/queries/taskActivityQueries";
 import type { TaskActivityAction, TaskActivityInput } from "@/types/taskActivity";
+import { useProjectContext } from "@/contexts/ProjectContext";
 
 const hasProp = <K extends keyof Partial<Task>>(obj: Partial<Task>, key: K): boolean =>
   Object.prototype.hasOwnProperty.call(obj, key);
@@ -148,6 +150,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [selectedProject, setSelectedProject] = useState<string>(getSavedProject());
+  const { projects } = useProjectContext();
 
   const selectedTask = useMemo(() => {
     if (!selectedTaskId) return null;
@@ -804,6 +807,44 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     }
   }, [selectedProject, user, loadTrashedTasks, loadAbandonedTasks]);
 
+  // Supabase Realtime: tasks changes（按用户 + 可见清单集合过滤；大量项目时分片；若选中具体清单则优先只订阅该清单）
+  const visibleProjectIds = useMemo(() => (projects || []).map(p => p.id), [projects]);
+  const builtinScopes = useMemo(() => new Set(["recent","today","flagged","completed","abandoned","trash"]), []);
+  const narrowedProjectIds = useMemo(() => {
+    if (selectedProject && !builtinScopes.has(selectedProject)) {
+      // 当前选中为具体清单，则仅订阅该清单
+      return visibleProjectIds.includes(selectedProject) ? [selectedProject] : [];
+    }
+    return visibleProjectIds;
+  }, [selectedProject, builtinScopes, visibleProjectIds]);
+
+  useEffect(() => {
+    if (!user) return;
+    const uid = user.id;
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    // 1) 订阅属于当前用户的任务变更
+    const chUser = supabase.channel(`tasks:user:${uid}`);
+    chUser.on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `user_id=eq.${uid}` }, invalidate).subscribe();
+    channels.push(chUser);
+
+    // 2) 订阅可见清单内任务的变更（按 50 个一组分片）
+    const chunkSize = 50;
+    for (let i = 0; i < narrowedProjectIds.length; i += chunkSize) {
+      const group = narrowedProjectIds.slice(i, i + chunkSize);
+      if (group.length === 0) continue;
+      const inList = group.map(id => `"${id}"`).join(",");
+      const ch = supabase.channel(`tasks:projects:${uid}:${i / chunkSize}`);
+      ch.on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `project=in.(${inList})` }, invalidate).subscribe();
+      channels.push(ch);
+    }
+
+    return () => {
+      channels.forEach(ch => supabase.removeChannel(ch));
+    };
+  }, [user, queryClient, narrowedProjectIds]);
+
   const selectTask = useCallback((id: string | null) => {
     setSelectedTaskId(id);
   }, [setSelectedTaskId]);
@@ -922,14 +963,14 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     // Persist only the moved task's order
     try {
       savingSortRef.current = true;
-      const pendingToast = toast({ title: "正在保存排序…" });
+      // 保存排序
       const isGuest = !user;
       const saved = await updateTaskService(movedUpdated.id, { sort_order: newOrder }, isGuest);
       if (!saved) throw new Error("Failed to persist updated sort order");
 
       // Sync query cache without triggering refetch to avoid flicker
       queryClient.setQueryData(taskKeys.active(), useTaskStore.getState().tasks);
-      pendingToast.update({ title: "已保存排序" });
+      toast({ title: "已保存排序" });
     } catch (error) {
       console.error('Failed to update task order in database:', error);
       // Roll back optimistic update
@@ -979,12 +1020,12 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
         try {
           savingSortRef.current = true;
-          const pendingToast2 = toast({ title: "正在保存排序…" });
+          // 保存排序
           const isGuest2 = !user;
           const saved2 = await updateTaskService(job.movedId, { sort_order: newOrder2 }, isGuest2);
           if (!saved2) throw new Error("Failed to persist updated sort order");
           queryClient.setQueryData(taskKeys.active(), useTaskStore.getState().tasks);
-          pendingToast2.update({ title: "已保存排序" });
+          toast({ title: "已保存排序" });
         } catch (err) {
           console.error('Failed to process queued task order:', err);
           toast({

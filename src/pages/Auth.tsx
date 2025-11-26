@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,19 +14,39 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { signInWithEmail, signUpWithEmail, signInWithOAuth, signInAsGuest, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    // If user is already logged in, redirect to home page without toast
-    if (user) {
-      navigate('/');
+    // capture redirect param
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect');
+    if (redirect) {
+      try { localStorage.setItem('post_login_redirect', redirect); } catch {}
     }
-  }, [user, navigate]);
+    // If user is already logged in, redirect to home or pending redirect
+    if (user) {
+      let target: string | null = null;
+      try { target = localStorage.getItem('post_login_redirect'); } catch {}
+      if (target) {
+        try { localStorage.removeItem('post_login_redirect'); } catch {}
+        navigate(target, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [user, navigate, location.search]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     await signInWithEmail(email, password);
     setIsLoading(false);
+    let target: string | null = null;
+    try { target = localStorage.getItem('post_login_redirect'); } catch {}
+    if (target) {
+      try { localStorage.removeItem('post_login_redirect'); } catch {}
+      navigate(target, { replace: true });
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -46,6 +66,12 @@ const Auth = () => {
     setIsLoading(true);
     await signInAsGuest();
     setIsLoading(false);
+    let target: string | null = null;
+    try { target = localStorage.getItem('post_login_redirect'); } catch {}
+    if (target) {
+      try { localStorage.removeItem('post_login_redirect'); } catch {}
+      navigate(target, { replace: true });
+    }
   };
 
   return (

@@ -67,16 +67,16 @@ const JoinSharedProjectDialog: React.FC<JoinSharedProjectDialogProps> = ({
       // Find the project share by code
       const { data: shareData, error: shareError } = await supabase
         .from('project_shares')
-        .select('project_id, created_by')
+        .select('project_id, created_by, is_active, expires_at')
         .eq('share_code', data.shareCode.toUpperCase())
-        .eq('is_active', true)
         .maybeSingle();
 
       if (shareError) {
         throw shareError;
       }
 
-      if (!shareData) {
+      const expired = shareData?.expires_at ? new Date(shareData.expires_at) < new Date() : true;
+      if (!shareData || !shareData.is_active || expired) {
         toast({
           title: "加入失败",
           description: "无效的分享码或分享已过期",

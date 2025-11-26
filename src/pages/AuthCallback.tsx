@@ -25,8 +25,15 @@ const AuthCallback = () => {
 
         if (data.session) {
           console.log("Session established successfully");
-          // 成功获取session，重定向到首页
-          navigate("/", { replace: true });
+          // 成功获取session，优先跳转到待处理重定向
+          let target: string | null = null;
+          try { target = localStorage.getItem('post_login_redirect'); } catch {}
+          if (target) {
+            try { localStorage.removeItem('post_login_redirect'); } catch {}
+            navigate(target, { replace: true });
+          } else {
+            navigate("/", { replace: true });
+          }
         } else {
           // 如果没有session，尝试从URL片段中获取token
           const hashParams = new URLSearchParams(window.location.hash.substring(1));

@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import Pomodoro from "./pages/Pomodoro";
 import Settings from "./pages/Settings";
 import SearchResults from "./pages/SearchResults";
+import JoinSharedProject from "./pages/JoinSharedProject";
 import Chat from "./pages/Chat";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
@@ -44,6 +45,8 @@ const App = () => {
                   <Toaster />
                   <Sonner />
                   <Routes>
+                    {/* 分享链接加入页，放在保护路由之外，页面内部处理未登录跳转 */}
+                    <Route path="/join/:code" element={<JoinSharedProject />} />
                     <Route path="/auth" element={<Auth />} />
                     <Route path="/auth/callback" element={<AuthCallback />} />
                     <Route element={<AuthRoute />}>
