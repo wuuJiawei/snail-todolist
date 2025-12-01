@@ -150,7 +150,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [selectedProject, setSelectedProject] = useState<string>(getSavedProject());
-  const { projects } = useProjectContext();
+  const { projects, loading: projectsLoading } = useProjectContext();
+  const builtinScopes = useMemo(() => new Set(["recent","today","flagged","completed","abandoned","trash"]), []);
 
   const selectedTask = useMemo(() => {
     if (!selectedTaskId) return null;
@@ -168,6 +169,16 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       setSelectedTaskId(null);
     }
   }, [selectedTaskId, selectedTask, setSelectedTaskId]);
+  useEffect(() => {
+    if (!user) return;
+    if (projectsLoading) return;
+    const isBuiltin = builtinScopes.has(selectedProject);
+    const existsInProjects = (projects || []).some(p => p.id === selectedProject);
+    if (!isBuiltin && !existsInProjects) {
+      localStorage.setItem(SELECTED_PROJECT_KEY, "today");
+      setSelectedProject("today");
+    }
+  }, [user, projectsLoading, projects, selectedProject, builtinScopes]);
   
   // Enable deadline notifications for all tasks
   useDeadlineNotifications({ 
@@ -809,7 +820,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // Supabase Realtime: tasks changes（按用户 + 可见清单集合过滤；大量项目时分片；若选中具体清单则优先只订阅该清单）
   const visibleProjectIds = useMemo(() => (projects || []).map(p => p.id), [projects]);
-  const builtinScopes = useMemo(() => new Set(["recent","today","flagged","completed","abandoned","trash"]), []);
   const narrowedProjectIds = useMemo(() => {
     if (selectedProject && !builtinScopes.has(selectedProject)) {
       // 当前选中为具体清单，则仅订阅该清单

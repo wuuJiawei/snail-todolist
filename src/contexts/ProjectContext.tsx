@@ -82,12 +82,20 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (ownedIds.length > 0) {
         const { data: ownedMemberRows, error: ownedMembersError } = await supabase
           .from('project_members')
-          .select('project_id')
+          .select('project_id, user_id')
           .in('project_id', ownedIds);
         if (ownedMembersError) {
           console.error('Error fetching owned project member rows:', ownedMembersError);
         } else {
-          ownedSharedSet = new Set((ownedMemberRows || []).map((r: any) => r.project_id));
+          const ownerByProject: Record<string, string | null | undefined> = {};
+          ownedProjects.forEach(p => { ownerByProject[p.id] = p.user_id; });
+          (ownedMemberRows || []).forEach((r: any) => {
+            const pid = r.project_id as string | null;
+            const uid = r.user_id as string | null;
+            if (pid && uid && uid !== ownerByProject[pid]) {
+              ownedSharedSet.add(pid);
+            }
+          });
         }
       }
 
@@ -107,10 +115,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         project => !ownedProjectIds.has(project.id)
       );
 
-      // Combine both sets of projects; mark owned projects with shared icon if they have members
       const ownedWithShareFlag = ownedProjects.map((p) => ({
         ...p,
-        is_shared: ownedSharedSet.has(p.id) || Boolean(p.is_shared),
+        is_shared: ownedSharedSet.has(p.id),
       }));
       const allProjects = [...ownedWithShareFlag, ...uniqueMemberProjects];
 

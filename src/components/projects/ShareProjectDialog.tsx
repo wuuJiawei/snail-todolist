@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,8 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
   const [membersLoading, setMembersLoading] = useState<boolean>(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
+  const lastLoadedProjectRef = useRef<string | null>(null);
+  const membersCacheRef = useRef<Record<string, ProjectMemberRow[]>>({});
 
   useEffect(() => {
     if (open && project) {
@@ -75,33 +77,40 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
       };
 
       ensureShare();
-      // load project members
-      const loadMembers = async () => {
-        if (!project) return;
-        setMembersLoading(true);
-        try {
-          const list = await listMembers(project.id);
-          setMembers(list);
-        } catch (e) {
-          console.error('load members error', e);
-        } finally {
+
+      const pid = project.id;
+      const last = lastLoadedProjectRef.current;
+      if (last !== pid) {
+        lastLoadedProjectRef.current = pid;
+        const cached = membersCacheRef.current[pid];
+        if (cached && cached.length >= 0) {
+          setMembers(cached);
+          setMembersLoading(false);
+        } else {
+          setMembersLoading(true);
+          listMembers(pid)
+            .then((list) => {
+              setMembers(list);
+              membersCacheRef.current[pid] = list;
+            })
+            .catch((e) => {
+              console.error('load members error', e);
+            })
+            .finally(() => setMembersLoading(false));
+        }
+        if (project.user_id) {
+          getProfileById(project.user_id)
+            .then((p) => setOwnerProfile(p))
+            .catch((e) => console.error('load owner profile error', e));
+        }
+      } else {
+        const cached = membersCacheRef.current[pid];
+        if (cached && cached.length >= 0) {
+          setMembers(cached);
           setMembersLoading(false);
         }
-      };
-      loadMembers();
-      // owner profile
-      const loadOwner = async () => {
-        if (!project?.user_id) return;
-        try {
-          const p = await getProfileById(project.user_id);
-          setOwnerProfile(p);
-        } catch (e) {
-          console.error('load owner profile error', e);
-        }
-      };
-      loadOwner();
+      }
     } else {
-      // Reset state when dialog closes
       setShareCode("");
       setShareLink("");
       setCopied(false);
@@ -111,7 +120,28 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
       setRemoving(null);
       setOwnerProfile(null);
     }
-  }, [open, project, user, toast]);
+  }, [open, project?.id, user?.id]);
+
+  useEffect(() => {
+    if (!open || !project) return;
+    const pid = project.id;
+    const channel = supabase.channel(`share:members:${pid}`);
+    const onChange = async () => {
+      delete membersCacheRef.current[pid];
+      setMembersLoading(true);
+      try {
+        const list = await listMembers(pid);
+        setMembers(list);
+        membersCacheRef.current[pid] = list;
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "project_members", filter: `project_id=eq.${pid}` }, onChange).subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [open, project?.id]);
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(shareCode).then(() => {
@@ -140,6 +170,20 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
     });
   };
 
+  const refreshMembers = async () => {
+    if (!project) return;
+    setMembersLoading(true);
+    try {
+      const list = await listMembers(project.id);
+      setMembers(list);
+      membersCacheRef.current[project.id] = list;
+    } catch (e) {
+      console.error('refresh members error', e);
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
   const isOwner = !!(project && user && project.user_id === user.id);
   const handleRemove = async (targetUserId: string, role?: string) => {
     if (!project) return;
@@ -153,6 +197,7 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
       await removeMember(project.id, targetUserId);
       const list = await listMembers(project.id);
       setMembers(list);
+      membersCacheRef.current[project.id] = list;
       toast({ title: isSelf ? "已退出共享" : "已移除成员" });
     } catch (e) {
       console.error('remove member error', e);
@@ -239,7 +284,10 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
             </div>
 
             <div className="mt-4">
-              <div className="text-sm font-medium mb-2">成员管理</div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium">成员管理</div>
+                <Button type="button" variant="outline" size="sm" onClick={refreshMembers} disabled={membersLoading || !project}>刷新</Button>
+              </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between rounded-md border px-3 py-2">
                   <div className="flex items-center gap-3 min-w-0">
