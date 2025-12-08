@@ -24,6 +24,10 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+.cursor/
+.kiro/
+.windsurf/
+.claude/
 *.suo
 *.ntvs*
 *.njsproj
