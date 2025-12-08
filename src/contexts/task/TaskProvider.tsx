@@ -863,7 +863,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     // Save the selected project to localStorage
     localStorage.setItem(SELECTED_PROJECT_KEY, id);
     setSelectedProject(id);
-  }, [setSelectedProject]);
+    setSelectedTaskId(null);
+  }, [setSelectedProject, setSelectedTaskId]);
 
   // Reorder tasks
   const SORT_ORDER_STEP = 1000;
