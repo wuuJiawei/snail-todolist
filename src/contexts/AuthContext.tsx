@@ -30,6 +30,7 @@ interface AuthContextType {
   signInWithOAuth: (provider: 'github' | 'google') => Promise<void>;
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -267,6 +268,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Refresh user data from Supabase
+  const refreshUser = async () => {
+    if (isOfflineMode || isGuest) return;
+    
+    const { data: { user: freshUser } } = await supabase.auth.getUser();
+    if (freshUser) {
+      setUser(freshUser);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -279,6 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithOAuth,
         signInAsGuest,
         signOut,
+        refreshUser,
       }}
     >
       {children}

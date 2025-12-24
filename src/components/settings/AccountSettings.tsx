@@ -8,9 +8,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { isOfflineMode, getStorage, initializeStorage } from "@/storage";
+import { useUserProfileStore } from "@/store/userProfileStore";
 
 const AccountSettings = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const setUserProfile = useUserProfileStore((state) => state.setProfile);
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -94,6 +96,9 @@ const AccountSettings = () => {
         setAvatarFile(null);
         setAvatarPreview(null);
 
+        // Update store to notify other components
+        setUserProfile({ username, avatarUrl: avatarData });
+
         toast({
           title: "账号已更新",
           description: "您的个人资料已成功保存到本地",
@@ -143,6 +148,9 @@ const AccountSettings = () => {
         });
 
         if (error) throw error;
+
+        // Refresh user state to update UI across the app
+        await refreshUser();
 
         // Update local state with new values
         setAvatarUrl(newAvatarUrl);

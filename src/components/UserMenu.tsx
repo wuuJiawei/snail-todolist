@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,19 +11,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon-park";
-// Keep lucide-react as fallback
-import { LogOut, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { isOfflineMode, getStorage, initializeStorage } from "@/storage";
+import { useUserProfileStore } from "@/store/userProfileStore";
 
 const UserMenu = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [offlineAvatar, setOfflineAvatar] = useState<string | null>(null);
-  const [offlineUsername, setOfflineUsername] = useState<string>("离线用户");
+  const userProfile = useUserProfileStore((state) => state.profile);
+  const setUserProfile = useUserProfileStore((state) => state.setProfile);
 
-  // Load offline user profile
+  // Load offline user profile on mount
   useEffect(() => {
     const loadOfflineProfile = async () => {
       if (!isOfflineMode) return;
@@ -33,8 +32,10 @@ const UserMenu = () => {
         const storage = getStorage();
         const profile = await (storage as any).getUserProfile?.();
         if (profile) {
-          setOfflineAvatar(profile.avatar_data || profile.avatar_url || null);
-          setOfflineUsername(profile.username || "离线用户");
+          setUserProfile({
+            username: profile.username || "离线用户",
+            avatarUrl: profile.avatar_data || profile.avatar_url || null,
+          });
         }
       } catch (error) {
         console.error("Failed to load offline profile:", error);
@@ -42,12 +43,11 @@ const UserMenu = () => {
     };
 
     loadOfflineProfile();
-  }, []);
+  }, [setUserProfile]);
 
   const getUserInitials = () => {
     if (isOfflineMode) {
-      // Use first character of username or default
-      return offlineUsername.charAt(0).toUpperCase() || "离";
+      return userProfile.username.charAt(0).toUpperCase() || "离";
     }
     if (!user) return "U";
 
@@ -70,11 +70,11 @@ const UserMenu = () => {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
             <Avatar className="h-10 w-10 border">
-              {offlineAvatar ? (
-                <AvatarImage src={offlineAvatar} alt="用户头像" />
+              {userProfile.avatarUrl ? (
+                <AvatarImage src={userProfile.avatarUrl} alt="用户头像" />
               ) : null}
               <AvatarFallback className="bg-brand-orange/10 text-brand-orange">
-                {offlineAvatar ? null : (
+                {userProfile.avatarUrl ? null : (
                   <Icon icon="snail" size={20} className="text-brand-orange" />
                 )}
               </AvatarFallback>
@@ -86,7 +86,7 @@ const UserMenu = () => {
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium leading-none flex items-center gap-2">
                 <Icon icon="snail" size={16} className="text-brand-orange" />
-                {offlineUsername}
+                {userProfile.username}
               </p>
               <p className="text-xs leading-none text-gray-500">离线模式 · 数据存储在本地</p>
             </div>
