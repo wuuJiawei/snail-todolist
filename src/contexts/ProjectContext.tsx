@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectStore } from "@/store/projectStore";
 import { isOfflineMode } from "@/storage";
+import * as storageOps from "@/storage/operations";
 
 interface ProjectContextType {
   projects: Project[];
@@ -30,7 +31,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const upsertProject = useProjectStore(state => state.upsertProject);
   const removeProject = useProjectStore(state => state.removeProject);
   const reorderProjectsOptimistic = useProjectStore(state => state.reorderProjectsOptimistic);
-  const restoreProjectsOrder = useProjectStore(state => state.restoreProjectsOrder);
   const updateProjectCountsInStore = useProjectStore(state => state.updateProjectCounts);
   const { user } = useAuth();
 
@@ -39,12 +39,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setLoading(true);
       
-      // In offline mode, use storage adapter
+      // In offline mode, use storage operations
       if (isOfflineMode) {
-        const { getStorage, initializeStorage } = await import('@/storage');
-        await initializeStorage();
-        const storage = getStorage();
-        const projects = await storage.getProjects();
+        const projects = await storageOps.getProjects();
         setProjects(projects);
         setHasLoaded(true);
         return;
@@ -66,7 +63,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data: ownedProjects, error: ownedError } = await supabase
         .from('projects')
         .select('*')
-        .eq('user_id', user.id) // Projects created by the user
+        .eq('user_id', user.id)
         .order('sort_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
 
@@ -114,7 +111,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // Process member projects to match the format of owned projects
       const formattedMemberProjects = memberProjects
-        .filter(item => item.project) // Filter out any null projects
+        .filter(item => item.project)
         .map(item => ({
           ...item.project,
           is_shared: true
@@ -133,14 +130,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         is_shared: ownedSharedSet.has(p.id),
       }));
       const allProjects = [...ownedWithShareFlag, ...uniqueMemberProjects];
-
-      console.log("Fetched projects:", {
-        ownedProjects: ownedProjects.length,
-        memberProjects: memberProjects.length,
-        formattedMemberProjects: formattedMemberProjects.length,
-        uniqueMemberProjects: uniqueMemberProjects.length,
-        allProjects: allProjects.length
-      });
 
       // Add a count property with initial count of 0
       const projectsWithCount = allProjects.map(project => ({
@@ -168,7 +157,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Refetch projects when user changes
   useEffect(() => {
-    if (!user) {
+    if (!user && !isOfflineMode) {
       setProjects([]);
       setLoading(false);
       return;
@@ -210,10 +199,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updateProjectCounts(projectCounts);
     };
 
-    // Add event listener
     window.addEventListener('task-counts-updated', handleTaskCountsUpdate as EventListener);
 
-    // Clean up
     return () => {
       window.removeEventListener('task-counts-updated', handleTaskCountsUpdate as EventListener);
     };
@@ -221,27 +208,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const createProject = useCallback(async (data: Partial<Project>) => {
     try {
-      // Offline mode: use storage adapter
-      if (isOfflineMode) {
-        const { getStorage, initializeStorage } = await import('@/storage');
-        await initializeStorage();
-        const storage = getStorage();
-        const newProject = await storage.createProject({
-          name: data.name || '新清单',
-          icon: data.icon || 'folder',
-          color: data.color || '#4CAF50',
-          view_type: data.view_type || 'list',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          user_id: 'offline-user',
-          sort_order: (projects.length + 1) * 1000,
-        });
-        upsertProject({ ...newProject, count: 0 });
-        toast({ title: "清单已创建", description: "新清单已成功创建" });
-        return;
-      }
-
-      if (!user) {
+      // Check auth in online mode
+      if (!isOfflineMode && !user) {
         toast({
           title: "创建失败",
           description: "您需要登录才能创建清单",
@@ -250,83 +218,29 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      // Get the highest sort_order for the user's projects
-      const { data: maxOrderData, error: maxOrderError } = await supabase
-        .from('projects')
-        .select('sort_order')
-        .eq('user_id', user.id)
-        .order('sort_order', { ascending: false })
-        .limit(1);
-
-      if (maxOrderError) {
-        console.error('Error getting max sort order:', maxOrderError);
-      }
-
-      // Calculate the next sort order (1000 higher than the current max)
-      const maxOrder = maxOrderData && maxOrderData.length > 0 && maxOrderData[0].sort_order !== null
-        ? maxOrderData[0].sort_order
-        : 0;
-      const nextSortOrder = maxOrder + 1000;
-
-      const { data: newProject, error } = await supabase
-        .from('projects')
-        .insert([{
-          name: data.name || '新清单',
-          icon: data.icon || 'folder',
-          color: data.color || '#4CAF50',
-          view_type: data.view_type || 'list',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          user_id: user.id, // Ensure the project is associated with the current user
-          sort_order: nextSortOrder // Set the sort order for the new project
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      // Add count property
-      const projectWithCount = {
-        ...newProject,
-        count: 0
-      };
-
-      // Update local state
-      upsertProject(projectWithCount);
-
-      toast({
-        title: "清单已创建",
-        description: "新清单已成功创建",
+      const newProject = await storageOps.createProject({
+        name: data.name || '新清单',
+        icon: data.icon || 'folder',
+        color: data.color || '#4CAF50',
+        view_type: data.view_type || 'list',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user_id: user?.id || 'offline-user',
+        sort_order: (projects.length + 1) * 1000,
       });
+
+      if (newProject) {
+        upsertProject({ ...newProject, count: 0 });
+      }
     } catch (error) {
       console.error('Error creating project:', error);
-      toast({
-        title: "创建失败",
-        description: "无法创建新清单，请稍后再试",
-        variant: "destructive"
-      });
     }
   }, [user, upsertProject, projects]);
 
   const editProject = useCallback(async (id: string, data: Partial<Project>) => {
     try {
-      // Offline mode: use storage adapter
-      if (isOfflineMode) {
-        const { getStorage, initializeStorage } = await import('@/storage');
-        await initializeStorage();
-        const storage = getStorage();
-        await storage.updateProject(id, { ...data, updated_at: new Date().toISOString() });
-        const existing = projects.find(project => project.id === id);
-        if (existing) {
-          upsertProject({ ...existing, ...data, id });
-        }
-        toast({ title: "清单已更新", description: "清单修改已保存" });
-        return;
-      }
-
-      if (!user) {
+      // Check auth in online mode
+      if (!isOfflineMode && !user) {
         toast({
           title: "更新失败",
           description: "您需要登录才能修改清单",
@@ -335,53 +249,26 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      const { error } = await supabase
-        .from('projects')
-        .update({
-          ...data,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .eq('user_id', user.id); // Only update if the project belongs to the current user
-
-      if (error) {
-        throw error;
-      }
-
-      // Update local state
-      const existing = projects.find(project => project.id === id);
-      if (existing) {
-        upsertProject({ ...existing, ...data, id });
-      }
-
-      toast({
-        title: "清单已更新",
-        description: "清单修改已保存",
+      const updatedProject = await storageOps.updateProject(id, {
+        ...data,
+        updated_at: new Date().toISOString()
       });
+
+      if (updatedProject) {
+        const existing = projects.find(project => project.id === id);
+        if (existing) {
+          upsertProject({ ...existing, ...data, id });
+        }
+      }
     } catch (error) {
       console.error('Error updating project:', error);
-      toast({
-        title: "更新失败",
-        description: "无法保存清单修改，请稍后再试",
-        variant: "destructive"
-      });
     }
   }, [user, projects, upsertProject]);
 
   const deleteProject = useCallback(async (id: string) => {
     try {
-      // Offline mode: use storage adapter
-      if (isOfflineMode) {
-        const { getStorage, initializeStorage } = await import('@/storage');
-        await initializeStorage();
-        const storage = getStorage();
-        await storage.deleteProject(id);
-        removeProject(id);
-        toast({ title: "清单已删除", description: "清单已被成功删除" });
-        return;
-      }
-
-      if (!user) {
+      // Check auth in online mode
+      if (!isOfflineMode && !user) {
         toast({
           title: "删除失败",
           description: "您需要登录才能删除清单",
@@ -390,36 +277,18 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      const { error } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id); // Only delete if the project belongs to the current user
-
-      if (error) {
-        throw error;
+      const success = await storageOps.deleteProject(id);
+      if (success) {
+        removeProject(id);
       }
-
-      // Update local state
-      removeProject(id);
-
-      toast({
-        title: "清单已删除",
-        description: "清单已被成功删除",
-      });
     } catch (error) {
       console.error('Error deleting project:', error);
-      toast({
-        title: "删除失败",
-        description: "无法删除清单，请稍后再试",
-        variant: "destructive"
-      });
     }
   }, [user, removeProject]);
 
   const reorderProjects = useCallback(async (projectId: string, newIndex: number) => {
     try {
-      if (!user) {
+      if (!isOfflineMode && !user) {
         toast({
           title: "排序失败",
           description: "您需要登录才能重新排序清单",
@@ -434,28 +303,23 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         sort_order: (index + 1) * 1000
       }));
 
-      // Prepare batch update data - only include the id and sort_order fields
-      const updatePromises = updatedProjects.map(project => {
-        return supabase
-          .from('projects')
-          .update({ sort_order: project.sort_order })
-          .eq('id', project.id)
-          .eq('user_id', user.id);
-      });
+      // Prepare batch update data
+      const updates = updatedProjects.map(project => ({
+        id: project.id,
+        sort_order: project.sort_order!
+      }));
 
-      // Execute all updates in parallel
-      const results = await Promise.all(updatePromises);
+      const success = await storageOps.batchUpdateProjectSortOrder(updates);
 
-      // Check for errors
-      const errors = results.filter(result => result.error);
-      if (errors.length > 0) {
-        throw new Error(`Failed to update ${errors.length} projects`);
+      if (success) {
+        toast({
+          title: "清单已重新排序",
+          description: "清单顺序已更新",
+        });
+      } else {
+        // Revert to original order if there's an error
+        await fetchProjects(true);
       }
-
-      toast({
-        title: "清单已重新排序",
-        description: "清单顺序已更新",
-      });
     } catch (error) {
       console.error('Error reordering projects:', error);
       toast({
@@ -463,8 +327,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: "无法更新清单顺序，请稍后再试",
         variant: "destructive"
       });
-
-      // Revert to original order if there's an error
       await fetchProjects(true);
     }
   }, [user, reorderProjectsOptimistic, fetchProjects]);
@@ -472,6 +334,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const refreshProjects = useCallback(async () => {
     return fetchProjects(true);
   }, [fetchProjects]);
+
   const value = useMemo(() => ({
     projects,
     loading,

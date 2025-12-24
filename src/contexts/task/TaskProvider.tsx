@@ -3,15 +3,6 @@ import React, { useState, ReactNode, useEffect, useMemo, useCallback, useRef } f
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task } from "@/types/task";
-import {
-  addTask as addTaskService,
-  updateTask as updateTaskService,
-  deleteTask as deleteTaskService,
-  moveToTrash as moveToTrashService,
-  restoreFromTrash as restoreFromTrashService,
-  abandonTask as abandonTaskService,
-  restoreAbandonedTask as restoreAbandonedTaskService,
-} from "@/services/taskService";
 import { useToast } from "@/hooks/use-toast";
 import { TaskContext } from "./TaskContext";
 import { getProjectTaskCount, getSavedProject } from "./taskUtils";
@@ -19,15 +10,14 @@ import { SELECTED_PROJECT_KEY } from "./types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeadlineNotifications } from "@/hooks/useDeadlineNotifications";
 import { Tag } from "@/types/tag";
-import { fetchAllTags as fetchAllTagsService, getTagsByTaskIds as getTagsByTaskIdsService, attachTagToTask as attachTagToTaskService, detachTagFromTask as detachTagFromTaskService, createTag as createTagService, deleteTagById as deleteTagByIdService, updateTagProject as updateTagProjectService } from "@/services/tagService";
 import { useTaskStore } from "@/store/taskStore";
 import { taskKeys, taskQueries } from "@/queries/taskQueries";
 import { tagKeys, tagQueries } from "@/queries/tagQueries";
-import { createTaskActivity } from "@/services/taskActivityService";
 import { taskActivityKeys } from "@/queries/taskActivityQueries";
 import type { TaskActivityAction, TaskActivityInput } from "@/types/taskActivity";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { isOfflineMode } from "@/storage";
+import * as storageOps from "@/storage/operations";
 
 const hasProp = <K extends keyof Partial<Task>>(obj: Partial<Task>, key: K): boolean =>
   Object.prototype.hasOwnProperty.call(obj, key);
@@ -191,7 +181,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   const recordTaskActivity = useCallback(async (taskId: string, action: TaskActivityAction, metadata?: Record<string, unknown>) => {
     try {
-      await createTaskActivity(taskId, action, metadata);
+      await storageOps.createTaskActivity({ task_id: taskId, action, metadata });
       queryClient.invalidateQueries({ queryKey: taskActivityKeys.byTask(taskId) });
     } catch (error) {
       console.error("Failed to record task activity:", error);
@@ -258,7 +248,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       try {
-        const mapping = await getTagsByTaskIdsService(activeTaskIds);
+        const mapping = await storageOps.getTagsByTaskIds(activeTaskIds);
         setTaskIdToTags(mapping);
         incrementTagsVersion();
       } catch (error) {
@@ -282,25 +272,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      let newTask: Task | null = null;
-
-      if (isOfflineMode) {
-        // In offline mode, use IndexedDB storage directly
-        const { getStorage, initializeStorage } = await import("@/storage");
-        await initializeStorage();
-        const storage = getStorage();
-        newTask = await storage.createTask({
-          ...task,
-          user_id: 'offline-user'
-        });
-      } else {
-        // Ensure task has the current user's ID
-        const taskWithUserId = {
-          ...task,
-          user_id: user?.id || 'offline-user'
-        };
-        newTask = await addTaskService(taskWithUserId);
-      }
+      const taskWithUserId = {
+        ...task,
+        user_id: user?.id || 'offline-user'
+      };
+      const newTask = await storageOps.addTask(taskWithUserId);
 
       if (!newTask) {
         throw new Error("add task failed");
@@ -334,14 +310,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
     // Helper function to perform the actual update
     const performUpdate = async (): Promise<Task | null> => {
-      if (isOfflineMode) {
-        const { getStorage, initializeStorage } = await import("@/storage");
-        await initializeStorage();
-        const storage = getStorage();
-        return storage.updateTask(id, updatedTask);
-      } else {
-        return updateTaskService(id, updatedTask);
-      }
+      return storageOps.updateTask(id, updatedTask);
     };
 
     if (isCompletionToggle) {
@@ -484,7 +453,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     store.incrementTagsVersion();
 
     try {
-      await attachTagToTaskService(taskId, tagId);
+      await storageOps.attachTagToTask(taskId, tagId);
       await recordTaskActivity(taskId, "tag_added", {
         tagId,
         tagName: optimisticTag?.name ?? "",
@@ -510,7 +479,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     store.incrementTagsVersion();
 
     try {
-      await detachTagFromTaskService(taskId, tagId);
+      await storageOps.detachTagFromTask(taskId, tagId);
       await recordTaskActivity(taskId, "tag_removed", {
         tagId,
         tagName: removedTag?.name ?? "",
@@ -543,7 +512,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   const listAllTags = useCallback(async (projectId?: string | null) => {
     if (projectId === undefined) {
-      return await fetchAllTagsService(undefined);
+      return await storageOps.fetchAllTags(undefined);
     }
     
     const scope = projectId ?? null;
@@ -618,7 +587,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // 修改createTag函数，更新后刷新缓存
   const createTag = useCallback(async (name: string, projectId?: string | null) => {
-    const tag = await createTagService(name, projectId);
+    const tag = await storageOps.createTag(name, projectId);
     if (tag) {
       const store = useTaskStore.getState();
       const cache = store.tagsCache;
@@ -640,7 +609,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // 修改deleteTagPermanently函数
   const deleteTagPermanently = useCallback(async (tagId: string): Promise<boolean> => {
-    const ok = await deleteTagByIdService(tagId);
+    const ok = await storageOps.deleteTagById(tagId);
     if (ok) {
       await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       const cache = useTaskStore.getState().tagsCache;
@@ -663,7 +632,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // 修改updateTagProject函数
   const updateTagProject = useCallback(async (tagId: string, projectId: string | null): Promise<Tag | null> => {
-    const updatedTag = await updateTagProjectService(tagId, projectId);
+    const updatedTag = await storageOps.updateTagProject(tagId, projectId);
     if (updatedTag) {
       await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       const cache = useTaskStore.getState().tagsCache;
@@ -727,16 +696,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      let success = false;
-      if (isOfflineMode) {
-        const { getStorage, initializeStorage } = await import("@/storage");
-        await initializeStorage();
-        const storage = getStorage();
-        const updated = await storage.updateTask(id, { deleted: true, deleted_at: new Date().toISOString() });
-        success = !!updated;
-      } else {
-        success = await moveToTrashService(id);
-      }
+      const success = await storageOps.moveToTrash(id);
 
       if (!success) {
         throw new Error("move to trash failed");
@@ -783,16 +743,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      let success = false;
-      if (isOfflineMode) {
-        const { getStorage, initializeStorage } = await import("@/storage");
-        await initializeStorage();
-        const storage = getStorage();
-        const updated = await storage.updateTask(id, { deleted: false, deleted_at: undefined });
-        success = !!updated;
-      } else {
-        success = await restoreFromTrashService(id);
-      }
+      const success = await storageOps.restoreFromTrash(id);
 
       if (!success) {
         throw new Error("restore from trash failed");
@@ -837,15 +788,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      let success = false;
-      if (isOfflineMode) {
-        const { getStorage, initializeStorage } = await import("@/storage");
-        await initializeStorage();
-        const storage = getStorage();
-        success = await storage.deleteTask(id);
-      } else {
-        success = await deleteTaskService(id);
-      }
+      const success = await storageOps.deleteTask(id);
 
       if (!success) {
         throw new Error("delete task failed");
@@ -1037,9 +980,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     // Persist only the moved task's order
     try {
       savingSortRef.current = true;
-      // 保存排序
-      const isGuest = !user;
-      const saved = await updateTaskService(movedUpdated.id, { sort_order: newOrder }, isGuest);
+      // 保存排序 - 使用统一的 storage operations
+      const saved = await storageOps.updateTask(movedUpdated.id, { sort_order: newOrder });
       if (!saved) throw new Error("Failed to persist updated sort order");
 
       // Sync query cache without triggering refetch to avoid flicker
@@ -1094,9 +1036,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
         try {
           savingSortRef.current = true;
-          // 保存排序
-          const isGuest2 = !user;
-          const saved2 = await updateTaskService(job.movedId, { sort_order: newOrder2 }, isGuest2);
+          // 保存排序 - 使用统一的 storage operations
+          const saved2 = await storageOps.updateTask(job.movedId, { sort_order: newOrder2 });
           if (!saved2) throw new Error("Failed to persist updated sort order");
           queryClient.setQueryData(taskKeys.active(), useTaskStore.getState().tasks);
           toast({ title: "已保存排序" });
@@ -1154,7 +1095,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      const success = await abandonTaskService(id);
+      const success = await storageOps.abandonTask(id);
       if (!success) {
         throw new Error("abandon task failed");
       }
@@ -1205,7 +1146,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      const success = await restoreAbandonedTaskService(id);
+      const success = await storageOps.restoreAbandonedTask(id);
       if (!success) {
         throw new Error("restore abandoned task failed");
       }
