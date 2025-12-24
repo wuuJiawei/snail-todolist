@@ -124,7 +124,6 @@ const TaskList: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // Convert date to ISO string if it exists
       const dateString = date ? date.toISOString() : undefined;
 
       await addTask({
@@ -208,10 +207,13 @@ const TaskList: React.FC = () => {
         </div>
       )}
 
-      <AddTaskForm
-        onAddTask={handleAddTask}
-        isSubmitting={isSubmitting}
-      />
+      {/* 只在手动添加的清单中显示添加任务表单 */}
+      {!isSpecialView && (
+        <AddTaskForm
+          onAddTask={handleAddTask}
+          isSubmitting={isSubmitting}
+        />
+      )}
 
       {/* 主要内容区域 - 减少底部边距为固定底部列表留空间 */}
       <div className="flex-1 flex flex-col overflow-hidden">
