@@ -1,25 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
 import { TaskActivity, TaskActivityAction } from "@/types/taskActivity";
 import { getOrCreateGuestId } from "./taskService";
-import { isOfflineMode, getStorage, initializeStorage } from "@/storage";
 
+/**
+ * Create a task activity record in Supabase
+ * Note: This function is only called in online mode via SupabaseAdapter
+ * For offline mode, use storageOps.createTaskActivity() instead
+ */
 export const createTaskActivity = async (
   taskId: string,
   action: TaskActivityAction,
   metadata?: Record<string, unknown>
 ): Promise<void> => {
-  // In offline mode, use IndexedDB storage
-  if (isOfflineMode) {
-    await initializeStorage();
-    const storage = getStorage();
-    await storage.createTaskActivity({
-      task_id: taskId,
-      action,
-      metadata: metadata ?? null,
-    });
-    return;
-  }
-
   const { data } = await supabase.auth.getUser();
   const userId = data?.user?.id;
   const payload: Record<string, unknown> = {
@@ -40,14 +32,12 @@ export const createTaskActivity = async (
   }
 };
 
+/**
+ * Fetch task activities from Supabase
+ * Note: This function is only called in online mode via SupabaseAdapter
+ * For offline mode, use storageOps.getTaskActivities() instead
+ */
 export const fetchTaskActivities = async (taskId: string): Promise<TaskActivity[]> => {
-  // In offline mode, use IndexedDB storage
-  if (isOfflineMode) {
-    await initializeStorage();
-    const storage = getStorage();
-    return storage.getTaskActivities(taskId);
-  }
-
   const guestId = getOrCreateGuestId();
   const { data, error } = await supabase
     .from("task_activities")

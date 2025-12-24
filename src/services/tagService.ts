@@ -1,17 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Tag, TaskTagLink } from "@/types/tag";
 import { toast } from "@/hooks/use-toast";
-import { isOfflineMode, getStorage, initializeStorage } from "@/storage";
+
+/**
+ * Tag Service - Supabase Implementation
+ * Note: These functions are only called in online mode via SupabaseAdapter
+ * For offline mode, use storageOps.* functions instead
+ */
 
 export const fetchAllTags = async (projectId?: string | null): Promise<Tag[]> => {
   try {
-    // In offline mode, use IndexedDB storage
-    if (isOfflineMode) {
-      await initializeStorage();
-      const storage = getStorage();
-      return storage.getTags(projectId);
-    }
-
     if (projectId !== undefined && projectId !== null) {
       const isValidUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(projectId);
       if (!isValidUuid) {
@@ -40,13 +38,6 @@ export const fetchAllTags = async (projectId?: string | null): Promise<Tag[]> =>
 
 export const createTag = async (name: string, projectId?: string | null): Promise<Tag | null> => {
   try {
-    // In offline mode, use IndexedDB storage
-    if (isOfflineMode) {
-      await initializeStorage();
-      const storage = getStorage();
-      return storage.createTag(name, projectId);
-    }
-
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       toast({ title: "未登录", description: "请先登录后再创建标签", variant: "destructive" });
@@ -57,7 +48,6 @@ export const createTag = async (name: string, projectId?: string | null): Promis
     const { data, error } = await supabase.from("tags").insert(payload).select().maybeSingle();
 
     if (error) {
-      // unique constraint violation -> 提示复用
       if ((error as any).code === "23505") {
         toast({ title: "标签已存在", description: `「${name}」已存在`, variant: "default" });
         return null;
@@ -74,13 +64,6 @@ export const createTag = async (name: string, projectId?: string | null): Promis
 
 export const renameTag = async (tagId: string, name: string): Promise<Tag | null> => {
   try {
-    // In offline mode, use IndexedDB storage
-    if (isOfflineMode) {
-      await initializeStorage();
-      const storage = getStorage();
-      return storage.updateTag(tagId, { name });
-    }
-
     const { data, error } = await supabase.from("tags").update({ name }).eq("id", tagId).select().maybeSingle();
     if (error) throw error;
     return (data as Tag) ?? null;
@@ -93,13 +76,6 @@ export const renameTag = async (tagId: string, name: string): Promise<Tag | null
 
 export const deleteTagById = async (tagId: string): Promise<boolean> => {
   try {
-    // In offline mode, use IndexedDB storage
-    if (isOfflineMode) {
-      await initializeStorage();
-      const storage = getStorage();
-      return storage.deleteTag(tagId);
-    }
-
     const { error } = await supabase.from("tags").delete().eq("id", tagId);
     if (error) throw error;
     return true;
@@ -112,14 +88,6 @@ export const deleteTagById = async (tagId: string): Promise<boolean> => {
 
 export const getTagsForTask = async (taskId: string): Promise<Tag[]> => {
   try {
-    // In offline mode, use IndexedDB storage
-    if (isOfflineMode) {
-      await initializeStorage();
-      const storage = getStorage();
-      const mapping = await storage.getTagsByTaskIds([taskId]);
-      return mapping[taskId] || [];
-    }
-
     const { data: links, error: linkError } = await supabase
       .from("task_tags")
       .select("tag_id")
@@ -141,13 +109,6 @@ export const getTagsByTaskIds = async (taskIds: string[]): Promise<Record<string
   if (taskIds.length === 0) return result;
   
   try {
-    // In offline mode, use IndexedDB storage
-    if (isOfflineMode) {
-      await initializeStorage();
-      const storage = getStorage();
-      return storage.getTagsByTaskIds(taskIds);
-    }
-
     const { data: links, error: linkError } = await supabase
       .from("task_tags")
       .select("task_id, tag_id")
@@ -177,17 +138,8 @@ export const getTagsByTaskIds = async (taskIds: string[]): Promise<Record<string
 
 export const attachTagToTask = async (taskId: string, tagId: string): Promise<boolean> => {
   try {
-    // In offline mode, use IndexedDB storage
-    if (isOfflineMode) {
-      await initializeStorage();
-      const storage = getStorage();
-      await storage.attachTagToTask(taskId, tagId);
-      return true;
-    }
-
     const { error } = await supabase.from("task_tags").insert({ task_id: taskId, tag_id: tagId } as TaskTagLink);
     if (error) {
-      // ignore duplicates
       if ((error as any).code === "23505") return true;
       throw error;
     }
@@ -201,14 +153,6 @@ export const attachTagToTask = async (taskId: string, tagId: string): Promise<bo
 
 export const detachTagFromTask = async (taskId: string, tagId: string): Promise<boolean> => {
   try {
-    // In offline mode, use IndexedDB storage
-    if (isOfflineMode) {
-      await initializeStorage();
-      const storage = getStorage();
-      await storage.detachTagFromTask(taskId, tagId);
-      return true;
-    }
-
     const { error } = await supabase.from("task_tags").delete().match({ task_id: taskId, tag_id: tagId });
     if (error) throw error;
     return true;
@@ -221,21 +165,6 @@ export const detachTagFromTask = async (taskId: string, tagId: string): Promise<
 
 export const updateTagProject = async (tagId: string, projectId: string | null): Promise<Tag | null> => {
   try {
-    // In offline mode, use IndexedDB storage
-    if (isOfflineMode) {
-      await initializeStorage();
-      const storage = getStorage();
-      const updated = await storage.updateTag(tagId, { project_id: projectId });
-      if (updated) {
-        if (projectId === null) {
-          toast({ title: "已更新", description: "标签已设为全局可见", variant: "default" });
-        } else {
-          toast({ title: "已更新", description: "已更新标签可见范围", variant: "default" });
-        }
-      }
-      return updated;
-    }
-
     const { data, error } = await supabase
       .from("tags")
       .update({ project_id: projectId })

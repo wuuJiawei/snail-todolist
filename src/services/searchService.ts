@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
-import { isOfflineMode, getStorage, initializeStorage } from '@/storage';
+import { isOfflineMode } from '@/config/storage';
+import { initializeStorage, getStorage } from '@/storage';
 
 export interface SearchOptions {
   includeCompleted?: boolean;
