@@ -2,6 +2,7 @@ import { Task } from "@/types/task";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ensureNotificationPermission, sendNotification as sendUnifiedNotification } from "@/utils/notifications";
+import { isOfflineMode } from "@/storage";
 
 interface DeadlineNotificationConfig {
   enabled: boolean;
@@ -18,9 +19,21 @@ const DEFAULT_CONFIG: DeadlineNotificationConfig = {
   browserNotificationEnabled: true,
 };
 
+// 离线模式配置存储 key
+const OFFLINE_DEADLINE_CONFIG_KEY = 'snail_deadline_config';
+
 // 获取截止时间通知配置
 export const getDeadlineConfig = async (): Promise<DeadlineNotificationConfig> => {
   try {
+    // In offline mode, use localStorage
+    if (isOfflineMode) {
+      const stored = localStorage.getItem(OFFLINE_DEADLINE_CONFIG_KEY);
+      if (stored) {
+        return { ...DEFAULT_CONFIG, ...JSON.parse(stored) };
+      }
+      return DEFAULT_CONFIG;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -43,6 +56,16 @@ export const getDeadlineConfig = async (): Promise<DeadlineNotificationConfig> =
 // 保存截止时间通知配置
 export const saveDeadlineConfig = async (config: DeadlineNotificationConfig): Promise<boolean> => {
   try {
+    // In offline mode, use localStorage
+    if (isOfflineMode) {
+      localStorage.setItem(OFFLINE_DEADLINE_CONFIG_KEY, JSON.stringify(config));
+      toast({
+        title: "设置已保存",
+        description: "截止时间通知设置已成功保存",
+      });
+      return true;
+    }
+
     const { error } = await supabase.auth.updateUser({
       data: {
         deadlineNotification: config

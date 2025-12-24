@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
+import { isOfflineMode, getStorage, initializeStorage } from '@/storage';
 
 export interface SearchOptions {
   includeCompleted?: boolean;
@@ -16,6 +17,66 @@ export interface SearchResult {
 }
 
 /**
+ * 离线模式搜索实现
+ * 使用 IndexedDB 存储的任务进行前端搜索
+ */
+async function searchTasksOffline(
+  query: string,
+  options: SearchOptions = {}
+): Promise<SearchResult> {
+  const startTime = performance.now();
+  
+  const {
+    includeCompleted = true,
+    includeDeleted = false,
+    includeAbandoned = false,
+    limit = 50,
+    projectFilter
+  } = options;
+
+  if (!query.trim()) {
+    return { tasks: [], totalCount: 0, searchTime: 0 };
+  }
+
+  try {
+    await initializeStorage();
+    const storage = getStorage();
+    
+    // Get all tasks with filters
+    let tasks = await storage.getTasks({
+      deleted: includeDeleted ? undefined : false,
+      abandoned: includeAbandoned ? undefined : false,
+      completed: includeCompleted ? undefined : false,
+      projectId: projectFilter,
+    });
+
+    // Filter by search query (simple text matching)
+    const lowerQuery = query.toLowerCase();
+    tasks = tasks.filter(task => {
+      const titleMatch = task.title?.toLowerCase().includes(lowerQuery);
+      const descMatch = task.description?.toLowerCase().includes(lowerQuery);
+      return titleMatch || descMatch;
+    });
+
+    // Apply limit
+    const totalCount = tasks.length;
+    tasks = tasks.slice(0, limit);
+
+    const endTime = performance.now();
+    const searchTime = endTime - startTime;
+
+    return {
+      tasks,
+      totalCount,
+      searchTime
+    };
+  } catch (error) {
+    console.error('Offline search failed:', error);
+    return { tasks: [], totalCount: 0, searchTime: 0 };
+  }
+}
+
+/**
  * Supabase 全文搜索实现
  * 使用 PostgreSQL 的 full-text search 功能
  */
@@ -23,6 +84,11 @@ export async function searchTasksInDatabase(
   query: string, 
   options: SearchOptions = {}
 ): Promise<SearchResult> {
+  // In offline mode, use local search
+  if (isOfflineMode) {
+    return searchTasksOffline(query, options);
+  }
+
   const startTime = performance.now();
   
   const {
@@ -108,6 +174,11 @@ export async function searchTasksWithILike(
   query: string,
   options: SearchOptions = {}
 ): Promise<SearchResult> {
+  // In offline mode, use local search
+  if (isOfflineMode) {
+    return searchTasksOffline(query, options);
+  }
+
   const startTime = performance.now();
   
   const {
@@ -278,6 +349,11 @@ export async function searchTasksWithFunction(
   query: string,
   options: SearchOptions = {}
 ): Promise<SearchResult> {
+  // In offline mode, use local search
+  if (isOfflineMode) {
+    return searchTasksOffline(query, options);
+  }
+
   const startTime = performance.now();
   
   try {

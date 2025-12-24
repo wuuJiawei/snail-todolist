@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { isOfflineMode, getStorage, initializeStorage } from "@/storage";
 
 export type PomodoroSessionType = "focus" | "short_break" | "long_break";
 
@@ -71,6 +72,11 @@ const DEFAULT_ERROR_TOAST = {
 };
 
 const requireUserId = async (options: { silent?: boolean } = {}): Promise<string | null> => {
+  // In offline mode, return a mock user ID
+  if (isOfflineMode) {
+    return 'offline-user';
+  }
+
   const { silent = false } = options;
   try {
     const { data, error } = await supabase.auth.getUser();
@@ -117,15 +123,15 @@ const normalizeSessionType = (value: string | null | undefined): PomodoroSession
   return "focus";
 };
 
-const mapSession = (row: Record<string, any>): PomodoroSession => ({
-  id: row.id,
-  user_id: row.user_id,
-  start_time: row.start_time,
-  end_time: row.end_time ?? null,
+const mapSession = (row: Record<string, unknown>): PomodoroSession => ({
+  id: row.id as string,
+  user_id: row.user_id as string | undefined,
+  start_time: (row.start_time || row.started_at) as string,
+  end_time: (row.end_time ?? row.completed_at ?? null) as string | null,
   duration: typeof row.duration === "number" ? row.duration : 0,
-  type: normalizeSessionType(row.type),
-  completed: row.completed ?? false,
-  created_at: row.created_at ?? row.start_time,
+  type: normalizeSessionType(row.type as string | null | undefined),
+  completed: (row.completed ?? !!row.completed_at) as boolean,
+  created_at: (row.created_at ?? row.start_time ?? row.started_at) as string,
 });
 
 const calculateActualMinutes = (session: PomodoroSession): number => {
@@ -151,6 +157,23 @@ export const startPomodoroSession = async (
   sessionType: PomodoroSessionType,
   durationMinutes: number
 ): Promise<PomodoroSession | null> => {
+  // In offline mode, use IndexedDB storage
+  if (isOfflineMode) {
+    try {
+      await initializeStorage();
+      const storage = getStorage();
+      const session = await storage.createPomodoroSession({
+        type: sessionType,
+        duration: durationMinutes,
+      });
+      return mapSession(session);
+    } catch (error) {
+      console.error("Error starting pomodoro session in offline mode:", error);
+      toast(DEFAULT_ERROR_TOAST);
+      return null;
+    }
+  }
+
   const userId = await requireUserId();
   if (!userId) {
     return null;
@@ -185,13 +208,40 @@ export const completePomodoroSession = async (
   id: string,
   options: CompletePomodoroOptions = {}
 ): Promise<boolean> => {
+  // In offline mode, use IndexedDB storage
+  if (isOfflineMode) {
+    try {
+      await initializeStorage();
+      const storage = getStorage();
+      const { completed = true, endTime, durationOverride } = options;
+      const updates: Partial<{ completed_at: string | null; duration: number }> = {};
+      
+      if (completed) {
+        updates.completed_at = endTime ?? new Date().toISOString();
+      } else {
+        updates.completed_at = null;
+      }
+      
+      if (typeof durationOverride === "number") {
+        updates.duration = durationOverride;
+      }
+      
+      await storage.updatePomodoroSession(id, updates);
+      return true;
+    } catch (error) {
+      console.error("Error completing pomodoro session in offline mode:", error);
+      toast(DEFAULT_ERROR_TOAST);
+      return false;
+    }
+  }
+
   const userId = await requireUserId();
   if (!userId) {
     return false;
   }
 
   const { completed = true, endTime, durationOverride } = options;
-  const updates: Record<string, any> = {
+  const updates: Record<string, unknown> = {
     completed,
     end_time: endTime ?? new Date().toISOString(),
   };
@@ -224,6 +274,19 @@ export const cancelPomodoroSession = async (id: string): Promise<boolean> => {
 };
 
 export const deletePomodoroSession = async (id: string): Promise<boolean> => {
+  // In offline mode, use IndexedDB storage
+  if (isOfflineMode) {
+    try {
+      await initializeStorage();
+      const storage = getStorage();
+      return storage.deletePomodoroSession(id);
+    } catch (error) {
+      console.error("Error deleting pomodoro session in offline mode:", error);
+      toast(DEFAULT_ERROR_TOAST);
+      return false;
+    }
+  }
+
   const userId = await requireUserId();
   if (!userId) {
     return false;
@@ -249,6 +312,21 @@ export const deletePomodoroSession = async (id: string): Promise<boolean> => {
 };
 
 export const getActivePomodoroSession = async (): Promise<PomodoroSession | null> => {
+  // In offline mode, use IndexedDB storage
+  if (isOfflineMode) {
+    try {
+      await initializeStorage();
+      const storage = getStorage();
+      const sessions = await storage.getPomodoroSessions();
+      // Find active session (no completed_at)
+      const activeSession = sessions.find(s => !s.completed_at);
+      return activeSession ? mapSession(activeSession) : null;
+    } catch (error) {
+      console.error("Error fetching active pomodoro session in offline mode:", error);
+      return null;
+    }
+  }
+
   const userId = await requireUserId({ silent: true });
   if (!userId) {
     return null;
@@ -278,6 +356,52 @@ export const getActivePomodoroSession = async (): Promise<PomodoroSession | null
 export const fetchPomodoroSessions = async (
   options: FetchPomodoroSessionsOptions = {}
 ): Promise<PomodoroSession[]> => {
+  // In offline mode, use IndexedDB storage
+  if (isOfflineMode) {
+    try {
+      await initializeStorage();
+      const storage = getStorage();
+      let sessions = await storage.getPomodoroSessions();
+      
+      // Apply filters
+      if (options.from) {
+        sessions = sessions.filter(s => s.started_at >= options.from!);
+      }
+      if (options.to) {
+        sessions = sessions.filter(s => s.started_at <= options.to!);
+      }
+      if (options.types && options.types.length > 0) {
+        const typeMap: Record<string, string> = {
+          'focus': 'work',
+          'short_break': 'short_break',
+          'long_break': 'long_break',
+        };
+        const mappedTypes = options.types.map(t => typeMap[t] || t);
+        sessions = sessions.filter(s => mappedTypes.includes(s.type));
+      }
+      if (typeof options.completed === "boolean") {
+        sessions = sessions.filter(s => (!!s.completed_at) === options.completed);
+      }
+      
+      // Sort
+      sessions.sort((a, b) => {
+        const comparison = a.started_at.localeCompare(b.started_at);
+        return options.order === "asc" ? comparison : -comparison;
+      });
+      
+      // Limit
+      if (options.limit) {
+        sessions = sessions.slice(0, options.limit);
+      }
+      
+      return sessions.map(mapSession);
+    } catch (error) {
+      console.error("Error fetching pomodoro sessions in offline mode:", error);
+      toast(DEFAULT_ERROR_TOAST);
+      return [];
+    }
+  }
+
   const userId = await requireUserId({ silent: options.limit !== undefined || options.from !== undefined });
   if (!userId) {
     return [];

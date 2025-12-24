@@ -204,11 +204,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     isSuccess: isActiveSuccess,
   } = useQuery({
     ...taskQueries.active(),
-    enabled: !!user,
+    enabled: !!user || isOfflineMode,
   });
 
   useEffect(() => {
-    if (user) return;
+    if (user || isOfflineMode) return;
         setTasks([]);
         setTrashedTasks([]);
         setAbandonedTasks([]);
@@ -282,17 +282,31 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      // Ensure task has the current user's ID (use 'offline-user' in offline mode)
-      const taskWithUserId = {
-        ...task,
-        user_id: user?.id || 'offline-user'
-      };
-      const newTask = await addTaskService(taskWithUserId);
+      let newTask: Task | null = null;
+
+      if (isOfflineMode) {
+        // In offline mode, use IndexedDB storage directly
+        const { getStorage, initializeStorage } = await import("@/storage");
+        await initializeStorage();
+        const storage = getStorage();
+        newTask = await storage.createTask({
+          ...task,
+          user_id: 'offline-user'
+        });
+      } else {
+        // Ensure task has the current user's ID
+        const taskWithUserId = {
+          ...task,
+          user_id: user?.id || 'offline-user'
+        };
+        newTask = await addTaskService(taskWithUserId);
+      }
+
       if (!newTask) {
         throw new Error("add task failed");
       }
 
-      setTasks((current) => [newTask, ...current]);
+      setTasks((current) => [newTask!, ...current]);
       await recordTaskActivity(newTask.id, "task_created", { title: newTask.title });
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
@@ -318,9 +332,21 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     const drafts = buildTaskActivityDrafts(previousTask, updatedTask);
     const isCompletionToggle = Object.prototype.hasOwnProperty.call(updatedTask, "completed");
 
+    // Helper function to perform the actual update
+    const performUpdate = async (): Promise<Task | null> => {
+      if (isOfflineMode) {
+        const { getStorage, initializeStorage } = await import("@/storage");
+        await initializeStorage();
+        const storage = getStorage();
+        return storage.updateTask(id, updatedTask);
+      } else {
+        return updateTaskService(id, updatedTask);
+      }
+    };
+
     if (isCompletionToggle) {
       try {
-        const updated = await updateTaskService(id, updatedTask);
+        const updated = await performUpdate();
         if (!updated) {
           throw new Error("update task failed");
         }
@@ -362,7 +388,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     setTasks(updatedTasks);
 
     try {
-      const updated = await updateTaskService(id, updatedTask);
+      const updated = await performUpdate();
       if (!updated) {
         throw new Error("update task failed");
       }
@@ -383,7 +409,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [toast, user, setTasks, queryClient, recordTaskActivity]);
 
   const loadTrashedTasks = useCallback(async () => {
-    if (!user) return;
+    if (!user && !isOfflineMode) return;
     if (trashedLoaded || trashedLoading) return;
 
     setTrashedLoading(true);
@@ -404,7 +430,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [user, trashedLoaded, trashedLoading, toast, setTrashedLoading, setTrashedTasks, setTrashedLoaded, queryClient]);
 
   const loadAbandonedTasks = useCallback(async () => {
-    if (!user) return;
+    if (!user && !isOfflineMode) return;
     if (abandonedLoaded || abandonedLoading) return;
 
     setAbandonedLoading(true);
@@ -701,7 +727,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      const success = await moveToTrashService(id);
+      let success = false;
+      if (isOfflineMode) {
+        const { getStorage, initializeStorage } = await import("@/storage");
+        await initializeStorage();
+        const storage = getStorage();
+        const updated = await storage.updateTask(id, { deleted: true, deleted_at: new Date().toISOString() });
+        success = !!updated;
+      } else {
+        success = await moveToTrashService(id);
+      }
+
       if (!success) {
         throw new Error("move to trash failed");
       }
@@ -747,7 +783,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      const success = await restoreFromTrashService(id);
+      let success = false;
+      if (isOfflineMode) {
+        const { getStorage, initializeStorage } = await import("@/storage");
+        await initializeStorage();
+        const storage = getStorage();
+        const updated = await storage.updateTask(id, { deleted: false, deleted_at: undefined });
+        success = !!updated;
+      } else {
+        success = await restoreFromTrashService(id);
+      }
+
       if (!success) {
         throw new Error("restore from trash failed");
       }
@@ -791,7 +837,16 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      const success = await deleteTaskService(id);
+      let success = false;
+      if (isOfflineMode) {
+        const { getStorage, initializeStorage } = await import("@/storage");
+        await initializeStorage();
+        const storage = getStorage();
+        success = await storage.deleteTask(id);
+      } else {
+        success = await deleteTaskService(id);
+      }
+
       if (!success) {
         throw new Error("delete task failed");
       }
@@ -816,7 +871,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [user, toast, selectedTaskId, setTrashedTasks, setTasks, setSelectedTaskId, queryClient]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user && !isOfflineMode) return;
     if (selectedProject === "trash") {
       loadTrashedTasks();
     } else if (selectedProject === "abandoned") {

@@ -610,10 +610,12 @@ export class IndexedDBAdapter implements StorageAdapter {
   }
 
   async createPomodoroSession(session: CreatePomodoroInput): Promise<PomodoroSession> {
+    const now = new Date().toISOString();
     const newSession: PomodoroSession = {
       ...session,
       id: uuidv4(),
-      created_at: new Date().toISOString(),
+      started_at: session.started_at || now,
+      created_at: now,
     };
 
     await this.putRecord(DB_STORES.POMODORO_SESSIONS, newSession);
