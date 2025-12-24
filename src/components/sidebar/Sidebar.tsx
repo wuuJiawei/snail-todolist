@@ -87,7 +87,17 @@ const Sidebar: React.FC = () => {
 
   const customDbProjects = dbProjects.map(p => ({ ...p, isFixed: false }));
 
-  const customProjects = customDbProjects;
+  // Calculate task counts for custom projects
+  const customProjectsWithCounts = useMemo(() => {
+    return customDbProjects.map(project => {
+      const count = tasks.filter(task => 
+        task.project === project.id && !task.completed && !task.deleted && !task.abandoned
+      ).length;
+      return { ...project, count };
+    });
+  }, [customDbProjects, tasks]);
+
+  const customProjects = customProjectsWithCounts;
 
   const handleNewProject = () => {
     setNewProjectDialogOpen(true);
