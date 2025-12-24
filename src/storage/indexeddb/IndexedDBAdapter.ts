@@ -13,6 +13,7 @@ import {
   SortOptions,
   PomodoroSession,
   TaskActivity,
+  CheckInRecord,
   CreateTaskInput,
   CreateProjectInput,
   CreatePomodoroInput,
@@ -21,7 +22,7 @@ import {
 } from '../types';
 
 const DB_NAME = 'snail_todo_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Increment version for schema change
 
 /**
  * Task-Tag junction record for IndexedDB
@@ -122,6 +123,13 @@ export class IndexedDBAdapter implements StorageAdapter {
       const activityStore = db.createObjectStore(DB_STORES.TASK_ACTIVITIES, { keyPath: 'id' });
       activityStore.createIndex('task_id', 'task_id', { unique: false });
       activityStore.createIndex('created_at', 'created_at', { unique: false });
+    }
+
+    // Check-in records store
+    if (!db.objectStoreNames.contains(DB_STORES.CHECKIN_RECORDS)) {
+      const checkinStore = db.createObjectStore(DB_STORES.CHECKIN_RECORDS, { keyPath: 'id' });
+      checkinStore.createIndex('check_in_time', 'check_in_time', { unique: false });
+      checkinStore.createIndex('created_at', 'created_at', { unique: false });
     }
   }
 
@@ -658,6 +666,112 @@ export class IndexedDBAdapter implements StorageAdapter {
 
     await this.putRecord(DB_STORES.TASK_ACTIVITIES, newActivity);
     return newActivity;
+  }
+
+  // ============================================
+  // Check-In Operations
+  // ============================================
+
+  private getTodayBounds(): { startIso: string; endIso: string } {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return {
+      startIso: startOfDay.toISOString(),
+      endIso: endOfDay.toISOString(),
+    };
+  }
+
+  async hasCheckedInToday(): Promise<boolean> {
+    const { startIso, endIso } = this.getTodayBounds();
+    const allRecords = await this.getAllFromStore<CheckInRecord>(DB_STORES.CHECKIN_RECORDS);
+    
+    return allRecords.some(record => {
+      const checkInTime = record.check_in_time;
+      return checkInTime >= startIso && checkInTime <= endIso;
+    });
+  }
+
+  async createCheckIn(note?: string): Promise<CheckInRecord> {
+    const now = new Date().toISOString();
+    const newRecord: CheckInRecord = {
+      id: uuidv4(),
+      check_in_time: now,
+      note: note || null,
+      created_at: now,
+    };
+
+    await this.putRecord(DB_STORES.CHECKIN_RECORDS, newRecord);
+    return newRecord;
+  }
+
+  async getCheckInHistory(page: number = 1, pageSize: number = 10): Promise<{ records: CheckInRecord[]; total: number }> {
+    const allRecords = await this.getAllFromStore<CheckInRecord>(DB_STORES.CHECKIN_RECORDS);
+    
+    // Sort by check_in_time descending
+    allRecords.sort((a, b) => b.check_in_time.localeCompare(a.check_in_time));
+    
+    const total = allRecords.length;
+    const startIndex = (page - 1) * pageSize;
+    const records = allRecords.slice(startIndex, startIndex + pageSize);
+    
+    return { records, total };
+  }
+
+  async getCheckInStreak(): Promise<number> {
+    const allRecords = await this.getAllFromStore<CheckInRecord>(DB_STORES.CHECKIN_RECORDS);
+    
+    if (allRecords.length === 0) {
+      return 0;
+    }
+
+    // Extract unique dates
+    const uniqueDates = new Set<string>();
+    allRecords.forEach(record => {
+      const date = new Date(record.check_in_time);
+      const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const year = localDate.getFullYear();
+      const month = String(localDate.getMonth() + 1).padStart(2, '0');
+      const day = String(localDate.getDate()).padStart(2, '0');
+      uniqueDates.add(`${year}-${month}-${day}`);
+    });
+
+    // Convert to Date objects and sort descending
+    const dates = Array.from(uniqueDates).map(dateStr => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y!, (m ?? 1) - 1, d);
+    });
+    dates.sort((a, b) => b.getTime() - a.getTime());
+
+    // Get today's date
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+    // If the most recent check-in is not today or yesterday, streak is 0
+    const mostRecent = dates[0];
+    if (!mostRecent) return 0;
+    
+    const dayDiff = Math.floor((today.getTime() - mostRecent.getTime()) / (1000 * 60 * 60 * 24));
+    if (dayDiff > 1) {
+      return 0;
+    }
+
+    // Count consecutive days
+    let streak = 1;
+    for (let i = 0; i < dates.length - 1; i++) {
+      const current = dates[i];
+      const next = dates[i + 1];
+      if (!current || !next) break;
+
+      const diffDays = Math.floor((current.getTime() - next.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays === 1) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
   }
 }
 

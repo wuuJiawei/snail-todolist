@@ -17,6 +17,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { WifiOff } from "lucide-react";
+import { isOfflineMode } from "@/storage";
 
 interface JoinSharedProjectDialogProps {
   open: boolean;
@@ -33,6 +35,29 @@ const JoinSharedProjectDialog: React.FC<JoinSharedProjectDialogProps> = ({
   open,
   onOpenChange,
 }) => {
+  // Show offline message if in offline mode
+  if (isOfflineMode) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>加入共享清单</DialogTitle>
+            <DialogDescription>离线模式下无法使用此功能</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-8 gap-4 text-muted-foreground">
+            <WifiOff className="h-12 w-12" />
+            <p className="text-sm text-center">加入共享清单需要网络连接，请在在线模式下使用</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              关闭
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   const [loading, setLoading] = useState<boolean>(false);
   const { toast } = useToast();
   const { user } = useAuth();

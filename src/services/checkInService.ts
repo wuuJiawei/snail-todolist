@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
+import { isOfflineMode, getStorage, initializeStorage } from "@/storage";
 
 export type CheckInRecord = {
   id?: string;
@@ -23,6 +24,13 @@ const getTodayBounds = () => {
 // Check if user has already checked in today
 export const hasCheckedInToday = async (): Promise<boolean> => {
   try {
+    // In offline mode, use IndexedDB storage
+    if (isOfflineMode) {
+      await initializeStorage();
+      const storage = getStorage();
+      return storage.hasCheckedInToday();
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
@@ -50,6 +58,30 @@ export const hasCheckedInToday = async (): Promise<boolean> => {
 // Create a new check-in record
 export const createCheckIn = async (note?: string): Promise<boolean> => {
   try {
+    // In offline mode, use IndexedDB storage
+    if (isOfflineMode) {
+      await initializeStorage();
+      const storage = getStorage();
+      
+      if (await storage.hasCheckedInToday()) {
+        toast({
+          title: "已经打过卡了",
+          description: "今天已经打过卡了，明天再来吧！",
+          variant: "default",
+        });
+        return false;
+      }
+
+      await storage.createCheckIn(note);
+      
+      toast({
+        title: "打卡成功",
+        description: "今天又是充满活力的一天！",
+        variant: "default",
+      });
+      return true;
+    }
+
     // Get the current user's ID
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -109,6 +141,13 @@ export const getCheckInHistory = async (
   pageSize: number = 10
 ): Promise<{ records: CheckInRecord[]; total: number }> => {
   try {
+    // In offline mode, use IndexedDB storage
+    if (isOfflineMode) {
+      await initializeStorage();
+      const storage = getStorage();
+      return storage.getCheckInHistory(page, pageSize);
+    }
+
     // Get the current user's ID
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -153,6 +192,13 @@ export const getCheckInHistory = async (
 // Get check-in streak (consecutive days)
 export const getCheckInStreak = async (): Promise<number> => {
   try {
+    // In offline mode, use IndexedDB storage
+    if (isOfflineMode) {
+      await initializeStorage();
+      const storage = getStorage();
+      return storage.getCheckInStreak();
+    }
+
     // Get the current user's ID
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return 0;

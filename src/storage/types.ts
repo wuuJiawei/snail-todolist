@@ -57,6 +57,17 @@ export interface TaskActivity {
 }
 
 /**
+ * Check-in record for daily check-ins
+ */
+export interface CheckInRecord {
+  id: string;
+  user_id?: string;
+  check_in_time: string;
+  note?: string | null;
+  created_at: string;
+}
+
+/**
  * Input type for creating a new task (without id)
  */
 export type CreateTaskInput = Omit<Task, 'id'>;
@@ -75,6 +86,11 @@ export type CreatePomodoroInput = Omit<PomodoroSession, 'id' | 'created_at'>;
  * Input type for creating a new task activity (without id)
  */
 export type CreateActivityInput = Omit<TaskActivity, 'id' | 'created_at'>;
+
+/**
+ * Input type for creating a new check-in record (without id)
+ */
+export type CreateCheckInInput = Omit<CheckInRecord, 'id' | 'created_at'>;
 
 /**
  * Storage Adapter Interface
@@ -253,6 +269,30 @@ export interface StorageAdapter {
    * Create a new task activity record
    */
   createTaskActivity(activity: CreateActivityInput): Promise<TaskActivity>;
+
+  // ============================================
+  // Check-In Operations
+  // ============================================
+
+  /**
+   * Check if user has checked in today
+   */
+  hasCheckedInToday(): Promise<boolean>;
+
+  /**
+   * Create a new check-in record
+   */
+  createCheckIn(note?: string): Promise<CheckInRecord>;
+
+  /**
+   * Get check-in history with pagination
+   */
+  getCheckInHistory(page?: number, pageSize?: number): Promise<{ records: CheckInRecord[]; total: number }>;
+
+  /**
+   * Get check-in streak (consecutive days)
+   */
+  getCheckInStreak(): Promise<number>;
 }
 
 /**
@@ -265,6 +305,7 @@ export const DB_STORES = {
   TASK_TAGS: 'task_tags',
   POMODORO_SESSIONS: 'pomodoro_sessions',
   TASK_ACTIVITIES: 'task_activities',
+  CHECKIN_RECORDS: 'checkin_records',
 } as const;
 
 export type DBStoreName = typeof DB_STORES[keyof typeof DB_STORES];

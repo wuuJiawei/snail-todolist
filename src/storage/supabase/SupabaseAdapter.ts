@@ -362,4 +362,48 @@ export class SupabaseAdapter implements StorageAdapter {
     }
     return created;
   }
+
+  // ============================================
+  // Check-In Operations (delegate to checkInService)
+  // ============================================
+
+  async hasCheckedInToday(): Promise<boolean> {
+    // Import dynamically to avoid circular dependencies
+    const { hasCheckedInToday } = await import('@/services/checkInService');
+    return hasCheckedInToday();
+  }
+
+  async createCheckIn(note?: string): Promise<{ id: string; check_in_time: string; note?: string | null; created_at: string }> {
+    const { createCheckIn } = await import('@/services/checkInService');
+    const success = await createCheckIn(note);
+    if (!success) {
+      throw new Error('Failed to create check-in');
+    }
+    // Return a mock record since the service doesn't return the created record
+    return {
+      id: crypto.randomUUID(),
+      check_in_time: new Date().toISOString(),
+      note: note || null,
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  async getCheckInHistory(page?: number, pageSize?: number): Promise<{ records: Array<{ id: string; check_in_time: string; note?: string | null; created_at: string }>; total: number }> {
+    const { getCheckInHistory } = await import('@/services/checkInService');
+    const result = await getCheckInHistory(page, pageSize);
+    return {
+      records: result.records.map(r => ({
+        id: r.id || crypto.randomUUID(),
+        check_in_time: r.check_in_time || new Date().toISOString(),
+        note: r.note || null,
+        created_at: r.created_at || new Date().toISOString(),
+      })),
+      total: result.total,
+    };
+  }
+
+  async getCheckInStreak(): Promise<number> {
+    const { getCheckInStreak } = await import('@/services/checkInService');
+    return getCheckInStreak();
+  }
 }

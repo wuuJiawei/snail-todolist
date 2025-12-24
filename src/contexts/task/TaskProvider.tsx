@@ -272,7 +272,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Add task
   const addTask = useCallback(async (task: Omit<Task, "id">) => {
     try {
-      if (!user) {
+      // In offline mode, we use the mock offline user
+      if (!user && !isOfflineMode) {
         toast({
           title: "添加失败",
           description: "您需要登录才能添加任务",
@@ -281,10 +282,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      // Ensure task has the current user's ID
+      // Ensure task has the current user's ID (use 'offline-user' in offline mode)
       const taskWithUserId = {
         ...task,
-        user_id: user.id
+        user_id: user?.id || 'offline-user'
       };
       const newTask = await addTaskService(taskWithUserId);
       if (!newTask) {
@@ -302,7 +303,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // Update task
   const updateTask = useCallback(async (id: string, updatedTask: Partial<Task>) => {
-      if (!user) {
+      // In offline mode, we use the mock offline user
+      if (!user && !isOfflineMode) {
         toast({
           title: "更新失败",
           description: "您需要登录才能更新任务",
@@ -689,7 +691,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Move task to trash (soft delete)
   const moveToTrash = useCallback(async (id: string) => {
     try {
-      if (!user) {
+      // In offline mode, we use the mock offline user
+      if (!user && !isOfflineMode) {
         toast({
           title: "删除失败",
           description: "您需要登录才能删除任务",
@@ -734,7 +737,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Restore task from trash
   const restoreFromTrash = useCallback(async (id: string) => {
     try {
-      if (!user) {
+      // In offline mode, we use the mock offline user
+      if (!user && !isOfflineMode) {
         toast({
           title: "恢复失败",
           description: "您需要登录才能恢复任务",
@@ -777,7 +781,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Permanently delete task
   const deleteTask = useCallback(async (id: string) => {
     try {
-      if (!user) {
+      // In offline mode, we use the mock offline user
+      if (!user && !isOfflineMode) {
         toast({
           title: "删除失败",
           description: "您需要登录才能删除任务",
@@ -1084,7 +1089,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Abandon a task
   const abandonTask = useCallback(async (id: string) => {
     try {
-      if (!user) {
+      // In offline mode, we use the mock offline user
+      if (!user && !isOfflineMode) {
         toast({
           title: "放弃失败",
           description: "您需要登录才能放弃任务",
@@ -1134,7 +1140,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Restore task from abandoned
   const restoreAbandonedTask = useCallback(async (id: string) => {
     try {
-      if (!user) {
+      // In offline mode, we use the mock offline user
+      if (!user && !isOfflineMode) {
         toast({
           title: "恢复失败",
           description: "您需要登录才能恢复任务",
