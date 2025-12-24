@@ -295,7 +295,6 @@ export const addTask = async (task: Omit<Task, "id">, isGuest: boolean = false):
         anonymous_id: guestId,
         sort_order: nextSortOrder,
         flagged: task.flagged ?? false,
-        date: task.date ?? new Date().toISOString(),
         // 转换附件数组为JSON字符串
         attachments: task.attachments ? JSON.stringify(task.attachments) : '[]'
       };
@@ -397,7 +396,6 @@ export const addTask = async (task: Omit<Task, "id">, isGuest: boolean = false):
       user_id: user.id,
       sort_order: nextSortOrder,
       flagged: task.flagged ?? false,
-      date: task.date ?? new Date().toISOString(),
       // Convert attachments array to JSON string for storage
       attachments: task.attachments ? JSON.stringify(task.attachments) : '[]'
     };
