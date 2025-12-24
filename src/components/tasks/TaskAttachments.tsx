@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { TaskAttachment } from '@/types/task';
 import { Paperclip, Download, Trash2, FileText, Image, File, ChevronDown, ChevronUp } from 'lucide-react';
+import { isOfflineMode } from '@/storage';
 
 interface TaskAttachmentsProps {
   attachments: TaskAttachment[];
@@ -45,7 +46,35 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
-  const uploadFile = useCallback(async (file: File): Promise<TaskAttachment> => {
+  // Convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Upload file for offline mode (store as base64)
+  const uploadFileOffline = useCallback(async (file: File): Promise<TaskAttachment> => {
+    const base64Data = await fileToBase64(file);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+
+    return {
+      id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`,
+      filename: fileName,
+      original_name: file.name,
+      url: base64Data, // Store base64 data as URL for offline mode
+      size: file.size,
+      type: file.type,
+      uploaded_at: new Date().toISOString(),
+    };
+  }, []);
+
+  // Upload file for online mode (use Supabase storage)
+  const uploadFileOnline = useCallback(async (file: File): Promise<TaskAttachment> => {
     if (!user) {
       throw new Error('User not authenticated');
     }
@@ -81,6 +110,16 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
   const handleFileUpload = useCallback(async (files: FileList) => {
     if (!files.length || readOnly) return;
 
+    // In online mode, require user authentication
+    if (!isOfflineMode && !user) {
+      toast({
+        title: '上传失败',
+        description: '请先登录后再上传附件',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setUploading(true);
     const newAttachments: TaskAttachment[] = [];
 
@@ -97,7 +136,9 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
         }
 
         try {
-          const attachment = await uploadFile(file);
+          const attachment = isOfflineMode 
+            ? await uploadFileOffline(file)
+            : await uploadFileOnline(file);
           newAttachments.push(attachment);
         } catch (error) {
           console.error('Error uploading file:', error);
@@ -120,7 +161,7 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
     } finally {
       setUploading(false);
     }
-  }, [attachments, onAttachmentsChange, readOnly, toast, uploadFile]);
+  }, [attachments, onAttachmentsChange, readOnly, toast, uploadFileOffline, uploadFileOnline, user]);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -132,11 +173,14 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
     if (readOnly) return;
 
     try {
-      const { error } = await supabase.storage
-        .from('task-attachments')
-        .remove([attachment.id]);
+      // In offline mode, just remove from the list (no API call needed)
+      if (!isOfflineMode) {
+        const { error } = await supabase.storage
+          .from('task-attachments')
+          .remove([attachment.id]);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       const updatedAttachments = attachments.filter((item) => item.id !== attachment.id);
       onAttachmentsChange(updatedAttachments);

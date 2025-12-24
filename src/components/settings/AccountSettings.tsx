@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { isOfflineMode, getStorage, initializeStorage } from "@/storage";
 
 const AccountSettings = () => {
   const { user } = useAuth();
@@ -17,10 +18,27 @@ const AccountSettings = () => {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
-      setUsername(user.user_metadata?.name || "");
-      setAvatarUrl(user.user_metadata?.avatar_url || "");
-    }
+    const loadProfile = async () => {
+      if (isOfflineMode) {
+        // Load profile from IndexedDB in offline mode
+        try {
+          await initializeStorage();
+          const storage = getStorage();
+          const profile = await (storage as any).getUserProfile?.();
+          if (profile) {
+            setUsername(profile.username || "离线用户");
+            setAvatarUrl(profile.avatar_data || profile.avatar_url || "");
+          }
+        } catch (error) {
+          console.error("Failed to load offline profile:", error);
+        }
+      } else if (user) {
+        setUsername(user.user_metadata?.name || "");
+        setAvatarUrl(user.user_metadata?.avatar_url || "");
+      }
+    };
+
+    loadProfile();
   }, [user]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,64 +55,105 @@ const AccountSettings = () => {
     }
   };
 
+  // Convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      let newAvatarUrl = avatarUrl;
-
-      // Upload avatar if changed
-      if (avatarFile) {
-        // Validate file size (max 2MB)
-        const fileSizeInMB = avatarFile.size / (1024 * 1024);
-        if (fileSizeInMB > 2) {
-          throw new Error('文件大小不能超过 2MB');
+      if (isOfflineMode) {
+        // Save to IndexedDB in offline mode
+        await initializeStorage();
+        const storage = getStorage();
+        
+        let avatarData = avatarUrl;
+        if (avatarFile) {
+          // Validate file size (max 2MB)
+          const fileSizeInMB = avatarFile.size / (1024 * 1024);
+          if (fileSizeInMB > 2) {
+            throw new Error('文件大小不能超过 2MB');
+          }
+          avatarData = await fileToBase64(avatarFile);
         }
 
-        const fileExt = avatarFile.name.split('.').pop();
-        const fileName = `${user?.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `avatars/${fileName}`;
+        await (storage as any).saveUserProfile?.({
+          username,
+          avatar_data: avatarData,
+        });
 
-        // Upload file to Supabase Storage
-        const { error: uploadError } = await supabase.storage
-          .from('user-avatars')
-          .upload(filePath, avatarFile, {
-            cacheControl: '3600',
-            upsert: false
-          });
+        setAvatarUrl(avatarData);
+        setAvatarFile(null);
+        setAvatarPreview(null);
 
-        if (uploadError) {
-          throw uploadError;
+        toast({
+          title: "账号已更新",
+          description: "您的个人资料已成功保存到本地",
+        });
+      } else {
+        // Online mode: use Supabase
+        let newAvatarUrl = avatarUrl;
+
+        // Upload avatar if changed
+        if (avatarFile) {
+          // Validate file size (max 2MB)
+          const fileSizeInMB = avatarFile.size / (1024 * 1024);
+          if (fileSizeInMB > 2) {
+            throw new Error('文件大小不能超过 2MB');
+          }
+
+          const fileExt = avatarFile.name.split('.').pop();
+          const fileName = `${user?.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+          const filePath = `avatars/${fileName}`;
+
+          // Upload file to Supabase Storage
+          const { error: uploadError } = await supabase.storage
+            .from('user-avatars')
+            .upload(filePath, avatarFile, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (uploadError) {
+            throw uploadError;
+          }
+
+          // Get public URL
+          const { data } = supabase.storage
+            .from('user-avatars')
+            .getPublicUrl(filePath);
+
+          newAvatarUrl = data.publicUrl;
         }
 
-        // Get public URL
-        const { data } = supabase.storage
-          .from('user-avatars')
-          .getPublicUrl(filePath);
+        // Update user metadata
+        const { error } = await supabase.auth.updateUser({
+          data: {
+            name: username,
+            avatar_url: newAvatarUrl
+          }
+        });
 
-        newAvatarUrl = data.publicUrl;
+        if (error) throw error;
+
+        // Update local state with new values
+        setAvatarUrl(newAvatarUrl);
+        setAvatarFile(null);
+        setAvatarPreview(null);
+
+        toast({
+          title: "账号已更新",
+          description: "您的个人资料已成功更新",
+        });
       }
-
-      // Update user metadata
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          name: username,
-          avatar_url: newAvatarUrl
-        }
-      });
-
-      if (error) throw error;
-
-      // Update local state with new values
-      setAvatarUrl(newAvatarUrl);
-      setAvatarFile(null);
-      setAvatarPreview(null);
-
-      toast({
-        title: "账号已更新",
-        description: "您的个人资料已成功更新",
-      });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "无法更新个人资料";
       toast({
@@ -108,6 +167,7 @@ const AccountSettings = () => {
   };
 
   const getUserInitials = () => {
+    if (isOfflineMode) return "离";
     if (!user) return "U";
 
     const email = user.email || "";
@@ -161,19 +221,29 @@ const AccountSettings = () => {
             />
           </div>
 
-          <div>
-            <Label htmlFor="email" className="block mb-2">电子邮箱</Label>
-            <Input
-              id="email"
-              type="email"
-              value={user?.email || ""}
-              disabled
-              className="max-w-md bg-gray-50"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              邮箱地址无法直接修改
-            </p>
-          </div>
+          {!isOfflineMode && (
+            <div>
+              <Label htmlFor="email" className="block mb-2">电子邮箱</Label>
+              <Input
+                id="email"
+                type="email"
+                value={user?.email || ""}
+                disabled
+                className="max-w-md bg-gray-50"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                邮箱地址无法直接修改
+              </p>
+            </div>
+          )}
+
+          {isOfflineMode && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-sm text-amber-700">
+                离线模式下，您的个人资料将保存在本地设备上。
+              </p>
+            </div>
+          )}
         </div>
 
         <Button type="submit" disabled={isLoading}>

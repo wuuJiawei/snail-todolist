@@ -124,14 +124,35 @@ const TaskList: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      // For special views (today, recent, flagged), determine the appropriate project and date
+      let taskProject: string | undefined = selectedProject;
+      let taskDate = date;
+
+      // In "today" view, auto-set today's date if no date provided, and don't set project to "today"
+      if (selectedProject === "today") {
+        taskProject = undefined; // Don't assign to a special view
+        if (!taskDate) {
+          taskDate = new Date(); // Auto-set to today
+        }
+      }
+      // In "recent" view, don't set project to "recent"
+      else if (selectedProject === "recent") {
+        taskProject = undefined;
+      }
+      // In "flagged" view, don't set project to "flagged"
+      else if (selectedProject === "flagged") {
+        taskProject = undefined;
+      }
+
       // Convert date to ISO string if it exists
-      const dateString = date ? date.toISOString() : undefined;
+      const dateString = taskDate ? taskDate.toISOString() : undefined;
 
       await addTask({
         title: title,
         completed: false,
-        project: selectedProject,
+        project: taskProject,
         date: dateString,
+        flagged: selectedProject === "flagged" ? true : false, // Auto-flag if in flagged view
       });
     } catch (error) {
       console.error("Failed to add task:", error);

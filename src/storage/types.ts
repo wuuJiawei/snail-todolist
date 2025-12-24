@@ -306,6 +306,33 @@ export const DB_STORES = {
   POMODORO_SESSIONS: 'pomodoro_sessions',
   TASK_ACTIVITIES: 'task_activities',
   CHECKIN_RECORDS: 'checkin_records',
+  USER_PROFILE: 'user_profile',
+  ATTACHMENTS: 'attachments',
 } as const;
 
 export type DBStoreName = typeof DB_STORES[keyof typeof DB_STORES];
+
+/**
+ * User profile for offline mode
+ */
+export interface UserProfile {
+  id: string;
+  username: string;
+  avatar_url?: string | null;
+  avatar_data?: string | null; // Base64 encoded avatar image
+  updated_at: string;
+}
+
+/**
+ * Attachment file stored locally
+ */
+export interface LocalAttachment {
+  id: string;
+  task_id: string;
+  filename: string;
+  original_name: string;
+  type: string;
+  size: number;
+  data: string; // Base64 encoded file content
+  uploaded_at: string;
+}

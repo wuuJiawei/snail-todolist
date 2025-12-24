@@ -19,10 +19,12 @@ import {
   CreatePomodoroInput,
   CreateActivityInput,
   DB_STORES,
+  UserProfile,
+  LocalAttachment,
 } from '../types';
 
 const DB_NAME = 'snail_todo_db';
-const DB_VERSION = 2; // Increment version for schema change
+const DB_VERSION = 3; // Increment version for schema change (added user_profile and attachments)
 
 /**
  * Task-Tag junction record for IndexedDB
@@ -130,6 +132,17 @@ export class IndexedDBAdapter implements StorageAdapter {
       const checkinStore = db.createObjectStore(DB_STORES.CHECKIN_RECORDS, { keyPath: 'id' });
       checkinStore.createIndex('check_in_time', 'check_in_time', { unique: false });
       checkinStore.createIndex('created_at', 'created_at', { unique: false });
+    }
+
+    // User profile store (for offline mode)
+    if (!db.objectStoreNames.contains(DB_STORES.USER_PROFILE)) {
+      db.createObjectStore(DB_STORES.USER_PROFILE, { keyPath: 'id' });
+    }
+
+    // Attachments store (for offline mode)
+    if (!db.objectStoreNames.contains(DB_STORES.ATTACHMENTS)) {
+      const attachmentStore = db.createObjectStore(DB_STORES.ATTACHMENTS, { keyPath: 'id' });
+      attachmentStore.createIndex('task_id', 'task_id', { unique: false });
     }
   }
 
@@ -774,6 +787,61 @@ export class IndexedDBAdapter implements StorageAdapter {
     }
 
     return streak;
+  }
+
+  // ============================================
+  // User Profile Operations (Offline Mode)
+  // ============================================
+
+  async getUserProfile(): Promise<UserProfile | null> {
+    const profiles = await this.getAllFromStore<UserProfile>(DB_STORES.USER_PROFILE);
+    return profiles[0] ?? null;
+  }
+
+  async saveUserProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
+    const existing = await this.getUserProfile();
+    const now = new Date().toISOString();
+    
+    const updatedProfile: UserProfile = {
+      id: existing?.id ?? 'offline-user',
+      username: profile.username ?? existing?.username ?? '离线用户',
+      avatar_url: profile.avatar_url ?? existing?.avatar_url ?? null,
+      avatar_data: profile.avatar_data ?? existing?.avatar_data ?? null,
+      updated_at: now,
+    };
+
+    await this.putRecord(DB_STORES.USER_PROFILE, updatedProfile);
+    return updatedProfile;
+  }
+
+  // ============================================
+  // Attachment Operations (Offline Mode)
+  // ============================================
+
+  async getAttachmentsByTaskId(taskId: string): Promise<LocalAttachment[]> {
+    return this.getByIndex<LocalAttachment>(DB_STORES.ATTACHMENTS, 'task_id', taskId);
+  }
+
+  async saveAttachment(attachment: Omit<LocalAttachment, 'id'>): Promise<LocalAttachment> {
+    const newAttachment: LocalAttachment = {
+      ...attachment,
+      id: uuidv4(),
+    };
+
+    await this.putRecord(DB_STORES.ATTACHMENTS, newAttachment);
+    return newAttachment;
+  }
+
+  async deleteAttachment(id: string): Promise<boolean> {
+    return this.deleteByKey(DB_STORES.ATTACHMENTS, id);
+  }
+
+  async deleteAttachmentsByTaskId(taskId: string): Promise<boolean> {
+    const attachments = await this.getAttachmentsByTaskId(taskId);
+    for (const attachment of attachments) {
+      await this.deleteAttachment(attachment.id);
+    }
+    return true;
   }
 }
 
