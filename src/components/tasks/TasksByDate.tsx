@@ -41,7 +41,7 @@ const TasksByDate: React.FC<TasksByDateProps> = ({
       <div className="p-4">
         <Alert>
           <AlertDescription>
-            没有待完成的任务。点击上方 "+" 按钮添加新任务。
+            暂无待办任务
           </AlertDescription>
         </Alert>
       </div>
