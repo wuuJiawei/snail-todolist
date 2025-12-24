@@ -72,6 +72,7 @@ describe('IndexedDB Adapter - Task Operations', () => {
     /**
      * For any valid task data, creating a task and then reading it back
      * SHALL return an equivalent task object with all fields preserved.
+     * Note: If date is not provided, it defaults to the current timestamp.
      */
     it('should preserve task data through create-read cycle', async () => {
       await fc.assert(
@@ -85,7 +86,12 @@ describe('IndexedDB Adapter - Task Operations', () => {
           expect(retrieved!.description).toBe(taskInput.description);
           expect(retrieved!.completed).toBe(taskInput.completed);
           expect(retrieved!.flagged).toBe(taskInput.flagged);
-          expect(retrieved!.date).toBe(taskInput.date);
+          // Date defaults to current timestamp if not provided
+          if (taskInput.date) {
+            expect(retrieved!.date).toBe(taskInput.date);
+          } else {
+            expect(retrieved!.date).toBeDefined();
+          }
           expect(retrieved!.project).toBe(taskInput.project);
 
           // Cleanup

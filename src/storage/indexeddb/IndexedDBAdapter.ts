@@ -309,6 +309,7 @@ export class IndexedDBAdapter implements StorageAdapter {
       abandoned: task.abandoned ?? false,
       flagged: task.flagged ?? false,
       attachments: task.attachments ?? [],
+      date: task.date ?? now,
     };
 
     // Set created_at if not provided (stored as updated_at in Task type)
