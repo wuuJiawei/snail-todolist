@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getOrCreateGuestId } from "@/services/taskService";
+import { isOfflineMode } from "@/storage";
+import { WifiOff } from "lucide-react";
 
 type ChatMessage = Tables<"global_chat_messages">;
 
@@ -15,6 +17,17 @@ type NewChatMessage = TablesInsert<"global_chat_messages">;
 const formatTime = (iso: string) => new Date(iso).toLocaleTimeString();
 
 const Chat: React.FC = () => {
+  // Show offline message if in offline mode
+  if (isOfflineMode) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
+        <WifiOff className="h-16 w-16" />
+        <h2 className="text-xl font-semibold">聊天功能不可用</h2>
+        <p className="text-sm">离线模式下无法使用聊天功能</p>
+      </div>
+    );
+  }
+
   const { user, isGuest } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");

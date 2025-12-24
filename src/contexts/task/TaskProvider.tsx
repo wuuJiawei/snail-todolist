@@ -27,6 +27,7 @@ import { createTaskActivity } from "@/services/taskActivityService";
 import { taskActivityKeys } from "@/queries/taskActivityQueries";
 import type { TaskActivityAction, TaskActivityInput } from "@/types/taskActivity";
 import { useProjectContext } from "@/contexts/ProjectContext";
+import { isOfflineMode } from "@/storage";
 
 const hasProp = <K extends keyof Partial<Task>>(obj: Partial<Task>, key: K): boolean =>
   Object.prototype.hasOwnProperty.call(obj, key);
@@ -829,6 +830,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [selectedProject, builtinScopes, visibleProjectIds]);
 
   useEffect(() => {
+    // Skip realtime subscriptions in offline mode
+    if (isOfflineMode) return;
     if (!user) return;
     const uid = user.id;
     const invalidate = () => queryClient.invalidateQueries({ queryKey: taskKeys.active() });

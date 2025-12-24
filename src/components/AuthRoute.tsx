@@ -3,6 +3,7 @@ import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
+import { isOfflineMode } from "@/storage";
 
 interface AuthRouteProps {
   children?: React.ReactNode;
@@ -10,6 +11,11 @@ interface AuthRouteProps {
 
 const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
   const { user, loading, isGuest } = useAuth();
+
+  // In offline mode, always allow access (no auth required)
+  if (isOfflineMode) {
+    return children ? <>{children}</> : <Outlet />;
+  }
 
   if (loading) {
     return (

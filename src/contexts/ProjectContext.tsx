@@ -5,6 +5,7 @@ import { Project } from "@/types/project";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectStore } from "@/store/projectStore";
+import { isOfflineMode } from "@/storage";
 
 interface ProjectContextType {
   projects: Project[];
@@ -37,6 +38,18 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProjects = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
+      
+      // In offline mode, use storage adapter
+      if (isOfflineMode) {
+        const { getStorage, initializeStorage } = await import('@/storage');
+        await initializeStorage();
+        const storage = getStorage();
+        const projects = await storage.getProjects();
+        setProjects(projects);
+        setHasLoaded(true);
+        return;
+      }
+      
       if (!user) {
         setProjects([]);
         setHasLoaded(false);
@@ -165,6 +178,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Realtime: refresh on project membership changes (filtered)
   useEffect(() => {
+    // Skip realtime subscriptions in offline mode
+    if (isOfflineMode) return;
     if (!user) return;
     const ownedIds = (projects || []).filter(p => p.user_id === user.id).map(p => p.id);
     const channel = supabase.channel(`projects:members:${user.id}`);
@@ -206,6 +221,26 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const createProject = useCallback(async (data: Partial<Project>) => {
     try {
+      // Offline mode: use storage adapter
+      if (isOfflineMode) {
+        const { getStorage, initializeStorage } = await import('@/storage');
+        await initializeStorage();
+        const storage = getStorage();
+        const newProject = await storage.createProject({
+          name: data.name || '新清单',
+          icon: data.icon || 'folder',
+          color: data.color || '#4CAF50',
+          view_type: data.view_type || 'list',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          user_id: 'offline-user',
+          sort_order: (projects.length + 1) * 1000,
+        });
+        upsertProject({ ...newProject, count: 0 });
+        toast({ title: "清单已创建", description: "新清单已成功创建" });
+        return;
+      }
+
       if (!user) {
         toast({
           title: "创建失败",
@@ -273,10 +308,24 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         variant: "destructive"
       });
     }
-  }, [user, upsertProject]);
+  }, [user, upsertProject, projects]);
 
   const editProject = useCallback(async (id: string, data: Partial<Project>) => {
     try {
+      // Offline mode: use storage adapter
+      if (isOfflineMode) {
+        const { getStorage, initializeStorage } = await import('@/storage');
+        await initializeStorage();
+        const storage = getStorage();
+        await storage.updateProject(id, { ...data, updated_at: new Date().toISOString() });
+        const existing = projects.find(project => project.id === id);
+        if (existing) {
+          upsertProject({ ...existing, ...data, id });
+        }
+        toast({ title: "清单已更新", description: "清单修改已保存" });
+        return;
+      }
+
       if (!user) {
         toast({
           title: "更新失败",
@@ -321,6 +370,17 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteProject = useCallback(async (id: string) => {
     try {
+      // Offline mode: use storage adapter
+      if (isOfflineMode) {
+        const { getStorage, initializeStorage } = await import('@/storage');
+        await initializeStorage();
+        const storage = getStorage();
+        await storage.deleteProject(id);
+        removeProject(id);
+        toast({ title: "清单已删除", description: "清单已被成功删除" });
+        return;
+      }
+
       if (!user) {
         toast({
           title: "删除失败",
