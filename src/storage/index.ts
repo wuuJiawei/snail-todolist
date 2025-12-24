@@ -54,5 +54,5 @@ export function isStorageReady(): boolean {
 }
 
 // Re-export types and utilities
-export { StorageAdapter, TaskFilter, SortOptions, PomodoroSession, TaskActivity } from './types';
+export type { StorageAdapter, TaskFilter, SortOptions, PomodoroSession, TaskActivity } from './types';
 export { isOfflineMode };
