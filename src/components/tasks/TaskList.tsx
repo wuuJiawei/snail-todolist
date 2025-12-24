@@ -124,35 +124,13 @@ const TaskList: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // For special views (today, recent, flagged), determine the appropriate project and date
-      let taskProject: string | undefined = selectedProject;
-      let taskDate = date;
-
-      // In "today" view, auto-set today's date if no date provided, and don't set project to "today"
-      if (selectedProject === "today") {
-        taskProject = undefined; // Don't assign to a special view
-        if (!taskDate) {
-          taskDate = new Date(); // Auto-set to today
-        }
-      }
-      // In "recent" view, don't set project to "recent"
-      else if (selectedProject === "recent") {
-        taskProject = undefined;
-      }
-      // In "flagged" view, don't set project to "flagged"
-      else if (selectedProject === "flagged") {
-        taskProject = undefined;
-      }
-
-      // Convert date to ISO string if it exists
-      const dateString = taskDate ? taskDate.toISOString() : undefined;
+      const dateString = date ? date.toISOString() : undefined;
 
       await addTask({
         title: title,
         completed: false,
-        project: taskProject,
+        project: selectedProject,
         date: dateString,
-        flagged: selectedProject === "flagged" ? true : false, // Auto-flag if in flagged view
       });
     } catch (error) {
       console.error("Failed to add task:", error);
@@ -229,10 +207,13 @@ const TaskList: React.FC = () => {
         </div>
       )}
 
-      <AddTaskForm
-        onAddTask={handleAddTask}
-        isSubmitting={isSubmitting}
-      />
+      {/* 只在手动添加的清单中显示添加任务表单 */}
+      {!isSpecialView && (
+        <AddTaskForm
+          onAddTask={handleAddTask}
+          isSubmitting={isSubmitting}
+        />
+      )}
 
       {/* 主要内容区域 - 减少底部边距为固定底部列表留空间 */}
       <div className="flex-1 flex flex-col overflow-hidden">
