@@ -8,13 +8,13 @@ import { exportData, importData, validateBackupFile } from "@/services/dataTrans
 import ProgressDialog, { ProgressStatus } from "./ProgressDialog";
 import ImportModeDialog, { ImportMode } from "./ImportModeDialog";
 import { useProjectContext } from "@/contexts/ProjectContext";
-import { useTaskContext } from "@/contexts/task";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 
 const DataManagementSettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { refreshProjects } = useProjectContext();
-  const { refreshTasks } = useTaskContext();
+  const queryClient = useQueryClient();
 
   // Export state
   const [exportProgress, setExportProgress] = useState(0);
@@ -110,7 +110,7 @@ const DataManagementSettings = () => {
       );
       // Refresh app state
       await refreshProjects();
-      await refreshTasks();
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
     } else {
       setImportStatus("error");
       setImportError(result.error || "导入失败");

@@ -6,9 +6,10 @@ import AccountSettings from "@/components/settings/AccountSettings";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import AboutSettings from "@/components/settings/AboutSettings";
 import TagSettings from "@/components/settings/TagSettings";
+import DataManagementSettings from "@/components/settings/DataManagementSettings";
 import { useLocation } from "react-router-dom";
 
-type SettingsTab = "account" | "notifications" | "tags" | "about";
+type SettingsTab = "account" | "notifications" | "tags" | "data" | "about";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
@@ -26,6 +27,7 @@ const Settings = () => {
     { id: "account", label: "账号", icon: "user" },
     { id: "notifications", label: "通知", icon: "message-one" },
     { id: "tags", label: "标签", icon: "tag-one" },
+    { id: "data", label: "数据管理", icon: "data" },
     { id: "about", label: "关于", icon: "info" },
   ];
 
@@ -59,6 +61,7 @@ const Settings = () => {
         {activeTab === "account" && <AccountSettings />}
         {activeTab === "notifications" && <NotificationSettings />}
         {activeTab === "tags" && <TagSettings />}
+        {activeTab === "data" && <DataManagementSettings />}
         {activeTab === "about" && <AboutSettings />}
       </div>
     </div>
