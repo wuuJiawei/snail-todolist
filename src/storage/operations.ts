@@ -410,6 +410,73 @@ export async function batchUpdateProjectSortOrder(
 // Pomodoro Operations
 // ============================================
 
+export type PomodoroSessionType = 'focus' | 'short_break' | 'long_break';
+
+export interface PomodoroSessionPublic {
+  id: string;
+  user_id?: string;
+  start_time: string;
+  end_time: string | null;
+  duration: number;
+  type: PomodoroSessionType;
+  completed: boolean;
+  created_at: string;
+}
+
+export interface FetchPomodoroSessionsOptions {
+  from?: string;
+  to?: string;
+  limit?: number;
+  order?: 'asc' | 'desc';
+  types?: PomodoroSessionType[];
+  completed?: boolean;
+}
+
+export interface PomodoroTodayStats {
+  focusCount: number;
+  focusMinutes: number;
+  breakCount: number;
+  breakMinutes: number;
+  sessions: PomodoroSessionPublic[];
+}
+
+const mapInternalTypeToPublic = (type: PomodoroSession['type']): PomodoroSessionType => {
+  if (type === 'work') return 'focus';
+  return type;
+};
+
+const mapPublicTypeToInternal = (type: PomodoroSessionType): PomodoroSession['type'] => {
+  if (type === 'focus') return 'work';
+  return type;
+};
+
+const mapSessionToPublic = (session: PomodoroSession): PomodoroSessionPublic => ({
+  id: session.id,
+  user_id: session.user_id,
+  start_time: session.started_at,
+  end_time: session.completed_at ?? null,
+  duration: session.duration,
+  type: mapInternalTypeToPublic(session.type),
+  completed: !!session.completed_at,
+  created_at: session.created_at,
+});
+
+const calculateActualMinutes = (session: PomodoroSessionPublic): number => {
+  if (!session.end_time) {
+    return session.duration ?? 0;
+  }
+  const start = new Date(session.start_time).getTime();
+  const end = new Date(session.end_time).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return session.duration ?? 0;
+  }
+  const diffMinutes = Math.max(0, Math.round((end - start) / 60000));
+  if (diffMinutes === 0) {
+    return session.duration ?? 0;
+  }
+  return diffMinutes;
+};
+
 export async function getPomodoroSessions(taskId?: string): Promise<PomodoroSession[]> {
   try {
     const storage = await ensureStorage();
@@ -418,6 +485,160 @@ export async function getPomodoroSessions(taskId?: string): Promise<PomodoroSess
     console.error('Failed to get pomodoro sessions:', error);
     return [];
   }
+}
+
+export async function startPomodoroSession(
+  sessionType: PomodoroSessionType,
+  durationMinutes: number
+): Promise<PomodoroSessionPublic | null> {
+  try {
+    const storage = await ensureStorage();
+    const session = await storage.createPomodoroSession({
+      type: mapPublicTypeToInternal(sessionType),
+      duration: durationMinutes,
+      started_at: new Date().toISOString(),
+    });
+    return mapSessionToPublic(session);
+  } catch (error) {
+    console.error('Failed to start pomodoro session:', error);
+    toast({
+      title: '操作失败',
+      description: '无法启动番茄钟，请稍后重试。',
+      variant: 'destructive',
+    });
+    return null;
+  }
+}
+
+export async function completePomodoroSession(
+  id: string,
+  options: { completed?: boolean; endTime?: string; durationOverride?: number } = {}
+): Promise<boolean> {
+  try {
+    const storage = await ensureStorage();
+    const { completed = true, endTime, durationOverride } = options;
+    const updates: Partial<PomodoroSession> = {
+      completed_at: completed ? (endTime ?? new Date().toISOString()) : undefined,
+    };
+    if (typeof durationOverride === 'number') {
+      updates.duration = durationOverride;
+    }
+    const result = await storage.updatePomodoroSession(id, updates);
+    return !!result;
+  } catch (error) {
+    console.error('Failed to complete pomodoro session:', error);
+    toast({
+      title: '操作失败',
+      description: '无法完成番茄钟，请稍后重试。',
+      variant: 'destructive',
+    });
+    return false;
+  }
+}
+
+export async function cancelPomodoroSession(id: string): Promise<boolean> {
+  return completePomodoroSession(id, { completed: false });
+}
+
+export async function getActivePomodoroSession(): Promise<PomodoroSessionPublic | null> {
+  try {
+    const storage = await ensureStorage();
+    const sessions = await storage.getPomodoroSessions();
+    const active = sessions
+      .filter(s => !s.completed_at)
+      .sort((a, b) => b.started_at.localeCompare(a.started_at))[0];
+    return active ? mapSessionToPublic(active) : null;
+  } catch (error) {
+    console.error('Failed to get active pomodoro session:', error);
+    return null;
+  }
+}
+
+export async function fetchPomodoroSessions(
+  options: FetchPomodoroSessionsOptions = {}
+): Promise<PomodoroSessionPublic[]> {
+  try {
+    const storage = await ensureStorage();
+    let sessions = await storage.getPomodoroSessions();
+
+    if (options.from) {
+      sessions = sessions.filter(s => s.started_at >= options.from!);
+    }
+    if (options.to) {
+      sessions = sessions.filter(s => s.started_at <= options.to!);
+    }
+    if (options.types && options.types.length > 0) {
+      const internalTypes = options.types.map(mapPublicTypeToInternal);
+      sessions = sessions.filter(s => internalTypes.includes(s.type));
+    }
+    if (typeof options.completed === 'boolean') {
+      sessions = sessions.filter(s => !!s.completed_at === options.completed);
+    }
+
+    sessions.sort((a, b) => {
+      const cmp = a.started_at.localeCompare(b.started_at);
+      return options.order === 'asc' ? cmp : -cmp;
+    });
+
+    if (options.limit) {
+      sessions = sessions.slice(0, options.limit);
+    }
+
+    return sessions.map(mapSessionToPublic);
+  } catch (error) {
+    console.error('Failed to fetch pomodoro sessions:', error);
+    toast({
+      title: '操作失败',
+      description: '无法获取番茄钟记录，请稍后重试。',
+      variant: 'destructive',
+    });
+    return [];
+  }
+}
+
+export async function getPomodoroTodayStats(): Promise<PomodoroTodayStats | null> {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const sessions = await fetchPomodoroSessions({
+    from: startOfDay.toISOString(),
+    order: 'asc',
+  });
+
+  if (!sessions.length) {
+    return {
+      focusCount: 0,
+      focusMinutes: 0,
+      breakCount: 0,
+      breakMinutes: 0,
+      sessions: [],
+    };
+  }
+
+  let focusCount = 0;
+  let focusMinutes = 0;
+  let breakCount = 0;
+  let breakMinutes = 0;
+
+  sessions.forEach((session) => {
+    if (!session.completed) return;
+    const actualMinutes = calculateActualMinutes(session);
+
+    if (session.type === 'focus') {
+      focusCount += 1;
+      focusMinutes += actualMinutes;
+    } else {
+      breakCount += 1;
+      breakMinutes += actualMinutes;
+    }
+  });
+
+  return {
+    focusCount,
+    focusMinutes,
+    breakCount,
+    breakMinutes,
+    sessions,
+  };
 }
 
 export async function createPomodoroSession(session: CreatePomodoroInput): Promise<PomodoroSession | null> {

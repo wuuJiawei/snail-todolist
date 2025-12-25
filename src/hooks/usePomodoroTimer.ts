@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  cancelPomodoroSession,
-  completePomodoroSession,
-  getActivePomodoroSession,
-  startPomodoroSession,
-  type PomodoroSession,
-  type PomodoroSessionType,
-} from "@/services/pomodoroService";
+import * as storageOps from "@/storage/operations";
+import type { PomodoroSessionPublic, PomodoroSessionType } from "@/storage/operations";
 import { POMODORO_CYCLE_PROGRESS_KEY } from "@/constants/storage-keys";
 import { PomodoroSettings } from "./usePomodoroSettings";
 
@@ -112,7 +106,7 @@ export interface PomodoroTimerState {
   focusStreak: number;
   focusTarget: number;
   upcomingMode: PomodoroSessionType;
-  session: PomodoroSession | null;
+  session: PomodoroSessionPublic | null;
   version: number;
   start: () => Promise<void>;
   pause: () => void;
@@ -123,14 +117,14 @@ export interface PomodoroTimerState {
 
 export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState => {
   const [mode, setMode] = useState<PomodoroSessionType>("focus");
-  const [session, setSession] = useState<PomodoroSession | null>(null);
+  const [session, setSession] = useState<PomodoroSessionPublic | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(() => settings.focusDuration * 60);
   const [focusStreak, setFocusStreak] = useState(() => loadFocusStreak(settings.cyclesBeforeLongBreak));
   const [version, setVersion] = useState(0);
 
   const intervalRef = useRef<number | null>(null);
-  const sessionRef = useRef<PomodoroSession | null>(null);
+  const sessionRef = useRef<PomodoroSessionPublic | null>(null);
   const actionLockRef = useRef(false);
   const completionPendingRef = useRef(false);
 
@@ -197,10 +191,9 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
       const currentSession = sessionRef.current;
       const shouldCreateNew =
         forceNew || !currentSession || currentSession.type !== targetMode;
-      let createdNewSession = false;
 
       if (shouldCreateNew) {
-        const created = await startPomodoroSession(targetMode, durationMinutes);
+        const created = await storageOps.startPomodoroSession(targetMode, durationMinutes);
         if (!created) {
           return;
         }
@@ -208,9 +201,7 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
         sessionRef.current = created;
         setMode(targetMode);
         setRemainingSeconds(durationMinutes * 60);
-        createdNewSession = true;
       } else if (currentSession) {
-        // resume existing session: ensure mode is aligned
         setMode(currentSession.type);
       }
 
@@ -239,13 +230,12 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
 
         if (activeSession) {
           if (reason === "complete") {
-            mutated = await completePomodoroSession(activeSession.id, {
+            mutated = await storageOps.completePomodoroSession(activeSession.id, {
               completed: true,
               durationOverride: getDurationForMode(activeSession.type, settings),
             });
           } else {
-            // skip/reset both mark the session as incomplete
-            mutated = await cancelPomodoroSession(activeSession.id);
+            mutated = await storageOps.cancelPomodoroSession(activeSession.id);
           }
         }
 
@@ -335,7 +325,7 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
       applyModeDefaults(targetMode);
 
       if (session) {
-        await cancelPomodoroSession(session.id);
+        await storageOps.cancelPomodoroSession(session.id);
         setSession(null);
         sessionRef.current = null;
       }
@@ -374,9 +364,8 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const active = await getActivePomodoroSession();
+      const active = await storageOps.getActivePomodoroSession();
       if (!mounted || !active) {
-        // Do not override the current selection when no active session is found
         return;
       }
 
@@ -393,7 +382,6 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
         setRemainingSeconds(remaining);
         setIsRunning(true);
       } else {
-        // Session already exceeded planned duration -> complete it without flashing UI back to the old mode
         sessionRef.current = active;
         setTimeout(() => {
           void finalizeSession("complete");

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon-park";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
-import { createCheckIn, hasCheckedInToday } from "@/services/checkInService";
+import * as storageOps from "@/storage/operations";
 import CheckInHistory from "@/components/checkin/CheckInHistory";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -31,7 +31,7 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
     if (user) {
       setLoading(true);
       try {
-        const checked = await hasCheckedInToday();
+        const checked = await storageOps.hasCheckedInToday();
         setCheckedInToday(checked);
       } catch (error) {
         console.error("Error checking check-in status:", error);
@@ -68,10 +68,15 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
 
     setIsAnimating(true);
 
-    // Create check-in record in Supabase
-    const success = await createCheckIn();
+    // Create check-in record via storageOps
+    const result = await storageOps.createCheckIn();
 
-    if (success) {
+    if (result) {
+      toast({
+        title: "打卡成功",
+        description: "今天又是充满活力的一天！",
+        variant: "default",
+      });
       // Immediately update state
       setCheckedInToday(true);
 

@@ -26,7 +26,7 @@ import {
 import { usePomodoroSettings } from "@/hooks/usePomodoroSettings";
 import { usePomodoroTimer } from "@/hooks/usePomodoroTimer";
 import { usePomodoroHistory } from "@/hooks/usePomodoroHistory";
-import { PomodoroSessionType } from "@/services/pomodoroService";
+import type { PomodoroSessionType } from "@/storage/operations";
 
 const MODE_LABELS: Record<PomodoroSessionType, string> = {
   focus: "专注",
