@@ -38,6 +38,7 @@ const Index = () => {
   }
 
   // 当sidebar展开时，使用嵌套的ResizablePanels
+  // 比例：清单侧边栏 18%，任务详情 67%，任务列表 15%（剩余）
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white">
       <ResizablePanels
@@ -48,14 +49,14 @@ const Index = () => {
             key="content-panels"
             leftPanel={<TaskView />}
             rightPanel={<TaskDetail />}
-            defaultLeftWidth={33}
-            minLeftWidth={25}
-            minRightWidth={30}
+            defaultLeftWidth={18}
+            minLeftWidth={15}
+            minRightWidth={50}
           />
         }
-        defaultLeftWidth={25}
-        minLeftWidth={15}
-        minRightWidth={60}
+        defaultLeftWidth={18}
+        minLeftWidth={12}
+        minRightWidth={70}
       />
     </div>
   );
