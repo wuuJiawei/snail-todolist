@@ -39,15 +39,8 @@ const AboutSettings = () => {
       try {
         setLoading(true);
         
-        // In offline mode, use static app info
-        if (isOfflineMode) {
-          setAppInfo(OFFLINE_APP_INFO);
-          setLoading(false);
-          return;
-        }
-
         const info = await storageOps.getAppInfo();
-        // Convert storageOps AppInfo to component AppInfo format
+        // Merge with default app info to ensure all fields are present
         setAppInfo({
           ...OFFLINE_APP_INFO,
           ...info,

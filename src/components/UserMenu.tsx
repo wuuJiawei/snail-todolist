@@ -13,8 +13,9 @@ import {
 import { Icon } from "@/components/ui/icon-park";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { isOfflineMode, getStorage, initializeStorage } from "@/storage";
+import { isOfflineMode } from "@/storage";
 import { useUserProfileStore } from "@/store/userProfileStore";
+import * as storageOps from "@/storage/operations";
 
 const UserMenu = () => {
   const { user, signOut } = useAuth();
@@ -22,27 +23,23 @@ const UserMenu = () => {
   const userProfile = useUserProfileStore((state) => state.profile);
   const setUserProfile = useUserProfileStore((state) => state.setProfile);
 
-  // Load offline user profile on mount
+  // Load user profile on mount using unified storage operations
   useEffect(() => {
-    const loadOfflineProfile = async () => {
-      if (!isOfflineMode) return;
-      
+    const loadProfile = async () => {
       try {
-        await initializeStorage();
-        const storage = getStorage();
-        const profile = await (storage as any).getUserProfile?.();
+        const profile = await storageOps.getUserProfile();
         if (profile) {
           setUserProfile({
-            username: profile.username || "离线用户",
-            avatarUrl: profile.avatar_data || profile.avatar_url || null,
+            username: profile.username || (isOfflineMode ? "离线用户" : ""),
+            avatarUrl: profile.avatar_url || null,
           });
         }
       } catch (error) {
-        console.error("Failed to load offline profile:", error);
+        console.error("Failed to load profile:", error);
       }
     };
 
-    loadOfflineProfile();
+    loadProfile();
   }, [setUserProfile]);
 
   const getUserInitials = () => {

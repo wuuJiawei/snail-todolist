@@ -13,8 +13,9 @@ import { Task } from '@/types/task';
 import { Tag } from '@/types/tag';
 import { Project } from '@/types/project';
 import { PomodoroSession, TaskActivity, CheckInRecord, CreatePomodoroInput, CreateActivityInput } from './types';
-import { getStorage, initializeStorage } from './index';
+import { getStorage, initializeStorage, isOfflineMode } from './index';
 import { toast } from '@/hooks/use-toast';
+import type { User } from '@supabase/supabase-js';
 
 // ============================================
 // Helper Functions
@@ -26,6 +27,28 @@ import { toast } from '@/hooks/use-toast';
 async function ensureStorage() {
   await initializeStorage();
   return getStorage();
+}
+
+/**
+ * Check if the current context can perform data operations.
+ * Returns true if:
+ * - In offline mode (uses mock user, no auth required)
+ * - User is authenticated in online mode
+ * 
+ * Use this to replace `!!user || isOfflineMode` pattern in contexts/components.
+ */
+export function canPerformOperation(user: User | null): boolean {
+  return isOfflineMode || !!user;
+}
+
+/**
+ * Check if authentication is required but missing.
+ * Returns true if in online mode and user is not authenticated.
+ * 
+ * Use this to replace `!user && !isOfflineMode` pattern for showing auth errors.
+ */
+export function requiresAuth(user: User | null): boolean {
+  return !isOfflineMode && !user;
 }
 
 // ============================================

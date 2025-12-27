@@ -1,7 +1,6 @@
 import { Task } from "@/types/task";
 import { toast } from "@/hooks/use-toast";
 import { ensureNotificationPermission, sendNotification as sendUnifiedNotification } from "@/utils/notifications";
-import { isOfflineMode } from "@/storage";
 import * as storageOps from "@/storage/operations";
 
 interface DeadlineNotificationConfig {
@@ -19,27 +18,11 @@ const DEFAULT_CONFIG: DeadlineNotificationConfig = {
   browserNotificationEnabled: true,
 };
 
-// 离线模式配置存储 key
-const OFFLINE_DEADLINE_CONFIG_KEY = 'snail_deadline_config';
-
 // 获取截止时间通知配置
 export const getDeadlineConfig = async (): Promise<DeadlineNotificationConfig> => {
   try {
-    // In offline mode, use localStorage for backward compatibility
-    if (isOfflineMode) {
-      const stored = localStorage.getItem(OFFLINE_DEADLINE_CONFIG_KEY);
-      if (stored) {
-        return { ...DEFAULT_CONFIG, ...JSON.parse(stored) };
-      }
-      return DEFAULT_CONFIG;
-    }
-
     const settings = await storageOps.getUserSettings();
     
-    if (!settings.deadline_notification_enabled) {
-      return DEFAULT_CONFIG;
-    }
-
     return {
       enabled: settings.deadline_notification_enabled ?? DEFAULT_CONFIG.enabled,
       reminderMinutes: settings.deadline_notification_days ?? DEFAULT_CONFIG.reminderMinutes,
@@ -55,23 +38,13 @@ export const getDeadlineConfig = async (): Promise<DeadlineNotificationConfig> =
 // 保存截止时间通知配置
 export const saveDeadlineConfig = async (config: DeadlineNotificationConfig): Promise<boolean> => {
   try {
-    // In offline mode, use localStorage for backward compatibility
-    if (isOfflineMode) {
-      localStorage.setItem(OFFLINE_DEADLINE_CONFIG_KEY, JSON.stringify(config));
-      toast({
-        title: "设置已保存",
-        description: "截止时间通知设置已成功保存",
-      });
-      return true;
-    }
-
-    await storageOps.saveUserSettings({
+    const result = await storageOps.saveUserSettings({
       deadline_notification_enabled: config.enabled,
       deadline_notification_days: config.reminderMinutes,
       webhook_enabled: config.webhookEnabled,
     });
 
-    return true;
+    return !!result;
   } catch (error) {
     console.error("Error saving deadline config:", error);
     toast({

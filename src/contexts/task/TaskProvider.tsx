@@ -18,6 +18,7 @@ import type { TaskActivityAction, TaskActivityInput } from "@/types/taskActivity
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { isOfflineMode } from "@/storage";
 import * as storageOps from "@/storage/operations";
+import { canPerformOperation, requiresAuth } from "@/storage/operations";
 
 const hasProp = <K extends keyof Partial<Task>>(obj: Partial<Task>, key: K): boolean =>
   Object.prototype.hasOwnProperty.call(obj, key);
@@ -194,11 +195,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     isSuccess: isActiveSuccess,
   } = useQuery({
     ...taskQueries.active(),
-    enabled: !!user || isOfflineMode,
+    enabled: canPerformOperation(user),
   });
 
   useEffect(() => {
-    if (user || isOfflineMode) return;
+    if (canPerformOperation(user)) return;
         setTasks([]);
         setTrashedTasks([]);
         setAbandonedTasks([]);
@@ -262,8 +263,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Add task
   const addTask = useCallback(async (task: Omit<Task, "id">) => {
     try {
-      // In offline mode, we use the mock offline user
-      if (!user && !isOfflineMode) {
+      if (requiresAuth(user)) {
         toast({
           title: "添加失败",
           description: "您需要登录才能添加任务",
@@ -293,8 +293,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // Update task
   const updateTask = useCallback(async (id: string, updatedTask: Partial<Task>) => {
-      // In offline mode, we use the mock offline user
-      if (!user && !isOfflineMode) {
+      if (requiresAuth(user)) {
         toast({
           title: "更新失败",
           description: "您需要登录才能更新任务",
@@ -378,7 +377,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [toast, user, setTasks, queryClient, recordTaskActivity]);
 
   const loadTrashedTasks = useCallback(async () => {
-    if (!user && !isOfflineMode) return;
+    if (!canPerformOperation(user)) return;
     if (trashedLoaded || trashedLoading) return;
 
     setTrashedLoading(true);
@@ -399,7 +398,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [user, trashedLoaded, trashedLoading, toast, setTrashedLoading, setTrashedTasks, setTrashedLoaded, queryClient]);
 
   const loadAbandonedTasks = useCallback(async () => {
-    if (!user && !isOfflineMode) return;
+    if (!canPerformOperation(user)) return;
     if (abandonedLoaded || abandonedLoading) return;
 
     setAbandonedLoading(true);
@@ -686,8 +685,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Move task to trash (soft delete)
   const moveToTrash = useCallback(async (id: string) => {
     try {
-      // In offline mode, we use the mock offline user
-      if (!user && !isOfflineMode) {
+      if (requiresAuth(user)) {
         toast({
           title: "删除失败",
           description: "您需要登录才能删除任务",
@@ -733,8 +731,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Restore task from trash
   const restoreFromTrash = useCallback(async (id: string) => {
     try {
-      // In offline mode, we use the mock offline user
-      if (!user && !isOfflineMode) {
+      if (requiresAuth(user)) {
         toast({
           title: "恢复失败",
           description: "您需要登录才能恢复任务",
@@ -778,8 +775,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Permanently delete task
   const deleteTask = useCallback(async (id: string) => {
     try {
-      // In offline mode, we use the mock offline user
-      if (!user && !isOfflineMode) {
+      if (requiresAuth(user)) {
         toast({
           title: "删除失败",
           description: "您需要登录才能删除任务",
@@ -814,7 +810,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [user, toast, selectedTaskId, setTrashedTasks, setTasks, setSelectedTaskId, queryClient]);
 
   useEffect(() => {
-    if (!user && !isOfflineMode) return;
+    if (!canPerformOperation(user)) return;
     if (selectedProject === "trash") {
       loadTrashedTasks();
     } else if (selectedProject === "abandoned") {
@@ -1085,8 +1081,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Abandon a task
   const abandonTask = useCallback(async (id: string) => {
     try {
-      // In offline mode, we use the mock offline user
-      if (!user && !isOfflineMode) {
+      if (requiresAuth(user)) {
         toast({
           title: "放弃失败",
           description: "您需要登录才能放弃任务",
@@ -1136,8 +1131,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Restore task from abandoned
   const restoreAbandonedTask = useCallback(async (id: string) => {
     try {
-      // In offline mode, we use the mock offline user
-      if (!user && !isOfflineMode) {
+      if (requiresAuth(user)) {
         toast({
           title: "恢复失败",
           description: "您需要登录才能恢复任务",

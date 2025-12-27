@@ -1,6 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
-import { isOfflineMode } from '@/config/storage';
 import { initializeStorage, getStorage } from '@/storage';
 
 export interface SearchOptions {
@@ -18,78 +17,16 @@ export interface SearchResult {
 }
 
 /**
- * 离线模式搜索实现
- * 使用 IndexedDB 存储的任务进行前端搜索
- */
-async function searchTasksOffline(
-  query: string,
-  options: SearchOptions = {}
-): Promise<SearchResult> {
-  const startTime = performance.now();
-  
-  const {
-    includeCompleted = true,
-    includeDeleted = false,
-    includeAbandoned = false,
-    limit = 50,
-    projectFilter
-  } = options;
-
-  if (!query.trim()) {
-    return { tasks: [], totalCount: 0, searchTime: 0 };
-  }
-
-  try {
-    await initializeStorage();
-    const storage = getStorage();
-    
-    // Get all tasks with filters
-    let tasks = await storage.getTasks({
-      deleted: includeDeleted ? undefined : false,
-      abandoned: includeAbandoned ? undefined : false,
-      completed: includeCompleted ? undefined : false,
-      projectId: projectFilter,
-    });
-
-    // Filter by search query (simple text matching)
-    const lowerQuery = query.toLowerCase();
-    tasks = tasks.filter(task => {
-      const titleMatch = task.title?.toLowerCase().includes(lowerQuery);
-      const descMatch = task.description?.toLowerCase().includes(lowerQuery);
-      return titleMatch || descMatch;
-    });
-
-    // Apply limit
-    const totalCount = tasks.length;
-    tasks = tasks.slice(0, limit);
-
-    const endTime = performance.now();
-    const searchTime = endTime - startTime;
-
-    return {
-      tasks,
-      totalCount,
-      searchTime
-    };
-  } catch (error) {
-    console.error('Offline search failed:', error);
-    return { tasks: [], totalCount: 0, searchTime: 0 };
-  }
-}
-
-/**
- * Supabase 全文搜索实现
+ * Supabase 全文搜索实现 (仅在线模式使用)
  * 使用 PostgreSQL 的 full-text search 功能
+ * 
+ * 注意：此函数仅供 SupabaseAdapter 内部调用。
+ * 离线模式的搜索由 IndexedDBAdapter.searchTasks 处理。
  */
 export async function searchTasksInDatabase(
   query: string, 
   options: SearchOptions = {}
 ): Promise<SearchResult> {
-  // In offline mode, use local search
-  if (isOfflineMode) {
-    return searchTasksOffline(query, options);
-  }
-
   const startTime = performance.now();
   
   const {
@@ -168,18 +105,16 @@ export async function searchTasksInDatabase(
 }
 
 /**
- * 使用 ILIKE 的模糊搜索实现
+ * 使用 ILIKE 的模糊搜索实现 (仅在线模式使用)
  * 适用于没有全文搜索索引的情况
+ * 
+ * 注意：此函数仅供 SupabaseAdapter 内部调用。
+ * 离线模式的搜索由 IndexedDBAdapter.searchTasks 处理。
  */
 export async function searchTasksWithILike(
   query: string,
   options: SearchOptions = {}
 ): Promise<SearchResult> {
-  // In offline mode, use local search
-  if (isOfflineMode) {
-    return searchTasksOffline(query, options);
-  }
-
   const startTime = performance.now();
   
   const {
@@ -344,17 +279,15 @@ $$ LANGUAGE plpgsql;
 `;
 
 /**
- * 使用自定义搜索函数
+ * 使用自定义搜索函数 (仅在线模式使用)
+ * 
+ * 注意：此函数仅供 SupabaseAdapter 内部调用。
+ * 离线模式的搜索由 IndexedDBAdapter.searchTasks 处理。
  */
 export async function searchTasksWithFunction(
   query: string,
   options: SearchOptions = {}
 ): Promise<SearchResult> {
-  // In offline mode, use local search
-  if (isOfflineMode) {
-    return searchTasksOffline(query, options);
-  }
-
   const startTime = performance.now();
   
   try {

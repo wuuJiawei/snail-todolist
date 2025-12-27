@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProjectStore } from "@/store/projectStore";
 import { isOfflineMode } from "@/storage";
 import * as storageOps from "@/storage/operations";
+import { canPerformOperation, requiresAuth } from "@/storage/operations";
 
 interface ProjectContextType {
   projects: Project[];
@@ -39,7 +40,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setLoading(true);
       
-      // In offline mode, use storage operations
+      // Use unified storage operations for offline mode
       if (isOfflineMode) {
         const projects = await storageOps.getProjects();
         setProjects(projects);
@@ -157,7 +158,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Refetch projects when user changes
   useEffect(() => {
-    if (!user && !isOfflineMode) {
+    if (!canPerformOperation(user)) {
       setProjects([]);
       setLoading(false);
       return;
@@ -208,8 +209,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const createProject = useCallback(async (data: Partial<Project>) => {
     try {
-      // Check auth in online mode
-      if (!isOfflineMode && !user) {
+      if (requiresAuth(user)) {
         toast({
           title: "创建失败",
           description: "您需要登录才能创建清单",
@@ -239,8 +239,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const editProject = useCallback(async (id: string, data: Partial<Project>) => {
     try {
-      // Check auth in online mode
-      if (!isOfflineMode && !user) {
+      if (requiresAuth(user)) {
         toast({
           title: "更新失败",
           description: "您需要登录才能修改清单",
@@ -267,8 +266,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteProject = useCallback(async (id: string) => {
     try {
-      // Check auth in online mode
-      if (!isOfflineMode && !user) {
+      if (requiresAuth(user)) {
         toast({
           title: "删除失败",
           description: "您需要登录才能删除清单",
@@ -288,7 +286,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const reorderProjects = useCallback(async (projectId: string, newIndex: number) => {
     try {
-      if (!isOfflineMode && !user) {
+      if (requiresAuth(user)) {
         toast({
           title: "排序失败",
           description: "您需要登录才能重新排序清单",
