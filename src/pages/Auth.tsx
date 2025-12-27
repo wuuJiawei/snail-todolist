@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GoogleIcon, GitHubIcon } from "@/components/ui/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { Label } from "@/components/ui/label";
+import { WifiOff } from "lucide-react";
+import { setStorageMode } from "@/config/storage";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -72,6 +74,11 @@ const Auth = () => {
       try { localStorage.removeItem('post_login_redirect'); } catch {}
       navigate(target, { replace: true });
     }
+  };
+
+  const handleOfflineMode = () => {
+    setStorageMode("offline");
+    navigate("/", { replace: true });
   };
 
   return (
@@ -158,6 +165,16 @@ const Auth = () => {
             disabled={isLoading}
           >
             以游客身份使用
+          </Button>
+
+          <Button
+            variant="outline"
+            className="w-full mt-2"
+            onClick={handleOfflineMode}
+            disabled={isLoading}
+          >
+            <WifiOff className="mr-2 h-4 w-4" />
+            离线模式
           </Button>
 
           <div className="relative my-4">

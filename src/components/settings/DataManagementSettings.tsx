@@ -4,17 +4,29 @@ import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon-park";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { exportData, importData, validateBackupFile } from "@/services/dataTransferService";
 import ProgressDialog, { ProgressStatus } from "./ProgressDialog";
 import ImportModeDialog, { ImportMode } from "./ImportModeDialog";
+import ModeSwitchDialog from "./ModeSwitchDialog";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import { getStorageConfig, setStorageMode, type StorageMode } from "@/config/storage";
+import { useAuth } from "@/contexts/AuthContext";
+import { Cloud, HardDrive } from "lucide-react";
 
 const DataManagementSettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { refreshProjects } = useProjectContext();
   const queryClient = useQueryClient();
+  const { signOut } = useAuth();
+
+  // Storage mode state
+  const currentConfig = getStorageConfig();
+  const [showModeSwitchDialog, setShowModeSwitchDialog] = useState(false);
+  const [targetMode, setTargetMode] = useState<StorageMode>("supabase");
 
   // Export state
   const [exportProgress, setExportProgress] = useState(0);
@@ -131,9 +143,87 @@ const DataManagementSettings = () => {
     }
   };
 
+  const handleModeChange = (newMode: string) => {
+    if (newMode === currentConfig.mode) return;
+    setTargetMode(newMode as StorageMode);
+    setShowModeSwitchDialog(true);
+  };
+
+  const handleConfirmModeSwitch = async () => {
+    setShowModeSwitchDialog(false);
+    
+    // If switching from online to offline, sign out first
+    if (currentConfig.mode === "supabase" && targetMode === "offline") {
+      await signOut();
+    }
+    
+    // Set the new mode
+    setStorageMode(targetMode);
+    
+    // Show toast and reload
+    toast({
+      title: "存储模式已切换",
+      description: "页面将重新加载以应用新设置",
+    });
+    
+    // Reload to apply new storage mode
+    setTimeout(() => {
+      window.location.href = "/";
+    }, 500);
+  };
+
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">数据管理</h1>
+
+      {/* Storage Mode Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {currentConfig.isOfflineMode ? (
+              <HardDrive className="h-5 w-5" />
+            ) : (
+              <Cloud className="h-5 w-5" />
+            )}
+            存储模式
+          </CardTitle>
+          <CardDescription>
+            选择数据存储位置。切换模式后数据不会自动迁移。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={currentConfig.mode}
+            onValueChange={handleModeChange}
+            className="space-y-3"
+          >
+            <div className="flex items-center space-x-3">
+              <RadioGroupItem value="supabase" id="mode-online" />
+              <Label htmlFor="mode-online" className="flex items-center gap-2 cursor-pointer">
+                <Cloud className="h-4 w-4 text-blue-500" />
+                <div>
+                  <div className="font-medium">在线模式</div>
+                  <div className="text-sm text-muted-foreground">
+                    数据存储在云端，支持多设备同步
+                  </div>
+                </div>
+              </Label>
+            </div>
+            <div className="flex items-center space-x-3">
+              <RadioGroupItem value="offline" id="mode-offline" />
+              <Label htmlFor="mode-offline" className="flex items-center gap-2 cursor-pointer">
+                <HardDrive className="h-4 w-4 text-green-500" />
+                <div>
+                  <div className="font-medium">离线模式</div>
+                  <div className="text-sm text-muted-foreground">
+                    数据存储在本地浏览器，无需登录
+                  </div>
+                </div>
+              </Label>
+            </div>
+          </RadioGroup>
+        </CardContent>
+      </Card>
 
       <Alert>
         <Icon icon="info" className="h-4 w-4" />
@@ -239,6 +329,14 @@ const DataManagementSettings = () => {
         onClose={handleModeDialogClose}
         onConfirm={handleImportConfirm}
         filename={selectedFile?.name}
+      />
+
+      {/* Mode Switch Confirmation Dialog */}
+      <ModeSwitchDialog
+        open={showModeSwitchDialog}
+        onOpenChange={setShowModeSwitchDialog}
+        targetMode={targetMode}
+        onConfirm={handleConfirmModeSwitch}
       />
     </div>
   );
