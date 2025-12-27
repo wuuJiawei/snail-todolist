@@ -23,7 +23,7 @@ const UserMenu = () => {
   const userProfile = useUserProfileStore((state) => state.profile);
   const setUserProfile = useUserProfileStore((state) => state.setProfile);
 
-  // Load user profile on mount using unified storage operations
+  // Load user profile on mount and when user changes
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -40,7 +40,7 @@ const UserMenu = () => {
     };
 
     loadProfile();
-  }, [setUserProfile]);
+  }, [setUserProfile, user?.id]);
 
   const getUserInitials = () => {
     if (isOfflineMode) {

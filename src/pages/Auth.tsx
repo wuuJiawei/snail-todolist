@@ -66,7 +66,8 @@ const Auth = () => {
 
   const handleOfflineMode = () => {
     setStorageMode("offline");
-    navigate("/", { replace: true });
+    // Reload the page to reinitialize all contexts with new storage mode
+    window.location.href = "/";
   };
 
   return (
