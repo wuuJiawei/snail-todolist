@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon-park";
-import { getAppInfo } from "@/services/appInfoService";
 import { getAppVersion } from "@/utils/version";
 import { AppInfo, AppVersion } from "@/types/app";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isOfflineMode } from "@/storage";
+import * as storageOps from "@/storage/operations";
 
 // Static app info for offline mode
 const OFFLINE_APP_INFO: AppInfo = {
@@ -46,12 +46,12 @@ const AboutSettings = () => {
           return;
         }
 
-        const info = await getAppInfo();
-        if (info) {
-          setAppInfo(info);
-        } else {
-          setError('获取应用信息失败');
-        }
+        const info = await storageOps.getAppInfo();
+        // Convert storageOps AppInfo to component AppInfo format
+        setAppInfo({
+          ...OFFLINE_APP_INFO,
+          ...info,
+        });
       } catch (err) {
         console.error('获取应用信息时发生错误:', err);
         setError('获取应用信息时发生错误');

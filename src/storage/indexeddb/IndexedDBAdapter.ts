@@ -21,6 +21,11 @@ import {
   DB_STORES,
   UserProfile,
   LocalAttachment,
+  FileUploadResult,
+  SearchOptions,
+  SearchResult,
+  UserSettings,
+  AppInfo,
 } from '../types';
 
 const DB_NAME = 'snail_todo_db';
@@ -807,11 +812,158 @@ export class IndexedDBAdapter implements StorageAdapter {
       username: profile.username ?? existing?.username ?? '离线用户',
       avatar_url: profile.avatar_url ?? existing?.avatar_url ?? null,
       avatar_data: profile.avatar_data ?? existing?.avatar_data ?? null,
+      settings: profile.settings ?? existing?.settings,
       updated_at: now,
     };
 
     await this.putRecord(DB_STORES.USER_PROFILE, updatedProfile);
     return updatedProfile;
+  }
+
+  // ============================================
+  // File Storage Operations
+  // ============================================
+
+  private fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  }
+
+  async uploadAttachment(taskId: string, file: File): Promise<FileUploadResult> {
+    const base64Data = await this.fileToBase64(file);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+    const now = new Date().toISOString();
+
+    const attachment: LocalAttachment = {
+      id: uuidv4(),
+      task_id: taskId,
+      filename: fileName,
+      original_name: file.name,
+      type: file.type,
+      size: file.size,
+      data: base64Data,
+      uploaded_at: now,
+    };
+
+    await this.putRecord(DB_STORES.ATTACHMENTS, attachment);
+
+    return {
+      id: attachment.id,
+      filename: fileName,
+      original_name: file.name,
+      url: base64Data,
+      size: file.size,
+      type: file.type,
+      uploaded_at: now,
+    };
+  }
+
+  async uploadImage(file: File): Promise<FileUploadResult> {
+    const base64Data = await this.fileToBase64(file);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+    const now = new Date().toISOString();
+
+    return {
+      id: `local_${Date.now()}`,
+      filename: fileName,
+      original_name: file.name,
+      url: base64Data,
+      size: file.size,
+      type: file.type,
+      uploaded_at: now,
+    };
+  }
+
+  async uploadAvatar(file: File): Promise<FileUploadResult> {
+    const base64Data = await this.fileToBase64(file);
+    const now = new Date().toISOString();
+
+    await this.saveUserProfile({ avatar_data: base64Data });
+
+    return {
+      id: 'local_avatar',
+      filename: file.name,
+      original_name: file.name,
+      url: base64Data,
+      size: file.size,
+      type: file.type,
+      uploaded_at: now,
+    };
+  }
+
+  // ============================================
+  // Search Operations
+  // ============================================
+
+  async searchTasks(query: string, options?: SearchOptions): Promise<SearchResult> {
+    const startTime = performance.now();
+
+    if (!query.trim()) {
+      return { tasks: [], totalCount: 0, searchTime: 0 };
+    }
+
+    let tasks = await this.getTasks({
+      deleted: options?.includeDeleted ? undefined : false,
+      abandoned: options?.includeAbandoned ? undefined : false,
+      completed: options?.includeCompleted ? undefined : false,
+      projectId: options?.projectFilter,
+    });
+
+    const lowerQuery = query.toLowerCase();
+    tasks = tasks.filter((task) => {
+      const titleMatch = task.title?.toLowerCase().includes(lowerQuery);
+      const descMatch = task.description?.toLowerCase().includes(lowerQuery);
+      return titleMatch || descMatch;
+    });
+
+    const totalCount = tasks.length;
+    tasks = tasks.slice(0, options?.limit || 50);
+
+    return {
+      tasks,
+      totalCount,
+      searchTime: performance.now() - startTime,
+    };
+  }
+
+  // ============================================
+  // User Settings Operations
+  // ============================================
+
+  async getUserSettings(): Promise<UserSettings> {
+    const profile = await this.getUserProfile();
+    return profile?.settings || {};
+  }
+
+  async saveUserSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
+    const current = await this.getUserSettings();
+    const merged = { ...current, ...settings };
+
+    const profile = await this.getUserProfile();
+    await this.saveUserProfile({
+      ...profile,
+      settings: merged,
+    });
+
+    return merged;
+  }
+
+  // ============================================
+  // App Info Operations
+  // ============================================
+
+  async getAppInfo(): Promise<AppInfo> {
+    return {
+      version: '1.0.0',
+      announcement: undefined,
+      maintenance_mode: false,
+    };
   }
 
   // ============================================

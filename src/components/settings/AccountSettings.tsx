@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { isOfflineMode, getStorage, initializeStorage } from "@/storage";
+import { isOfflineMode } from "@/storage";
 import { useUserProfileStore } from "@/store/userProfileStore";
+import * as storageOps from "@/storage/operations";
 
 const AccountSettings = () => {
   const { user, refreshUser } = useAuth();
@@ -21,20 +21,11 @@ const AccountSettings = () => {
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (isOfflineMode) {
-        // Load profile from IndexedDB in offline mode
-        try {
-          await initializeStorage();
-          const storage = getStorage();
-          const profile = await (storage as any).getUserProfile?.();
-          if (profile) {
-            setUsername(profile.username || "离线用户");
-            setAvatarUrl(profile.avatar_data || profile.avatar_url || "");
-          }
-        } catch (error) {
-          console.error("Failed to load offline profile:", error);
-        }
-      } else if (user) {
+      const profile = await storageOps.getUserProfile();
+      if (profile) {
+        setUsername(profile.username || (isOfflineMode ? "离线用户" : ""));
+        setAvatarUrl(profile.avatar_url || "");
+      } else if (!isOfflineMode && user) {
         setUsername(user.user_metadata?.name || "");
         setAvatarUrl(user.user_metadata?.avatar_url || "");
       }
@@ -57,111 +48,52 @@ const AccountSettings = () => {
     }
   };
 
-  // Convert file to base64
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      if (isOfflineMode) {
-        // Save to IndexedDB in offline mode
-        await initializeStorage();
-        const storage = getStorage();
-        
-        let avatarData = avatarUrl;
-        if (avatarFile) {
-          // Validate file size (max 2MB)
-          const fileSizeInMB = avatarFile.size / (1024 * 1024);
-          if (fileSizeInMB > 2) {
-            throw new Error('文件大小不能超过 2MB');
-          }
-          avatarData = await fileToBase64(avatarFile);
+      // Validate file size (max 2MB)
+      if (avatarFile) {
+        const fileSizeInMB = avatarFile.size / (1024 * 1024);
+        if (fileSizeInMB > 2) {
+          throw new Error('文件大小不能超过 2MB');
         }
-
-        await (storage as any).saveUserProfile?.({
-          username,
-          avatar_data: avatarData,
-        });
-
-        setAvatarUrl(avatarData);
-        setAvatarFile(null);
-        setAvatarPreview(null);
-
-        // Update store to notify other components
-        setUserProfile({ username, avatarUrl: avatarData });
-
-        toast({
-          title: "账号已更新",
-          description: "您的个人资料已成功保存到本地",
-        });
-      } else {
-        // Online mode: use Supabase
-        let newAvatarUrl = avatarUrl;
-
-        // Upload avatar if changed
-        if (avatarFile) {
-          // Validate file size (max 2MB)
-          const fileSizeInMB = avatarFile.size / (1024 * 1024);
-          if (fileSizeInMB > 2) {
-            throw new Error('文件大小不能超过 2MB');
-          }
-
-          const fileExt = avatarFile.name.split('.').pop();
-          const fileName = `${user?.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-          const filePath = `avatars/${fileName}`;
-
-          // Upload file to Supabase Storage
-          const { error: uploadError } = await supabase.storage
-            .from('user-avatars')
-            .upload(filePath, avatarFile, {
-              cacheControl: '3600',
-              upsert: false
-            });
-
-          if (uploadError) {
-            throw uploadError;
-          }
-
-          // Get public URL
-          const { data } = supabase.storage
-            .from('user-avatars')
-            .getPublicUrl(filePath);
-
-          newAvatarUrl = data.publicUrl;
-        }
-
-        // Update user metadata
-        const { error } = await supabase.auth.updateUser({
-          data: {
-            name: username,
-            avatar_url: newAvatarUrl
-          }
-        });
-
-        if (error) throw error;
-
-        // Refresh user state to update UI across the app
-        await refreshUser();
-
-        // Update local state with new values
-        setAvatarUrl(newAvatarUrl);
-        setAvatarFile(null);
-        setAvatarPreview(null);
-
-        toast({
-          title: "账号已更新",
-          description: "您的个人资料已成功更新",
-        });
       }
+
+      let newAvatarUrl = avatarUrl;
+
+      // Upload avatar if changed
+      if (avatarFile) {
+        const result = await storageOps.uploadAvatar(avatarFile);
+        if (result) {
+          newAvatarUrl = result.url;
+        }
+      }
+
+      // Save profile
+      await storageOps.saveUserProfile({
+        username,
+        avatar_url: newAvatarUrl,
+      });
+
+      // Refresh user state in online mode
+      if (!isOfflineMode) {
+        await refreshUser();
+      }
+
+      // Update local state
+      setAvatarUrl(newAvatarUrl);
+      setAvatarFile(null);
+      setAvatarPreview(null);
+
+      // Update store to notify other components
+      setUserProfile({ username, avatarUrl: newAvatarUrl });
+
+      toast({
+        title: "账号已更新",
+        description: isOfflineMode ? "您的个人资料已成功保存到本地" : "您的个人资料已成功更新",
+      });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "无法更新个人资料";
       toast({

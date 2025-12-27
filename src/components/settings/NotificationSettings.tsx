@@ -5,12 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Send, Bell } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDeadlineConfig, saveDeadlineConfig, requestNotificationPermission } from "@/services/deadlineService";
+import * as storageOps from "@/storage/operations";
 
 type WebhookType = "feishu" | "dingtalk" | "custom";
 
@@ -58,16 +58,24 @@ const NotificationSettings = () => {
 
   // Load configurations from user metadata
   useEffect(() => {
-    if (user) {
-      if (user.user_metadata?.webhook) {
-        setWebhookConfig(user.user_metadata.webhook);
+    const loadSettings = async () => {
+      // Load webhook config from user settings
+      const settings = await storageOps.getUserSettings();
+      if (settings.webhook_url) {
+        setWebhookConfig({
+          enabled: settings.webhook_enabled || false,
+          type: (settings.webhook_type as WebhookType) || "feishu",
+          url: settings.webhook_url || "",
+          secret: settings.webhook_secret || "",
+        });
       }
       
       // Load deadline configuration
-      getDeadlineConfig().then(config => {
-        setDeadlineConfig(config);
-      });
-    }
+      const config = await getDeadlineConfig();
+      setDeadlineConfig(config);
+    };
+
+    loadSettings();
   }, [user]);
 
   // Function to test the webhook
@@ -160,16 +168,21 @@ const NotificationSettings = () => {
       }
 
       // Save both webhook and deadline configurations
-      const [webhookResult, deadlineResult] = await Promise.all([
-        // Update user metadata with webhook configuration
-        supabase.auth.updateUser({
-          data: { webhook: webhookConfig }
+      const [, deadlineResult] = await Promise.all([
+        // Save webhook configuration via storageOps
+        storageOps.saveUserSettings({
+          webhook_enabled: webhookConfig.enabled,
+          webhook_type: webhookConfig.type,
+          webhook_url: webhookConfig.url,
+          webhook_secret: webhookConfig.secret,
         }),
         // Save deadline configuration
         saveDeadlineConfig(deadlineConfig)
       ]);
 
-      if (webhookResult.error) throw webhookResult.error;
+      if (!deadlineResult) {
+        throw new Error('Failed to save deadline config');
+      }
 
       toast({
         title: "通知设置已更新",

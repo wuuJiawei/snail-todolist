@@ -749,3 +749,169 @@ export async function getCheckInStreak(): Promise<number> {
     return 0;
   }
 }
+
+// ============================================
+// File Storage Operations
+// ============================================
+
+import { FileUploadResult, SearchOptions, SearchResult, UserSettings, UserProfile, AppInfo } from './types';
+
+export async function uploadAttachment(taskId: string, file: File): Promise<FileUploadResult | null> {
+  try {
+    const storage = await ensureStorage();
+    return await storage.uploadAttachment(taskId, file);
+  } catch (error) {
+    console.error('Failed to upload attachment:', error);
+    toast({
+      title: '上传失败',
+      description: '无法上传附件，请稍后再试',
+      variant: 'destructive',
+    });
+    return null;
+  }
+}
+
+export async function deleteAttachment(attachmentId: string): Promise<boolean> {
+  try {
+    const storage = await ensureStorage();
+    return await storage.deleteAttachment(attachmentId);
+  } catch (error) {
+    console.error('Failed to delete attachment:', error);
+    toast({
+      title: '删除失败',
+      description: '无法删除附件，请稍后再试',
+      variant: 'destructive',
+    });
+    return false;
+  }
+}
+
+export async function uploadImage(file: File): Promise<FileUploadResult | null> {
+  try {
+    const storage = await ensureStorage();
+    return await storage.uploadImage(file);
+  } catch (error) {
+    console.error('Failed to upload image:', error);
+    toast({
+      title: '上传失败',
+      description: '无法上传图片，请稍后再试',
+      variant: 'destructive',
+    });
+    return null;
+  }
+}
+
+export async function uploadAvatar(file: File): Promise<FileUploadResult | null> {
+  try {
+    const storage = await ensureStorage();
+    return await storage.uploadAvatar(file);
+  } catch (error) {
+    console.error('Failed to upload avatar:', error);
+    toast({
+      title: '上传失败',
+      description: '无法上传头像，请稍后再试',
+      variant: 'destructive',
+    });
+    return null;
+  }
+}
+
+// ============================================
+// Search Operations
+// ============================================
+
+export async function searchTasks(query: string, options?: SearchOptions): Promise<SearchResult> {
+  try {
+    const storage = await ensureStorage();
+    return await storage.searchTasks(query, options);
+  } catch (error) {
+    console.error('Failed to search tasks:', error);
+    return { tasks: [], totalCount: 0, searchTime: 0 };
+  }
+}
+
+// ============================================
+// User Settings Operations
+// ============================================
+
+export async function getUserSettings(): Promise<UserSettings> {
+  try {
+    const storage = await ensureStorage();
+    return await storage.getUserSettings();
+  } catch (error) {
+    console.error('Failed to get user settings:', error);
+    return {};
+  }
+}
+
+export async function saveUserSettings(settings: Partial<UserSettings>): Promise<UserSettings | null> {
+  try {
+    const storage = await ensureStorage();
+    const result = await storage.saveUserSettings(settings);
+    toast({
+      title: '设置已保存',
+      description: '您的设置已成功保存',
+    });
+    return result;
+  } catch (error) {
+    console.error('Failed to save user settings:', error);
+    toast({
+      title: '保存失败',
+      description: '无法保存设置，请稍后再试',
+      variant: 'destructive',
+    });
+    return null;
+  }
+}
+
+// ============================================
+// User Profile Operations
+// ============================================
+
+export async function getUserProfile(): Promise<UserProfile | null> {
+  try {
+    const storage = await ensureStorage();
+    return await storage.getUserProfile();
+  } catch (error) {
+    console.error('Failed to get user profile:', error);
+    return null;
+  }
+}
+
+export async function saveUserProfile(profile: Partial<UserProfile>): Promise<UserProfile | null> {
+  try {
+    const storage = await ensureStorage();
+    const result = await storage.saveUserProfile(profile);
+    toast({
+      title: '资料已更新',
+      description: '您的个人资料已成功保存',
+    });
+    return result;
+  } catch (error) {
+    console.error('Failed to save user profile:', error);
+    toast({
+      title: '保存失败',
+      description: '无法保存个人资料，请稍后再试',
+      variant: 'destructive',
+    });
+    return null;
+  }
+}
+
+// ============================================
+// App Info Operations
+// ============================================
+
+export async function getAppInfo(): Promise<AppInfo> {
+  try {
+    const storage = await ensureStorage();
+    return await storage.getAppInfo();
+  } catch (error) {
+    console.error('Failed to get app info:', error);
+    return {
+      version: '1.0.0',
+      announcement: undefined,
+      maintenance_mode: false,
+    };
+  }
+}

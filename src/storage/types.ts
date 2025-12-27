@@ -6,7 +6,7 @@
 
 import { Task } from '@/types/task';
 import { Project } from '@/types/project';
-import { Tag, TaskTagLink } from '@/types/tag';
+import { Tag } from '@/types/tag';
 
 /**
  * Filter options for querying tasks
@@ -91,6 +91,60 @@ export type CreateActivityInput = Omit<TaskActivity, 'id' | 'created_at'>;
  * Input type for creating a new check-in record (without id)
  */
 export type CreateCheckInInput = Omit<CheckInRecord, 'id' | 'created_at'>;
+
+/**
+ * File upload result
+ */
+export interface FileUploadResult {
+  id: string;
+  filename: string;
+  original_name: string;
+  url: string;
+  size: number;
+  type: string;
+  uploaded_at: string;
+}
+
+/**
+ * Search options for task search
+ */
+export interface SearchOptions {
+  includeCompleted?: boolean;
+  includeDeleted?: boolean;
+  includeAbandoned?: boolean;
+  limit?: number;
+  projectFilter?: string;
+}
+
+/**
+ * Search result
+ */
+export interface SearchResult {
+  tasks: Task[];
+  totalCount: number;
+  searchTime: number;
+}
+
+/**
+ * User settings for notifications and preferences
+ */
+export interface UserSettings {
+  deadline_notification_enabled?: boolean;
+  deadline_notification_days?: number;
+  webhook_url?: string;
+  webhook_enabled?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * Application info
+ */
+export interface AppInfo {
+  version: string;
+  announcement?: string;
+  maintenance_mode?: boolean;
+  [key: string]: unknown;
+}
 
 /**
  * Storage Adapter Interface
@@ -293,6 +347,76 @@ export interface StorageAdapter {
    * Get check-in streak (consecutive days)
    */
   getCheckInStreak(): Promise<number>;
+
+  // ============================================
+  // File Storage Operations
+  // ============================================
+
+  /**
+   * Upload a task attachment
+   */
+  uploadAttachment(taskId: string, file: File): Promise<FileUploadResult>;
+
+  /**
+   * Delete a task attachment
+   */
+  deleteAttachment(attachmentId: string): Promise<boolean>;
+
+  /**
+   * Upload an image (for editor)
+   */
+  uploadImage(file: File): Promise<FileUploadResult>;
+
+  /**
+   * Upload user avatar
+   */
+  uploadAvatar(file: File): Promise<FileUploadResult>;
+
+  // ============================================
+  // Search Operations
+  // ============================================
+
+  /**
+   * Search tasks by query string
+   */
+  searchTasks(query: string, options?: SearchOptions): Promise<SearchResult>;
+
+  // ============================================
+  // User Settings Operations
+  // ============================================
+
+  /**
+   * Get user settings
+   */
+  getUserSettings(): Promise<UserSettings>;
+
+  /**
+   * Save user settings
+   */
+  saveUserSettings(settings: Partial<UserSettings>): Promise<UserSettings>;
+
+  // ============================================
+  // User Profile Operations
+  // ============================================
+
+  /**
+   * Get user profile
+   */
+  getUserProfile(): Promise<UserProfile | null>;
+
+  /**
+   * Save user profile
+   */
+  saveUserProfile(profile: Partial<UserProfile>): Promise<UserProfile>;
+
+  // ============================================
+  // App Info Operations
+  // ============================================
+
+  /**
+   * Get application info
+   */
+  getAppInfo(): Promise<AppInfo>;
 }
 
 /**
@@ -320,6 +444,7 @@ export interface UserProfile {
   username: string;
   avatar_url?: string | null;
   avatar_data?: string | null; // Base64 encoded avatar image
+  settings?: UserSettings;
   updated_at: string;
 }
 

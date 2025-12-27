@@ -21,6 +21,12 @@ import {
   CreateProjectInput,
   CreatePomodoroInput,
   CreateActivityInput,
+  FileUploadResult,
+  SearchOptions,
+  SearchResult,
+  UserSettings,
+  UserProfile,
+  AppInfo,
 } from '../types';
 import * as taskService from '@/services/taskService';
 import * as tagService from '@/services/tagService';
@@ -405,5 +411,207 @@ export class SupabaseAdapter implements StorageAdapter {
   async getCheckInStreak(): Promise<number> {
     const { getCheckInStreak } = await import('@/services/checkInService');
     return getCheckInStreak();
+  }
+
+  // ============================================
+  // File Storage Operations
+  // ============================================
+
+  async uploadAttachment(taskId: string, file: File): Promise<FileUploadResult> {
+    const userId = await this.ensureUser();
+    const fileExt = file.name.split('.').pop() || 'bin';
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+    const filePath = `${userId}/${taskId}/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('task-attachments')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabase.storage
+      .from('task-attachments')
+      .getPublicUrl(filePath);
+
+    return {
+      id: data.path,
+      filename: fileName,
+      original_name: file.name,
+      url: urlData.publicUrl,
+      size: file.size,
+      type: file.type,
+      uploaded_at: new Date().toISOString(),
+    };
+  }
+
+  async deleteAttachment(attachmentId: string): Promise<boolean> {
+    const { error } = await supabase.storage
+      .from('task-attachments')
+      .remove([attachmentId]);
+
+    if (error) throw error;
+    return true;
+  }
+
+  async uploadImage(file: File): Promise<FileUploadResult> {
+    const userId = await this.ensureUser();
+    const fileExt = file.name.split('.').pop() || 'png';
+    const fileName = `paste_${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+    const filePath = `${userId}/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('task-attachments')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabase.storage
+      .from('task-attachments')
+      .getPublicUrl(filePath);
+
+    return {
+      id: data.path,
+      filename: fileName,
+      original_name: file.name,
+      url: urlData.publicUrl,
+      size: file.size,
+      type: file.type,
+      uploaded_at: new Date().toISOString(),
+    };
+  }
+
+  async uploadAvatar(file: File): Promise<FileUploadResult> {
+    const userId = await this.ensureUser();
+    const fileExt = file.name.split('.').pop() || 'png';
+    const fileName = `${userId}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+
+    const { error } = await supabase.storage
+      .from('user-avatars')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabase.storage
+      .from('user-avatars')
+      .getPublicUrl(filePath);
+
+    return {
+      id: filePath,
+      filename: fileName,
+      original_name: file.name,
+      url: urlData.publicUrl,
+      size: file.size,
+      type: file.type,
+      uploaded_at: new Date().toISOString(),
+    };
+  }
+
+  // ============================================
+  // Search Operations
+  // ============================================
+
+  async searchTasks(query: string, options?: SearchOptions): Promise<SearchResult> {
+    const { searchTasksWithILike } = await import('@/services/searchService');
+    return searchTasksWithILike(query, options);
+  }
+
+  // ============================================
+  // User Settings Operations
+  // ============================================
+
+  async getUserSettings(): Promise<UserSettings> {
+    const { data } = await supabase.auth.getUser();
+    const metadata = data?.user?.user_metadata || {};
+    return {
+      deadline_notification_enabled: metadata.deadline_notification_enabled,
+      deadline_notification_days: metadata.deadline_notification_days,
+      webhook_url: metadata.webhook_url,
+      webhook_enabled: metadata.webhook_enabled,
+    };
+  }
+
+  async saveUserSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
+    const current = await this.getUserSettings();
+    const merged = { ...current, ...settings };
+
+    const { error } = await supabase.auth.updateUser({
+      data: merged,
+    });
+
+    if (error) throw error;
+    return merged;
+  }
+
+  // ============================================
+  // User Profile Operations
+  // ============================================
+
+  async getUserProfile(): Promise<UserProfile | null> {
+    const { data } = await supabase.auth.getUser();
+    if (!data?.user) return null;
+
+    const user = data.user;
+    return {
+      id: user.id,
+      username: user.user_metadata?.name || user.email || '',
+      avatar_url: user.user_metadata?.avatar_url || null,
+      settings: {
+        deadline_notification_enabled: user.user_metadata?.deadline_notification_enabled,
+        deadline_notification_days: user.user_metadata?.deadline_notification_days,
+        webhook_url: user.user_metadata?.webhook_url,
+        webhook_enabled: user.user_metadata?.webhook_enabled,
+      },
+      updated_at: user.updated_at || new Date().toISOString(),
+    };
+  }
+
+  async saveUserProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
+    const updateData: Record<string, unknown> = {};
+    
+    if (profile.username !== undefined) {
+      updateData.name = profile.username;
+    }
+    if (profile.avatar_url !== undefined) {
+      updateData.avatar_url = profile.avatar_url;
+    }
+    if (profile.settings !== undefined) {
+      Object.assign(updateData, profile.settings);
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      data: updateData,
+    });
+
+    if (error) throw error;
+
+    const updated = await this.getUserProfile();
+    if (!updated) {
+      throw new Error('Failed to get updated profile');
+    }
+    return updated;
+  }
+
+  // ============================================
+  // App Info Operations
+  // ============================================
+
+  async getAppInfo(): Promise<AppInfo> {
+    // app_info table may not exist in all deployments
+    // Return default values for now
+    return {
+      version: '1.0.0',
+      announcement: undefined,
+      maintenance_mode: false,
+    };
   }
 }

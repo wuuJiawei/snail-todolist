@@ -1,5 +1,5 @@
-import { supabase } from '@/integrations/supabase/client';
 import { TaskAttachment } from '@/types/task';
+import * as storageOps from '@/storage/operations';
 
 export interface ClipboardImageDetectionOptions {
   userId: string;
@@ -47,41 +47,16 @@ export function detectClipboardImages(clipboardData: DataTransfer | null): File[
 }
 
 /**
- * 将图片文件上传到Supabase存储
+ * 将图片文件上传到存储
  * @param file 图片文件
- * @param userId 用户ID
  * @returns TaskAttachment对象
  */
-export async function uploadImageToStorage(file: File, userId: string): Promise<TaskAttachment> {
-  // 生成唯一文件名
-  const fileExt = file.name.split('.').pop() || 'png';
-  const fileName = `paste_${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-  const filePath = `${userId}/${fileName}`;
-
-  // 上传到Supabase Storage
-  const { data, error } = await supabase.storage
-    .from('task-attachments')
-    .upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false
-    });
-
-  if (error) throw error;
-
-  // 获取公共URL
-  const { data: { publicUrl } } = supabase.storage
-    .from('task-attachments')
-    .getPublicUrl(filePath);
-
-  return {
-    id: data.path,
-    filename: fileName,
-    original_name: file.name || `pasted_image.${fileExt}`,
-    url: publicUrl,
-    size: file.size,
-    type: file.type,
-    uploaded_at: new Date().toISOString()
-  };
+export async function uploadImageToStorage(file: File): Promise<TaskAttachment> {
+  const result = await storageOps.uploadImage(file);
+  if (!result) {
+    throw new Error('Upload failed');
+  }
+  return result;
 }
 
 /**
@@ -103,7 +78,7 @@ export async function handleClipboardImagePaste(
   // 阻止默认粘贴行为
   event.preventDefault();
 
-  const { userId, maxFileSize = 10 * 1024 * 1024, onUploadStart, onUploadError, onUploadComplete } = options;
+  const { maxFileSize = 10 * 1024 * 1024, onUploadStart, onUploadError, onUploadComplete } = options;
 
   try {
     onUploadStart?.();
@@ -119,7 +94,7 @@ export async function handleClipboardImagePaste(
       }
 
       try {
-        const attachment = await uploadImageToStorage(image, userId);
+        const attachment = await uploadImageToStorage(image);
         uploadedAttachments.push(attachment);
         onUploadComplete?.(attachment);
       } catch (uploadError) {
