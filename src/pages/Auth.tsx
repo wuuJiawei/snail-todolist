@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Label } from "@/components/ui/label";
 import { WifiOff } from "lucide-react";
 import { setStorageMode } from "@/config/storage";
+import { navigateWithReload } from "@/utils/runtime";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -67,7 +68,7 @@ const Auth = () => {
   const handleOfflineMode = () => {
     setStorageMode("offline");
     // Reload the page to reinitialize all contexts with new storage mode
-    window.location.href = "/";
+    navigateWithReload("/");
   };
 
   return (

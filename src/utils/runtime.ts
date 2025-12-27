@@ -5,4 +5,19 @@ export function isTauriRuntime(): boolean {
   return Boolean(w.__TAURI__ || w.__TAURI_INTERNALS__);
 }
 
+/**
+ * Navigate to a path with full page reload
+ * Compatible with both Web and Tauri WebView environments
+ * Use this when you need to reinitialize all contexts and singletons
+ */
+export function navigateWithReload(path: string): void {
+  try {
+    if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
+      window.location.href = path;
+    }
+  } catch (e) {
+    console.error('Navigation failed:', e);
+  }
+}
+
 

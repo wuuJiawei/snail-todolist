@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { getStorageConfig, setStorageMode, type StorageMode } from "@/config/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { Cloud, HardDrive } from "lucide-react";
+import { navigateWithReload } from "@/utils/runtime";
 
 const DataManagementSettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -168,7 +169,7 @@ const DataManagementSettings = () => {
     
     // Reload to apply new storage mode
     setTimeout(() => {
-      window.location.href = "/";
+      navigateWithReload("/");
     }, 500);
   };
 
