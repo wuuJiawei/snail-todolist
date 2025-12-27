@@ -14,7 +14,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { signInWithEmail, signUpWithEmail, signInWithOAuth, signInAsGuest, user } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithOAuth, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -62,18 +62,6 @@ const Auth = () => {
     setIsLoading(true);
     await signInWithOAuth(provider);
     setIsLoading(false);
-  };
-
-  const handleGuestSignIn = async () => {
-    setIsLoading(true);
-    await signInAsGuest();
-    setIsLoading(false);
-    let target: string | null = null;
-    try { target = localStorage.getItem('post_login_redirect'); } catch {}
-    if (target) {
-      try { localStorage.removeItem('post_login_redirect'); } catch {}
-      navigate(target, { replace: true });
-    }
   };
 
   const handleOfflineMode = () => {
@@ -158,18 +146,9 @@ const Auth = () => {
             </TabsContent>
           </Tabs>
 
-          <Button 
-            variant="ghost" 
-            className="w-full mt-4"
-            onClick={handleGuestSignIn}
-            disabled={isLoading}
-          >
-            以游客身份使用
-          </Button>
-
           <Button
             variant="outline"
-            className="w-full mt-2"
+            className="w-full mt-4"
             onClick={handleOfflineMode}
             disabled={isLoading}
           >
