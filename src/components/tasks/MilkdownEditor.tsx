@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import {
   Editor,
@@ -8,24 +8,35 @@ import {
   rootAttrsCtx,
   rootCtx,
   serializerCtx,
-} from "@milkdown/core";
-import { history } from "@milkdown/plugin-history";
-import { listener, listenerCtx } from "@milkdown/plugin-listener";
-import { cursor } from "@milkdown/plugin-cursor";
-import { upload, uploadConfig } from "@milkdown/plugin-upload";
-import type { UploadOptions } from "@milkdown/plugin-upload";
-import { commonmark } from "@milkdown/preset-commonmark";
-import { replaceAll } from "@milkdown/utils";
+} from "@milkdown/kit/core";
+import { history } from "@milkdown/kit/plugin/history";
+import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
+import { cursor } from "@milkdown/kit/plugin/cursor";
+import { upload, uploadConfig } from "@milkdown/kit/plugin/upload";
+import type { UploadOptions } from "@milkdown/kit/plugin/upload";
+import { commonmark } from "@milkdown/kit/preset/commonmark";
+import { replaceAll } from "@milkdown/kit/utils";
 import { nord } from "@milkdown/theme-nord";
 import nordThemeStyles from "@milkdown/theme-nord/style.css?raw";
 import clsx from "clsx";
 import { useToast } from "@/hooks/use-toast";
 import type { TaskAttachment } from "@/types/task";
 import type { EditorBridge } from "./TaskDetailContent";
-import { gfm } from "@milkdown/preset-gfm";
+import { gfm } from "@milkdown/kit/preset/gfm";
 import { usePluginViewFactory, ProsemirrorAdapterProvider } from "@prosemirror-adapter/react";
 import { tooltip, TooltipView } from "./milkdown/Tooltip";
+import { codeBlockComponent, codeBlockConfig } from "@milkdown/kit/component/code-block";
+import { languages } from "@codemirror/language-data";
+import { basicSetup } from "codemirror";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { defaultKeymap } from "@codemirror/commands";
+import { keymap } from "@codemirror/view";
 import * as storageOps from "@/storage/operations";
+
+const chevronDownIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
+const searchIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`;
+const clearIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
+const copyIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 
 interface MilkdownEditorProps {
   content: string;
@@ -113,7 +124,7 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
   };
 
   useEffect(() => {
-    uploadHandlerRef.current = async (files, schema) => {
+    uploadHandlerRef.current = async (files, schema, _ctx, _insertPos) => {
       const imageNode = schema.nodes.image;
       if (!imageNode || !files || files.length === 0) {
         return [];
@@ -205,17 +216,31 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
           }));
           ctx.update(uploadConfig.key, (prev) => ({
             ...prev,
-            uploader: (files, schema) =>
+            uploader: (files, schema, editorCtx, insertPos) =>
               uploadHandlerRef.current
-                ? uploadHandlerRef.current(files, schema)
+                ? uploadHandlerRef.current(files, schema, editorCtx, insertPos)
                 : Promise.resolve([]),
             enableHtmlFileUploader: true,
           }));
+          // @ts-ignore - Type inference issue with tooltip.key
           ctx.set(tooltip.key, {
             view: pluginViewFactory({
               component: TooltipView,
             }),
           });
+          // @ts-ignore - Type inference issue with codeBlockConfig.key
+          ctx.update(codeBlockConfig.key, (defaultConfig) => ({
+            ...defaultConfig,
+            languages,
+            extensions: [basicSetup, oneDark, keymap.of(defaultKeymap)],
+            expandIcon: chevronDownIcon,
+            searchIcon: searchIcon,
+            clearSearchIcon: clearIcon,
+            copyIcon: copyIcon,
+            searchPlaceholder: "搜索语言...",
+            noResultText: "无匹配结果",
+            copyText: "",
+          }));
           ctx.get(listenerCtx).mounted(() => {
             isEditorReadyRef.current = true;
             const tasks = pendingTasksRef.current;
@@ -239,6 +264,7 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
             onChangeRef.current(markdown);
           });
         })
+        // @ts-ignore - Type inference issue with nord theme
         .use(nord)
         .use(commonmark)
         .use(gfm)
@@ -246,7 +272,10 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
         .use(cursor)
         .use(listener)
         .use(upload)
-        .use(tooltip);
+        // @ts-ignore - Type inference issue with tooltip plugin
+        .use(tooltip)
+        // @ts-ignore - Type inference issue with codeBlockComponent
+        .use(codeBlockComponent);
     },
     []
   );
