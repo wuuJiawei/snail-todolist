@@ -365,6 +365,15 @@
     background: transparent;
     min-height: 400px;
   }
+
+  /* Inline code styling */
+  .milkdown-editor code:not(pre code) {
+    color: #ba1a1a;
+    background-color: rgba(186, 26, 26, 0.08);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+  }
 }
 
 /* Fix: Vaul bottom drawer ::after causes content cutoff on some layouts */

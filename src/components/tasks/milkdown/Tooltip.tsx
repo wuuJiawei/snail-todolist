@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import type { Ctx } from "@milkdown/ctx";
 import { tooltipFactory, TooltipProvider } from "@milkdown/plugin-tooltip";
-import { toggleStrongCommand, toggleEmphasisCommand } from "@milkdown/preset-commonmark";
+import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand } from "@milkdown/preset-commonmark";
 import { toggleStrikethroughCommand } from "@milkdown/preset-gfm";
 import { callCommand } from "@milkdown/utils";
 import { useInstance } from "@milkdown/react";
@@ -12,7 +12,8 @@ const Toolbar: React.FC<{
   onBold: () => void;
   onItalic: () => void;
   onStrike: () => void;
-}> = ({ onBold, onItalic, onStrike }) => {
+  onInlineCode: () => void;
+}> = ({ onBold, onItalic, onStrike, onInlineCode }) => {
   return (
     <div className="flex gap-1 bg-white/90 dark:bg-neutral-800/90 border rounded-lg shadow px-1 py-1">
       <button
@@ -41,6 +42,16 @@ const Toolbar: React.FC<{
         }}
       >
         S
+      </button>
+      <button
+        className="text-gray-700 dark:text-gray-200 bg-transparent hover:bg-slate-200 dark:hover:bg-neutral-700 rounded px-2 py-1 text-sm font-mono"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          onInlineCode();
+        }}
+        title="行内代码"
+      >
+        {"</>"}
       </button>
     </div>
   );
@@ -78,6 +89,7 @@ export const TooltipView: React.FC = () => {
         onBold={() => action(callCommand(toggleStrongCommand.key))}
         onItalic={() => action(callCommand(toggleEmphasisCommand.key))}
         onStrike={() => action(callCommand(toggleStrikethroughCommand.key))}
+        onInlineCode={() => action(callCommand(toggleInlineCodeCommand.key))}
       />
     );
 
