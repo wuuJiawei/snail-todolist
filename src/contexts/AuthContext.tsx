@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isTauriRuntime } from "@/utils/runtime";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { isOfflineMode } from "@/storage";
 
 // 游客ID本地存储key
 const GUEST_ID_KEY = "snail_guest_id";
@@ -29,6 +30,7 @@ interface AuthContextType {
   signInWithOAuth: (provider: 'github' | 'google') => Promise<void>;
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,6 +46,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hasShownLoginToast, setHasShownLoginToast] = useState(false);
 
   useEffect(() => {
+    // In offline mode, skip Supabase auth entirely
+    if (isOfflineMode) {
+      // Create a mock offline user
+      const offlineUser = {
+        id: 'offline-user',
+        email: 'offline@local',
+        app_metadata: {},
+        user_metadata: { name: 'Offline User' },
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+      } as User;
+      
+      setUser(offlineUser);
+      setSession(null);
+      setIsGuest(false);
+      setLoading(false);
+      return;
+    }
+
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
@@ -247,6 +268,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Refresh user data from Supabase
+  const refreshUser = async () => {
+    if (isOfflineMode || isGuest) return;
+    
+    const { data: { user: freshUser } } = await supabase.auth.getUser();
+    if (freshUser) {
+      setUser(freshUser);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -259,6 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithOAuth,
         signInAsGuest,
         signOut,
+        refreshUser,
       }}
     >
       {children}

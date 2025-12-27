@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Pencil, Plus, Tag as TagIcon, Trash, RefreshCw } from "lucide-react";
 import { useProjectContext } from "@/contexts/ProjectContext";
-import { renameTag, updateTagProject } from "@/services/tagService";
+import * as storageOps from "@/storage/operations";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 
@@ -107,12 +107,12 @@ const TagSettings = () => {
     
     // Update tag name if changed
     if (editedTagName !== tagBeingEdited.name) {
-      await renameTag(tagBeingEdited.id, editedTagName);
+      await storageOps.updateTag(tagBeingEdited.id, { name: editedTagName });
     }
     
     // Update project association if changed
     if (editedTagProject !== tagBeingEdited.project_id) {
-      await updateTagProject(tagBeingEdited.id, editedTagProject);
+      await storageOps.updateTagProject(tagBeingEdited.id, editedTagProject);
     }
     
     setEditDialogOpen(false);

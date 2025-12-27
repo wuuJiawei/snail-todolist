@@ -1,10 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { TaskAttachment } from '@/types/task';
 import { Paperclip, Download, Trash2, FileText, Image, File, ChevronDown, ChevronUp } from 'lucide-react';
+import * as storageOps from '@/storage/operations';
 
 interface TaskAttachmentsProps {
   attachments: TaskAttachment[];
@@ -17,7 +16,6 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
   onAttachmentsChange,
   readOnly = false,
 }) => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -45,40 +43,7 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
-  const uploadFile = useCallback(async (file: File): Promise<TaskAttachment> => {
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
-    const filePath = `${user.id}/${fileName}`;
-
-    const { data, error } = await supabase.storage
-      .from('task-attachments')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-
-    if (error) throw error;
-
-    const { data: urlData } = supabase.storage
-      .from('task-attachments')
-      .getPublicUrl(filePath);
-
-    return {
-      id: data.path,
-      filename: fileName,
-      original_name: file.name,
-      url: urlData.publicUrl,
-      size: file.size,
-      type: file.type,
-      uploaded_at: new Date().toISOString(),
-    };
-  }, [user]);
-
-  const handleFileUpload = useCallback(async (files: FileList) => {
+  const handleFileUpload = useCallback(async (files: FileList, taskId?: string) => {
     if (!files.length || readOnly) return;
 
     setUploading(true);
@@ -97,8 +62,10 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
         }
 
         try {
-          const attachment = await uploadFile(file);
-          newAttachments.push(attachment);
+          const result = await storageOps.uploadAttachment(taskId || 'temp', file);
+          if (result) {
+            newAttachments.push(result);
+          }
         } catch (error) {
           console.error('Error uploading file:', error);
           toast({
@@ -120,7 +87,7 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
     } finally {
       setUploading(false);
     }
-  }, [attachments, onAttachmentsChange, readOnly, toast, uploadFile]);
+  }, [attachments, onAttachmentsChange, readOnly, toast]);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -132,11 +99,7 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
     if (readOnly) return;
 
     try {
-      const { error } = await supabase.storage
-        .from('task-attachments')
-        .remove([attachment.id]);
-
-      if (error) throw error;
+      await storageOps.deleteAttachment(attachment.id);
 
       const updatedAttachments = attachments.filter((item) => item.id !== attachment.id);
       onAttachmentsChange(updatedAttachments);

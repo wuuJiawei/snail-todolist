@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -117,15 +116,15 @@ const normalizeSessionType = (value: string | null | undefined): PomodoroSession
   return "focus";
 };
 
-const mapSession = (row: Record<string, any>): PomodoroSession => ({
-  id: row.id,
-  user_id: row.user_id,
-  start_time: row.start_time,
-  end_time: row.end_time ?? null,
+const mapSession = (row: Record<string, unknown>): PomodoroSession => ({
+  id: row.id as string,
+  user_id: row.user_id as string | undefined,
+  start_time: (row.start_time || row.started_at) as string,
+  end_time: (row.end_time ?? row.completed_at ?? null) as string | null,
   duration: typeof row.duration === "number" ? row.duration : 0,
-  type: normalizeSessionType(row.type),
-  completed: row.completed ?? false,
-  created_at: row.created_at ?? row.start_time,
+  type: normalizeSessionType(row.type as string | null | undefined),
+  completed: (row.completed ?? !!row.completed_at) as boolean,
+  created_at: (row.created_at ?? row.start_time ?? row.started_at) as string,
 });
 
 const calculateActualMinutes = (session: PomodoroSession): number => {
@@ -146,6 +145,12 @@ const calculateActualMinutes = (session: PomodoroSession): number => {
   }
   return diffMinutes;
 };
+
+/**
+ * Pomodoro Service - Supabase Implementation
+ * Note: These functions are only called in online mode via SupabaseAdapter
+ * For offline mode, use storageOps.* functions instead
+ */
 
 export const startPomodoroSession = async (
   sessionType: PomodoroSessionType,
@@ -191,7 +196,7 @@ export const completePomodoroSession = async (
   }
 
   const { completed = true, endTime, durationOverride } = options;
-  const updates: Record<string, any> = {
+  const updates: Record<string, unknown> = {
     completed,
     end_time: endTime ?? new Date().toISOString(),
   };

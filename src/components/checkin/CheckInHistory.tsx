@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { getCheckInHistory, getCheckInStreak, CheckInRecord } from "@/services/checkInService";
+import * as storageOps from "@/storage/operations";
+import { CheckInRecord } from "@/storage/types";
 import { Icon } from "@/components/ui/icon-park";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
@@ -35,12 +36,12 @@ const CheckInHistory: React.FC<CheckInHistoryProps> = ({
   const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
-      const { records, total } = await getCheckInHistory(1, pageSize);
+      const { records, total } = await storageOps.getCheckInHistory(1, pageSize);
       setRecords(records);
       setTotalCount(total);
 
       // Get streak
-      const currentStreak = await getCheckInStreak();
+      const currentStreak = await storageOps.getCheckInStreak();
       setStreak(currentStreak);
 
       const dates = Array.from(

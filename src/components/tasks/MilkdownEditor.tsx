@@ -20,13 +20,12 @@ import { nord } from "@milkdown/theme-nord";
 import nordThemeStyles from "@milkdown/theme-nord/style.css?raw";
 import clsx from "clsx";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import type { TaskAttachment } from "@/types/task";
-import { supabase } from "@/integrations/supabase/client";
 import type { EditorBridge } from "./TaskDetailContent";
 import { gfm } from "@milkdown/preset-gfm";
 import { usePluginViewFactory, ProsemirrorAdapterProvider } from "@prosemirror-adapter/react";
 import { tooltip, TooltipView } from "./milkdown/Tooltip";
+import * as storageOps from "@/storage/operations";
 
 interface MilkdownEditorProps {
   content: string;
@@ -48,7 +47,6 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
   onAttachmentsChange,
 }) => {
   const { toast } = useToast();
-  const { user } = useAuth();
   const pluginViewFactory = usePluginViewFactory();
 
   const contentRef = useRef(content);
@@ -57,7 +55,6 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
   const onChangeRef = useRef(onChange);
   const attachmentsRef = useRef<TaskAttachment[]>(attachments);
   const onAttachmentsChangeRef = useRef(onAttachmentsChange);
-  const userRef = useRef(user);
   const onEditorReadyRef = useRef(onEditorReady);
   const isProgrammaticChangeRef = useRef(false);
   const uploadHandlerRef = useRef<UploadOptions["uploader"]>();
@@ -91,10 +88,6 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
   }, [onAttachmentsChange]);
 
   useEffect(() => {
-    userRef.current = user;
-  }, [user]);
-
-  useEffect(() => {
     onEditorReadyRef.current = onEditorReady;
   }, [onEditorReady]);
 
@@ -112,27 +105,11 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
   }, []);
 
   const uploadFile = async (file: File): Promise<string> => {
-    const currentUser = userRef.current;
-    if (!currentUser) {
-      throw new Error("用户未登录");
+    const result = await storageOps.uploadImage(file);
+    if (!result) {
+      throw new Error("上传失败");
     }
-
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
-
-    const { data, error } = await supabase.storage
-      .from("task-attachments")
-      .upload(fileName, file);
-
-    if (error) {
-      throw error;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from("task-attachments")
-      .getPublicUrl(data.path);
-
-    return urlData.publicUrl;
+    return result.url;
   };
 
   useEffect(() => {

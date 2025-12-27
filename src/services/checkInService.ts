@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
+/**
+ * Check-In Service - Supabase Implementation
+ * Note: These functions are only called in online mode via SupabaseAdapter
+ * For offline mode, use storageOps.* functions instead
+ */
+
 export type CheckInRecord = {
   id?: string;
   user_id?: string;
@@ -175,7 +181,7 @@ export const getCheckInStreak = async (): Promise<number> => {
     let streak = 1;
 
     // Extract dates from check-in times and get unique dates
-    const uniqueDates = new Set();
+    const uniqueDates = new Set<string>();
     data.forEach(record => {
       // Convert to local date string in YYYY-MM-DD format
       const date = new Date(record.check_in_time);
@@ -190,7 +196,7 @@ export const getCheckInStreak = async (): Promise<number> => {
     // Convert to Date objects and sort
     const dates = Array.from(uniqueDates).map(dateStr => {
       const [y, m, d] = dateStr.split('-').map(Number);
-      return new Date(y, (m ?? 1) - 1, d);
+      return new Date(y!, (m ?? 1) - 1, d);
     });
     dates.sort((a, b) => b.getTime() - a.getTime());
 
@@ -204,6 +210,8 @@ export const getCheckInStreak = async (): Promise<number> => {
 
     // If the most recent check-in is not today or yesterday, streak is 0
     const mostRecent = dates[0];
+    if (!mostRecent) return 0;
+    
     const dayDiff = Math.floor((today.getTime() - mostRecent.getTime()) / (1000 * 60 * 60 * 24));
 
     if (dayDiff > 1) {
@@ -214,6 +222,7 @@ export const getCheckInStreak = async (): Promise<number> => {
     for (let i = 0; i < dates.length - 1; i++) {
       const current = dates[i];
       const next = dates[i + 1];
+      if (!current || !next) break;
 
       const diffDays = Math.floor((current.getTime() - next.getTime()) / (1000 * 60 * 60 * 24));
 

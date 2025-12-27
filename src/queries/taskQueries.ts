@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
-import { fetchTasks, fetchDeletedTasks, fetchAbandonedTasks } from "@/services/taskService";
+import * as storageOps from "@/storage/operations";
+import { isOfflineMode } from "@/storage";
 import type { Task } from "@/types/task";
 
 export const taskKeys = {
@@ -13,27 +14,26 @@ export const taskQueries = {
   active: () =>
     queryOptions<Task[]>({
       queryKey: taskKeys.active(),
-      queryFn: () => fetchTasks(),
+      queryFn: () => storageOps.fetchTasks(false),
       staleTime: 5 * 60 * 1000,
-      refetchOnReconnect: true,
-      refetchInterval: 60 * 1000,
-      refetchIntervalInBackground: true,
+      refetchOnReconnect: !isOfflineMode,
+      refetchInterval: isOfflineMode ? false : 60 * 1000,
+      refetchIntervalInBackground: !isOfflineMode,
     }),
   trashed: () =>
     queryOptions<Task[]>({
       queryKey: taskKeys.trashed(),
-      queryFn: () => fetchDeletedTasks(),
+      queryFn: storageOps.fetchDeletedTasks,
       staleTime: 5 * 60 * 1000,
-      refetchOnReconnect: true,
+      refetchOnReconnect: !isOfflineMode,
       gcTime: 10 * 60 * 1000,
     }),
   abandoned: () =>
     queryOptions<Task[]>({
       queryKey: taskKeys.abandoned(),
-      queryFn: () => fetchAbandonedTasks(),
+      queryFn: storageOps.fetchAbandonedTasks,
       staleTime: 5 * 60 * 1000,
-      refetchOnReconnect: true,
+      refetchOnReconnect: !isOfflineMode,
       gcTime: 10 * 60 * 1000,
     }),
 };
-

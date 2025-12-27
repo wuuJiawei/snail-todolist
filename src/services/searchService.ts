@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
+import { initializeStorage, getStorage } from '@/storage';
 
 export interface SearchOptions {
   includeCompleted?: boolean;
@@ -16,8 +17,11 @@ export interface SearchResult {
 }
 
 /**
- * Supabase 全文搜索实现
+ * Supabase 全文搜索实现 (仅在线模式使用)
  * 使用 PostgreSQL 的 full-text search 功能
+ * 
+ * 注意：此函数仅供 SupabaseAdapter 内部调用。
+ * 离线模式的搜索由 IndexedDBAdapter.searchTasks 处理。
  */
 export async function searchTasksInDatabase(
   query: string, 
@@ -101,8 +105,11 @@ export async function searchTasksInDatabase(
 }
 
 /**
- * 使用 ILIKE 的模糊搜索实现
+ * 使用 ILIKE 的模糊搜索实现 (仅在线模式使用)
  * 适用于没有全文搜索索引的情况
+ * 
+ * 注意：此函数仅供 SupabaseAdapter 内部调用。
+ * 离线模式的搜索由 IndexedDBAdapter.searchTasks 处理。
  */
 export async function searchTasksWithILike(
   query: string,
@@ -272,7 +279,10 @@ $$ LANGUAGE plpgsql;
 `;
 
 /**
- * 使用自定义搜索函数
+ * 使用自定义搜索函数 (仅在线模式使用)
+ * 
+ * 注意：此函数仅供 SupabaseAdapter 内部调用。
+ * 离线模式的搜索由 IndexedDBAdapter.searchTasks 处理。
  */
 export async function searchTasksWithFunction(
   query: string,

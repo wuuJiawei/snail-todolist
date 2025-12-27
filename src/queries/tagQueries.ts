@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { fetchAllTags } from "@/services/tagService";
+import * as storageOps from "@/storage/operations";
 import type { Tag } from "@/types/tag";
 
 export const tagKeys = {
@@ -11,7 +11,7 @@ export const tagQueries = {
   forScope: (scope: string | null = null) =>
     queryOptions<Tag[]>({
       queryKey: tagKeys.forScope(scope),
-      queryFn: () => fetchAllTags(scope),
+      queryFn: () => storageOps.fetchAllTags(scope),
       staleTime: 10 * 60 * 1000,
       gcTime: 15 * 60 * 1000,
     }),

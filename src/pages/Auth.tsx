@@ -7,12 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GoogleIcon, GitHubIcon } from "@/components/ui/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { Label } from "@/components/ui/label";
+import { WifiOff } from "lucide-react";
+import { setStorageMode } from "@/config/storage";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { signInWithEmail, signUpWithEmail, signInWithOAuth, signInAsGuest, user } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithOAuth, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -62,16 +64,9 @@ const Auth = () => {
     setIsLoading(false);
   };
 
-  const handleGuestSignIn = async () => {
-    setIsLoading(true);
-    await signInAsGuest();
-    setIsLoading(false);
-    let target: string | null = null;
-    try { target = localStorage.getItem('post_login_redirect'); } catch {}
-    if (target) {
-      try { localStorage.removeItem('post_login_redirect'); } catch {}
-      navigate(target, { replace: true });
-    }
+  const handleOfflineMode = () => {
+    setStorageMode("offline");
+    navigate("/", { replace: true });
   };
 
   return (
@@ -151,13 +146,14 @@ const Auth = () => {
             </TabsContent>
           </Tabs>
 
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="outline"
             className="w-full mt-4"
-            onClick={handleGuestSignIn}
+            onClick={handleOfflineMode}
             disabled={isLoading}
           >
-            以游客身份使用
+            <WifiOff className="mr-2 h-4 w-4" />
+            离线模式
           </Button>
 
           <div className="relative my-4">

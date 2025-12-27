@@ -1,7 +1,7 @@
 import { Task } from "@/types/task";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ensureNotificationPermission, sendNotification as sendUnifiedNotification } from "@/utils/notifications";
+import * as storageOps from "@/storage/operations";
 
 interface DeadlineNotificationConfig {
   enabled: boolean;
@@ -21,18 +21,13 @@ const DEFAULT_CONFIG: DeadlineNotificationConfig = {
 // 获取截止时间通知配置
 export const getDeadlineConfig = async (): Promise<DeadlineNotificationConfig> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return DEFAULT_CONFIG;
-    }
-
-    // 从用户 metadata 获取配置
-    const config = user.user_metadata?.deadlineNotification || DEFAULT_CONFIG;
+    const settings = await storageOps.getUserSettings();
     
     return {
-      ...DEFAULT_CONFIG,
-      ...config,
+      enabled: settings.deadline_notification_enabled ?? DEFAULT_CONFIG.enabled,
+      reminderMinutes: settings.deadline_notification_days ?? DEFAULT_CONFIG.reminderMinutes,
+      webhookEnabled: settings.webhook_enabled ?? DEFAULT_CONFIG.webhookEnabled,
+      browserNotificationEnabled: DEFAULT_CONFIG.browserNotificationEnabled,
     };
   } catch (error) {
     console.error("Error getting deadline config:", error);
@@ -43,20 +38,13 @@ export const getDeadlineConfig = async (): Promise<DeadlineNotificationConfig> =
 // 保存截止时间通知配置
 export const saveDeadlineConfig = async (config: DeadlineNotificationConfig): Promise<boolean> => {
   try {
-    const { error } = await supabase.auth.updateUser({
-      data: {
-        deadlineNotification: config
-      }
+    const result = await storageOps.saveUserSettings({
+      deadline_notification_enabled: config.enabled,
+      deadline_notification_days: config.reminderMinutes,
+      webhook_enabled: config.webhookEnabled,
     });
 
-    if (error) throw error;
-
-    toast({
-      title: "设置已保存",
-      description: "截止时间通知设置已成功保存",
-    });
-
-    return true;
+    return !!result;
   } catch (error) {
     console.error("Error saving deadline config:", error);
     toast({

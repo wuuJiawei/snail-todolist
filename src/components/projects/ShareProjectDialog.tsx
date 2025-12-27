@@ -13,11 +13,12 @@ import { Input } from "@/components/ui/input";
 import { Project } from "@/types/project";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { Copy, Check, Users, Link2, X } from "lucide-react";
+import { Copy, Check, Users, Link2, X, WifiOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getOrCreateActiveShare } from "@/services/projectShareService";
 import { listMembers, removeMember, getProfileById, type ProjectMemberRow, type Profile } from "@/services/projectMemberService";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { isOfflineMode } from "@/storage";
 
 interface ShareProjectDialogProps {
   open: boolean;
@@ -33,6 +34,29 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
   onOpenChange,
   project,
 }) => {
+  // Show offline message if in offline mode
+  if (isOfflineMode) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>分享清单</DialogTitle>
+            <DialogDescription>离线模式下无法使用分享功能</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-8 gap-4 text-muted-foreground">
+            <WifiOff className="h-12 w-12" />
+            <p className="text-sm text-center">分享功能需要网络连接，请在在线模式下使用</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              关闭
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   const [shareCode, setShareCode] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);

@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  deletePomodoroSession,
-  fetchPomodoroSessions,
-  getTodayStats,
-  type PomodoroSession,
-  type PomodoroTodayStats as ServiceTodayStats,
-} from "@/services/pomodoroService";
+import * as storageOps from "@/storage/operations";
+import type { PomodoroSessionPublic, PomodoroTodayStats } from "@/storage/operations";
 
 interface HeatmapDay {
   date: string;
@@ -14,15 +9,15 @@ interface HeatmapDay {
 }
 
 export interface UsePomodoroHistoryResult {
-  today: ServiceTodayStats;
+  today: PomodoroTodayStats;
   heatmap: HeatmapDay[];
-  recentSessions: PomodoroSession[];
+  recentSessions: PomodoroSessionPublic[];
   loading: boolean;
   refresh: () => Promise<void>;
   removeSession: (id: string) => Promise<boolean>;
 }
 
-const emptyTodayStats: ServiceTodayStats = {
+const emptyTodayStats: PomodoroTodayStats = {
   focusCount: 0,
   focusMinutes: 0,
   breakCount: 0,
@@ -32,10 +27,10 @@ const emptyTodayStats: ServiceTodayStats = {
 
 const formatDateKey = (date: Date): string => date.toISOString().slice(0, 10);
 
-const isFocus = (session: PomodoroSession | undefined) =>
+const isFocus = (session: PomodoroSessionPublic | undefined) =>
   session?.type === "focus" && session.completed;
 
-const getSessionMinutes = (session: PomodoroSession): number => session.duration ?? 0;
+const getSessionMinutes = (session: PomodoroSessionPublic): number => session.duration ?? 0;
 
 const calculateHeatmapStart = (): Date => {
   const today = new Date();
@@ -51,12 +46,12 @@ export const usePomodoroHistory = (
   options: { includeHeatmap?: boolean } = {}
 ): UsePomodoroHistoryResult => {
   const { includeHeatmap = true } = options;
-  const [todayStats, setTodayStats] = useState<ServiceTodayStats>(emptyTodayStats);
+  const [todayStats, setTodayStats] = useState<PomodoroTodayStats>(emptyTodayStats);
   const [heatmapDays, setHeatmapDays] = useState<HeatmapDay[]>([]);
-  const [recentSessions, setRecentSessions] = useState<PomodoroSession[]>([]);
+  const [recentSessions, setRecentSessions] = useState<PomodoroSessionPublic[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const buildHeatmap = useCallback((sessions: PomodoroSession[]): HeatmapDay[] => {
+  const buildHeatmap = useCallback((sessions: PomodoroSessionPublic[]): HeatmapDay[] => {
     const dayMap = new Map<string, HeatmapDay>();
 
     sessions.forEach((session) => {
@@ -102,12 +97,12 @@ export const usePomodoroHistory = (
     try {
       const startOfRange = calculateHeatmapStart();
 
-      const todayPromise = getTodayStats();
-      const recentPromise = fetchPomodoroSessions({ limit: 20, order: "desc" });
+      const todayPromise = storageOps.getPomodoroTodayStats();
+      const recentPromise = storageOps.fetchPomodoroSessions({ limit: 20, order: "desc" });
 
-      let rangeSessions: PomodoroSession[] = [];
+      let rangeSessions: PomodoroSessionPublic[] = [];
       if (includeHeatmap) {
-        rangeSessions = await fetchPomodoroSessions({
+        rangeSessions = await storageOps.fetchPomodoroSessions({
           from: startOfRange.toISOString(),
           order: "asc",
         });
@@ -145,7 +140,7 @@ export const usePomodoroHistory = (
 
   const removeSession = useCallback(
     async (id: string) => {
-      const success = await deletePomodoroSession(id);
+      const success = await storageOps.deletePomodoroSession(id);
       if (success) {
         await refresh();
       }

@@ -3,15 +3,6 @@ import React, { useState, ReactNode, useEffect, useMemo, useCallback, useRef } f
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task } from "@/types/task";
-import {
-  addTask as addTaskService,
-  updateTask as updateTaskService,
-  deleteTask as deleteTaskService,
-  moveToTrash as moveToTrashService,
-  restoreFromTrash as restoreFromTrashService,
-  abandonTask as abandonTaskService,
-  restoreAbandonedTask as restoreAbandonedTaskService,
-} from "@/services/taskService";
 import { useToast } from "@/hooks/use-toast";
 import { TaskContext } from "./TaskContext";
 import { getProjectTaskCount, getSavedProject } from "./taskUtils";
@@ -19,14 +10,15 @@ import { SELECTED_PROJECT_KEY } from "./types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeadlineNotifications } from "@/hooks/useDeadlineNotifications";
 import { Tag } from "@/types/tag";
-import { fetchAllTags as fetchAllTagsService, getTagsByTaskIds as getTagsByTaskIdsService, attachTagToTask as attachTagToTaskService, detachTagFromTask as detachTagFromTaskService, createTag as createTagService, deleteTagById as deleteTagByIdService, updateTagProject as updateTagProjectService } from "@/services/tagService";
 import { useTaskStore } from "@/store/taskStore";
 import { taskKeys, taskQueries } from "@/queries/taskQueries";
 import { tagKeys, tagQueries } from "@/queries/tagQueries";
-import { createTaskActivity } from "@/services/taskActivityService";
 import { taskActivityKeys } from "@/queries/taskActivityQueries";
 import type { TaskActivityAction, TaskActivityInput } from "@/types/taskActivity";
 import { useProjectContext } from "@/contexts/ProjectContext";
+import { isOfflineMode } from "@/storage";
+import * as storageOps from "@/storage/operations";
+import { canPerformOperation, requiresAuth } from "@/storage/operations";
 
 const hasProp = <K extends keyof Partial<Task>>(obj: Partial<Task>, key: K): boolean =>
   Object.prototype.hasOwnProperty.call(obj, key);
@@ -190,7 +182,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   const recordTaskActivity = useCallback(async (taskId: string, action: TaskActivityAction, metadata?: Record<string, unknown>) => {
     try {
-      await createTaskActivity(taskId, action, metadata);
+      await storageOps.createTaskActivity({ task_id: taskId, action, metadata });
       queryClient.invalidateQueries({ queryKey: taskActivityKeys.byTask(taskId) });
     } catch (error) {
       console.error("Failed to record task activity:", error);
@@ -203,11 +195,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     isSuccess: isActiveSuccess,
   } = useQuery({
     ...taskQueries.active(),
-    enabled: !!user,
+    enabled: canPerformOperation(user),
   });
 
   useEffect(() => {
-    if (user) return;
+    if (canPerformOperation(user)) return;
         setTasks([]);
         setTrashedTasks([]);
         setAbandonedTasks([]);
@@ -257,7 +249,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
       try {
-        const mapping = await getTagsByTaskIdsService(activeTaskIds);
+        const mapping = await storageOps.getTagsByTaskIds(activeTaskIds);
         setTaskIdToTags(mapping);
         incrementTagsVersion();
       } catch (error) {
@@ -271,7 +263,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Add task
   const addTask = useCallback(async (task: Omit<Task, "id">) => {
     try {
-      if (!user) {
+      if (requiresAuth(user)) {
         toast({
           title: "添加失败",
           description: "您需要登录才能添加任务",
@@ -280,17 +272,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      // Ensure task has the current user's ID
       const taskWithUserId = {
         ...task,
-        user_id: user.id
+        user_id: user?.id || 'offline-user'
       };
-      const newTask = await addTaskService(taskWithUserId);
+      const newTask = await storageOps.addTask(taskWithUserId);
+
       if (!newTask) {
         throw new Error("add task failed");
       }
 
-      setTasks((current) => [newTask, ...current]);
+      setTasks((current) => [newTask!, ...current]);
       await recordTaskActivity(newTask.id, "task_created", { title: newTask.title });
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
@@ -301,7 +293,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // Update task
   const updateTask = useCallback(async (id: string, updatedTask: Partial<Task>) => {
-      if (!user) {
+      if (requiresAuth(user)) {
         toast({
           title: "更新失败",
           description: "您需要登录才能更新任务",
@@ -315,9 +307,14 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     const drafts = buildTaskActivityDrafts(previousTask, updatedTask);
     const isCompletionToggle = Object.prototype.hasOwnProperty.call(updatedTask, "completed");
 
+    // Helper function to perform the actual update
+    const performUpdate = async (): Promise<Task | null> => {
+      return storageOps.updateTask(id, updatedTask);
+    };
+
     if (isCompletionToggle) {
       try {
-        const updated = await updateTaskService(id, updatedTask);
+        const updated = await performUpdate();
         if (!updated) {
           throw new Error("update task failed");
         }
@@ -359,7 +356,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     setTasks(updatedTasks);
 
     try {
-      const updated = await updateTaskService(id, updatedTask);
+      const updated = await performUpdate();
       if (!updated) {
         throw new Error("update task failed");
       }
@@ -380,7 +377,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [toast, user, setTasks, queryClient, recordTaskActivity]);
 
   const loadTrashedTasks = useCallback(async () => {
-    if (!user) return;
+    if (!canPerformOperation(user)) return;
     if (trashedLoaded || trashedLoading) return;
 
     setTrashedLoading(true);
@@ -401,7 +398,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [user, trashedLoaded, trashedLoading, toast, setTrashedLoading, setTrashedTasks, setTrashedLoaded, queryClient]);
 
   const loadAbandonedTasks = useCallback(async () => {
-    if (!user) return;
+    if (!canPerformOperation(user)) return;
     if (abandonedLoaded || abandonedLoading) return;
 
     setAbandonedLoading(true);
@@ -455,7 +452,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     store.incrementTagsVersion();
 
     try {
-      await attachTagToTaskService(taskId, tagId);
+      await storageOps.attachTagToTask(taskId, tagId);
       await recordTaskActivity(taskId, "tag_added", {
         tagId,
         tagName: optimisticTag?.name ?? "",
@@ -481,7 +478,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     store.incrementTagsVersion();
 
     try {
-      await detachTagFromTaskService(taskId, tagId);
+      await storageOps.detachTagFromTask(taskId, tagId);
       await recordTaskActivity(taskId, "tag_removed", {
         tagId,
         tagName: removedTag?.name ?? "",
@@ -514,7 +511,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   const listAllTags = useCallback(async (projectId?: string | null) => {
     if (projectId === undefined) {
-      return await fetchAllTagsService(undefined);
+      return await storageOps.fetchAllTags(undefined);
     }
     
     const scope = projectId ?? null;
@@ -589,7 +586,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // 修改createTag函数，更新后刷新缓存
   const createTag = useCallback(async (name: string, projectId?: string | null) => {
-    const tag = await createTagService(name, projectId);
+    const tag = await storageOps.createTag(name, projectId);
     if (tag) {
       const store = useTaskStore.getState();
       const cache = store.tagsCache;
@@ -611,7 +608,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // 修改deleteTagPermanently函数
   const deleteTagPermanently = useCallback(async (tagId: string): Promise<boolean> => {
-    const ok = await deleteTagByIdService(tagId);
+    const ok = await storageOps.deleteTagById(tagId);
     if (ok) {
       await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       const cache = useTaskStore.getState().tagsCache;
@@ -634,7 +631,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // 修改updateTagProject函数
   const updateTagProject = useCallback(async (tagId: string, projectId: string | null): Promise<Tag | null> => {
-    const updatedTag = await updateTagProjectService(tagId, projectId);
+    const updatedTag = await storageOps.updateTagProject(tagId, projectId);
     if (updatedTag) {
       await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       const cache = useTaskStore.getState().tagsCache;
@@ -688,7 +685,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Move task to trash (soft delete)
   const moveToTrash = useCallback(async (id: string) => {
     try {
-      if (!user) {
+      if (requiresAuth(user)) {
         toast({
           title: "删除失败",
           description: "您需要登录才能删除任务",
@@ -697,7 +694,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      const success = await moveToTrashService(id);
+      const success = await storageOps.moveToTrash(id);
+
       if (!success) {
         throw new Error("move to trash failed");
       }
@@ -733,7 +731,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Restore task from trash
   const restoreFromTrash = useCallback(async (id: string) => {
     try {
-      if (!user) {
+      if (requiresAuth(user)) {
         toast({
           title: "恢复失败",
           description: "您需要登录才能恢复任务",
@@ -742,7 +740,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      const success = await restoreFromTrashService(id);
+      const success = await storageOps.restoreFromTrash(id);
+
       if (!success) {
         throw new Error("restore from trash failed");
       }
@@ -776,7 +775,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Permanently delete task
   const deleteTask = useCallback(async (id: string) => {
     try {
-      if (!user) {
+      if (requiresAuth(user)) {
         toast({
           title: "删除失败",
           description: "您需要登录才能删除任务",
@@ -785,7 +784,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      const success = await deleteTaskService(id);
+      const success = await storageOps.deleteTask(id);
+
       if (!success) {
         throw new Error("delete task failed");
       }
@@ -810,7 +810,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [user, toast, selectedTaskId, setTrashedTasks, setTasks, setSelectedTaskId, queryClient]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!canPerformOperation(user)) return;
     if (selectedProject === "trash") {
       loadTrashedTasks();
     } else if (selectedProject === "abandoned") {
@@ -829,6 +829,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [selectedProject, builtinScopes, visibleProjectIds]);
 
   useEffect(() => {
+    // Skip realtime subscriptions in offline mode
+    if (isOfflineMode) return;
     if (!user) return;
     const uid = user.id;
     const invalidate = () => queryClient.invalidateQueries({ queryKey: taskKeys.active() });
@@ -974,9 +976,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     // Persist only the moved task's order
     try {
       savingSortRef.current = true;
-      // 保存排序
-      const isGuest = !user;
-      const saved = await updateTaskService(movedUpdated.id, { sort_order: newOrder }, isGuest);
+      // 保存排序 - 使用统一的 storage operations
+      const saved = await storageOps.updateTask(movedUpdated.id, { sort_order: newOrder });
       if (!saved) throw new Error("Failed to persist updated sort order");
 
       // Sync query cache without triggering refetch to avoid flicker
@@ -1031,9 +1032,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
         try {
           savingSortRef.current = true;
-          // 保存排序
-          const isGuest2 = !user;
-          const saved2 = await updateTaskService(job.movedId, { sort_order: newOrder2 }, isGuest2);
+          // 保存排序 - 使用统一的 storage operations
+          const saved2 = await storageOps.updateTask(job.movedId, { sort_order: newOrder2 });
           if (!saved2) throw new Error("Failed to persist updated sort order");
           queryClient.setQueryData(taskKeys.active(), useTaskStore.getState().tasks);
           toast({ title: "已保存排序" });
@@ -1081,7 +1081,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Abandon a task
   const abandonTask = useCallback(async (id: string) => {
     try {
-      if (!user) {
+      if (requiresAuth(user)) {
         toast({
           title: "放弃失败",
           description: "您需要登录才能放弃任务",
@@ -1090,7 +1090,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      const success = await abandonTaskService(id);
+      const success = await storageOps.abandonTask(id);
       if (!success) {
         throw new Error("abandon task failed");
       }
@@ -1131,7 +1131,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // Restore task from abandoned
   const restoreAbandonedTask = useCallback(async (id: string) => {
     try {
-      if (!user) {
+      if (requiresAuth(user)) {
         toast({
           title: "恢复失败",
           description: "您需要登录才能恢复任务",
@@ -1140,7 +1140,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-      const success = await restoreAbandonedTaskService(id);
+      const success = await storageOps.restoreAbandonedTask(id);
       if (!success) {
         throw new Error("restore abandoned task failed");
       }

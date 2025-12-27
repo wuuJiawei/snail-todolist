@@ -2,11 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, WifiOff } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectContext } from "@/contexts/ProjectContext";
+import { isOfflineMode } from "@/storage";
 
 const JoinSharedProject: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -18,6 +19,17 @@ const JoinSharedProject: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Handle offline mode - redirect to home with toast
+    if (isOfflineMode) {
+      toast({
+        title: "离线模式",
+        description: "离线模式下无法加入共享清单",
+        variant: "destructive",
+      });
+      navigate("/", { replace: true });
+      return;
+    }
+
     const join = async () => {
       const shareCode = (code || "").toUpperCase();
       if (!shareCode) {

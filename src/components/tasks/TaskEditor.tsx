@@ -2,9 +2,8 @@ import React, { useMemo, useEffect, useCallback, useRef } from 'react';
 import { BlockNoteView } from '@blocknote/shadcn';
 import { useCreateBlockNote } from '@blocknote/react';
 import { PartialBlock, BlockNoteEditor } from '@blocknote/core';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { convertEditorJSToBlockNote, isEditorJSFormat } from '@/utils/contentConverter';
+import * as storageOps from '@/storage/operations';
 
 // Import BlockNote styles
 import '@blocknote/core/fonts/inter.css';
@@ -27,8 +26,6 @@ const TaskEditor: React.FC<TaskEditorProps> = ({
   taskId,
   onEditorReady
 }) => {
-  const { user } = useAuth();
-
   // Convert Editor.js content to BlockNote format if needed
   const initialBlocks = useMemo(() => {
     if (!content || content.trim() === '') {
@@ -83,36 +80,16 @@ const TaskEditor: React.FC<TaskEditorProps> = ({
   // Memoize upload function to prevent editor recreation
   const uploadFile = useCallback(async (file: File) => {
     try {
-      if (!user) {
-        throw new Error('User not authenticated');
+      const result = await storageOps.uploadImage(file);
+      if (!result) {
+        throw new Error('Upload failed');
       }
-
-      // Generate a unique file name
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`;
-
-      // Upload file to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(filePath);
-
-      return publicUrl;
+      return result.url;
     } catch (error) {
       console.error('Error uploading file:', error);
       throw error;
     }
-  }, [user]);
+  }, []);
 
   // Create BlockNote editor instance with stable configuration
   const editor = useCreateBlockNote({
