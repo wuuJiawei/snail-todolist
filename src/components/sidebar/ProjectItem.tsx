@@ -151,7 +151,7 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
         size={16}
         className="h-4 w-4 flex-shrink-0 flex items-center justify-center"
       />
-      <span className="text-sm flex-grow truncate mr-2">
+      <span className="text-sm font-medium flex-grow truncate mr-2">
         {project.name}
         {isSharedProject && (
           <Share2 className="inline-block ml-1 h-3 w-3 text-blue-500" />

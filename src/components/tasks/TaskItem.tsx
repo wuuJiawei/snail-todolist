@@ -596,6 +596,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
                 />
               ) : (
                 <span className={cn(
+                  "font-medium",
                   task.completed && "line-through text-gray-500 transition-all duration-300"
                 )}>
                   {localTitle}

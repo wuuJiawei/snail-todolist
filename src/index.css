@@ -7,6 +7,124 @@
 @tailwind utilities;
 
 @layer base {
+  /* ========== 自定义 Preflight 替代样式 ========== */
+  
+  /* Box sizing reset */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    @apply border-border;
+  }
+
+  html {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+  }
+
+  body {
+    margin: 0;
+    line-height: inherit;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 标题元素重置 */
+  h1, h2, h3, h4, h5, h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  /* 链接重置 */
+  a {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  /* 列表重置 */
+  ol, ul, menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 图片和媒体元素 */
+  img,
+  svg,
+  video,
+  canvas,
+  audio,
+  iframe,
+  embed,
+  object {
+    display: block;
+    vertical-align: middle;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* 表单元素继承字体 */
+  button,
+  input,
+  optgroup,
+  select,
+  textarea {
+    font-family: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    font-size: 100%;
+    font-weight: inherit;
+    line-height: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 按钮和选择框光标 */
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+
+  /* 禁用状态光标 */
+  :disabled {
+    cursor: default;
+  }
+
+  /* 按钮样式重置 */
+  button {
+    background-color: transparent;
+    background-image: none;
+  }
+
+  /* 表格重置 */
+  table {
+    text-indent: 0;
+    border-color: inherit;
+    border-collapse: collapse;
+  }
+
+  /* 输入框占位符颜色 */
+  input::placeholder,
+  textarea::placeholder {
+    opacity: 1;
+    color: theme('colors.gray.400');
+  }
+
+  /* 隐藏元素 */
+  [hidden] {
+    display: none;
+  }
+
+  /* ========== CSS 变量定义 ========== */
+  
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
@@ -39,19 +157,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -92,13 +203,9 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
-}
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-
+  /* ========== 应用级基础样式 ========== */
+  
   body {
     @apply bg-background text-foreground;
     /* 禁用全局文本选择 - 模仿客户端应用体验 */
@@ -112,6 +219,7 @@
     user-drag: none;
   }
 }
+
 
 /* 自定义滚动条样式 */
 @layer components {
