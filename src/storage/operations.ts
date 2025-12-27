@@ -325,6 +325,21 @@ export async function detachTagFromTask(taskId: string, tagId: string): Promise<
   }
 }
 
+export async function updateTag(tagId: string, updates: Partial<Tag>): Promise<Tag | null> {
+  try {
+    const storage = await ensureStorage();
+    return await storage.updateTag(tagId, updates);
+  } catch (error) {
+    console.error('Failed to update tag:', error);
+    toast({
+      title: '更新失败',
+      description: '无法更新标签',
+      variant: 'destructive',
+    });
+    return null;
+  }
+}
+
 export async function updateTagProject(tagId: string, projectId: string | null): Promise<Tag | null> {
   try {
     const storage = await ensureStorage();

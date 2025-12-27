@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { fetchTaskActivities } from "@/services/taskActivityService";
+import * as storageOps from "@/storage/operations";
 import type { TaskActivity } from "@/types/taskActivity";
 
 export const taskActivityKeys = {
@@ -11,7 +11,7 @@ export const taskActivityQueries = {
   byTask: (taskId: string) =>
     queryOptions<TaskActivity[]>({
       queryKey: taskActivityKeys.byTask(taskId),
-      queryFn: () => fetchTaskActivities(taskId),
+      queryFn: () => storageOps.getTaskActivities(taskId),
       staleTime: 1000 * 60,
     }),
 };
