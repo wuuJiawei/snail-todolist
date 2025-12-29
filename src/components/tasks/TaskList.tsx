@@ -3,7 +3,6 @@ import { useTaskContext } from "@/contexts/task";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { Task } from "@/types/task";
 import TaskItem from "@/components/tasks/TaskItem";
-import { Loader2 } from "lucide-react";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useTasksFilter } from "@/hooks/useTasksFilter";
@@ -11,8 +10,6 @@ import { useTaskFilter } from "@/hooks/useTaskFilter";
 import { cn } from "@/lib/utils";
 import ProjectSelector from "@/components/tasks/ProjectSelector";
 import { TODAY_TASKS_FILTERS_KEY, RECENT_TASKS_FILTERS_KEY, FLAGGED_TASKS_FILTERS_KEY } from "@/constants/storage-keys";
-import { Icon } from "@/components/ui/icon-park";
-import { Button } from "@/components/ui/button";
 import TaskFilter, { TaskFilterOptions } from "@/components/tasks/TaskFilter";
 import TaskListSkeleton from "@/components/tasks/TaskListSkeleton";
 
@@ -24,13 +21,16 @@ import TasksByDate from "./TasksByDate";
 import TasksCompleted from "./TasksCompleted";
 import CompletedTasksCollapsible from "./CompletedTasksCollapsible";
 import AbandonedTasksCollapsible from "./AbandonedTasksCollapsible";
+import EmptyStateGuide from "./EmptyStateGuide";
+import EditProjectDialog from "@/components/projects/EditProjectDialog";
 
 const TaskList: React.FC = () => {
   const { tasks, loading, selectedProject, addTask, reorderTasks } = useTaskContext();
-  const { projects } = useProjectContext();
+  const { projects, createProject } = useProjectContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { collapsed, setCollapsed } = useSidebar();
   const [filteredProjects, setFilteredProjects] = useState<string[]>([]);
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   
   // 任务筛选状态
   const [taskFilters, setTaskFilters] = useState<TaskFilterOptions>({
@@ -63,10 +63,15 @@ const TaskList: React.FC = () => {
   } = useTasksFilter(tasks, selectedProject, filteredProjects);
 
   // 应用任务筛选
-  const { filteredTasks: filteredPendingTasks, activeFilterCount } = useTaskFilter(pendingTasks || [], taskFilters);
-  const { filteredTasks: filteredCompletedTasks } = useTaskFilter(completedTasks || [], taskFilters);
-  const { filteredTasks: filteredExpiredTasks } = useTaskFilter(expiredTasks || [], taskFilters);
+  const { filteredTasks: rawFilteredPendingTasks, activeFilterCount } = useTaskFilter(pendingTasks || [], taskFilters);
+  const { filteredTasks: rawFilteredCompletedTasks } = useTaskFilter(completedTasks || [], taskFilters);
+  const { filteredTasks: rawFilteredExpiredTasks } = useTaskFilter(expiredTasks || [], taskFilters);
   const { filteredTasks: filteredPendingTasksByDate } = useTaskFilter(pendingTasksByDate || {}, taskFilters);
+
+  // 类型断言：数组输入返回数组
+  const filteredPendingTasks = rawFilteredPendingTasks as Task[];
+  const filteredCompletedTasks = rawFilteredCompletedTasks as Task[];
+  const filteredExpiredTasks = rawFilteredExpiredTasks as Task[];
 
   // Find the project and its details corresponding to the selected project ID
   const projectDetails = (() => {
@@ -221,26 +226,40 @@ const TaskList: React.FC = () => {
           <div className="flex-1 overflow-y-auto custom-scrollbar pb-4">
             {isSpecialView ? (
               <>
-                <TasksExpired
-                  tasks={filteredExpiredTasks}
-                  renderTask={renderTask}
-                />
-
-                <TasksByDate
-                  tasksByDate={filteredPendingTasksByDate as { [key: string]: Task[] }}
-                  renderTask={renderTask}
-                  showEmptyMessage={filteredExpiredTasks.length === 0}
-                />
-                
-                {/* 特殊视图中显示已完成任务的旧样式 */}
-                {filteredCompletedTasks.length > 0 && (
-                  <div className="mt-4">
-                    <TasksCompleted
-                      tasks={filteredCompletedTasks}
+                {/* 检查特殊视图是否完全为空（无过期、无待办、无已完成任务） */}
+                {filteredExpiredTasks.length === 0 && 
+                 Object.keys(filteredPendingTasksByDate as { [key: string]: Task[] }).length === 0 && 
+                 filteredCompletedTasks.length === 0 &&
+                 activeFilterCount === 0 ? (
+                  <EmptyStateGuide
+                    viewType={selectedProject as "today" | "recent" | "flagged"}
+                    onCreateProject={() => setNewProjectDialogOpen(true)}
+                    hasProjects={projects.length > 0}
+                  />
+                ) : (
+                  <>
+                    <TasksExpired
+                      tasks={filteredExpiredTasks}
                       renderTask={renderTask}
-                      allowSorting={allowSorting}
                     />
-                  </div>
+
+                    <TasksByDate
+                      tasksByDate={filteredPendingTasksByDate as { [key: string]: Task[] }}
+                      renderTask={renderTask}
+                      showEmptyMessage={filteredExpiredTasks.length === 0 && activeFilterCount > 0}
+                    />
+                    
+                    {/* 特殊视图中显示已完成任务的旧样式 */}
+                    {filteredCompletedTasks.length > 0 && (
+                      <div className="mt-4">
+                        <TasksCompleted
+                          tasks={filteredCompletedTasks}
+                          renderTask={renderTask}
+                          allowSorting={allowSorting}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             ) : (
@@ -289,6 +308,13 @@ const TaskList: React.FC = () => {
           </div>
         )}
       </div>
+
+      <EditProjectDialog
+        open={newProjectDialogOpen}
+        onOpenChange={setNewProjectDialogOpen}
+        project={null}
+        onSave={createProject}
+      />
     </div>
   );
 };
