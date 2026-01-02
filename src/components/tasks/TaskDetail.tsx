@@ -29,15 +29,21 @@ const TaskDetail = () => {
   const { operationState, startOperation } = useTaskOperation();
   const isCompletionLoading = operationState.isActive && operationState.operationType === "complete";
 
+  // 核心：追踪当前期望显示的任务 ID，用于防止竞态条件
+  const expectedTaskIdRef = useRef<string | null>(null);
+  
   // Track task switching with a ref to avoid unnecessary re-renders
   const previousTaskIdRef = useRef<string | null>(null);
   
-  // 关键修复：追踪当前正在编辑的任务ID，防止竞态条件
+  // 追踪当前正在编辑的任务ID，防止保存到错误的任务
   const currentEditingTaskIdRef = useRef<string | null>(null);
   
   // Add refs to track user input state
   const isUserTypingRef = useRef(false);
   const userInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // 追踪编辑器更新定时器，用于清理
+  const editorUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if the selected task is in the trash
   const isTaskInTrash = selectedTask ? trashedTasks.some(task => task.id === selectedTask.id) : false;
@@ -61,10 +67,14 @@ const TaskDetail = () => {
   const saveTask = useCallback(async (updates: Partial<typeof selectedTask>, taskIdToSave?: string) => {
     if (!selectedTask) return;
 
-    // 关键修复：验证当前正在编辑的任务ID，防止竞态条件
     const targetTaskId = taskIdToSave || selectedTask.id;
+    
+    // 防止竞态条件：确保保存的任务与当前期望的任务一致
+    if (expectedTaskIdRef.current && expectedTaskIdRef.current !== targetTaskId) {
+      return;
+    }
+
     if (currentEditingTaskIdRef.current && currentEditingTaskIdRef.current !== targetTaskId) {
-      console.warn(`任务切换竞态条件：尝试保存到任务 ${targetTaskId}，但当前编辑的是 ${currentEditingTaskIdRef.current}，忽略此次保存`);
       return;
     }
 
@@ -99,20 +109,25 @@ const TaskDetail = () => {
 
   useEffect(() => {
     if (!selectedTask) {
+      expectedTaskIdRef.current = null;
       return;
     }
 
-    const isNewTaskSelection = previousTaskIdRef.current !== selectedTask.id;
+    // 立即更新期望的任务 ID
+    const taskId = selectedTask.id;
+    expectedTaskIdRef.current = taskId;
+
+    const isNewTaskSelection = previousTaskIdRef.current !== taskId;
 
     if (isNewTaskSelection && previousTaskIdRef.current !== null) {
       debouncedTitleSave.flush();
       debouncedContentSave.flush();
     }
 
-    previousTaskIdRef.current = selectedTask.id;
+    previousTaskIdRef.current = taskId;
 
     if (isNewTaskSelection) {
-      currentEditingTaskIdRef.current = selectedTask.id;
+      currentEditingTaskIdRef.current = taskId;
     }
 
     if (isNewTaskSelection && !isUserTypingRef.current) {
@@ -126,6 +141,12 @@ const TaskDetail = () => {
       return;
     }
 
+    // 清理之前的定时器
+    if (editorUpdateTimerRef.current) {
+      clearTimeout(editorUpdateTimerRef.current);
+      editorUpdateTimerRef.current = null;
+    }
+
     setIsEditorUpdating(true);
     setEditorContent(selectedTask.description || '');
     setAttachments(selectedTask.attachments || []);
@@ -136,8 +157,6 @@ const TaskDetail = () => {
         const date = parseISO(selectedTask.date);
         if (isValid(date)) {
           setSelectedDate(date);
-        } else {
-          console.error('Invalid date:', selectedTask.date);
         }
       } catch (error) {
         console.error('Error parsing date:', error);
@@ -153,12 +172,19 @@ const TaskDetail = () => {
       });
     }
 
-    const timer = setTimeout(() => {
-      setIsEditorUpdating(false);
-    }, 300);
+    // 使用 ref 追踪的任务 ID 来防止竞态条件
+    editorUpdateTimerRef.current = setTimeout(() => {
+      // 只有当期望的任务 ID 仍然匹配时才更新状态
+      if (expectedTaskIdRef.current === taskId) {
+        setIsEditorUpdating(false);
+      }
+    }, 150);
 
     return () => {
-      clearTimeout(timer);
+      if (editorUpdateTimerRef.current) {
+        clearTimeout(editorUpdateTimerRef.current);
+        editorUpdateTimerRef.current = null;
+      }
     };
   }, [selectedTask, debouncedTitleSave, debouncedContentSave]);
 
@@ -279,20 +305,19 @@ const TaskDetail = () => {
   }, [title]);
 
   const handleEditorChange = (content: string) => {
-    // Only update if we have a selected task to prevent overwrites during transitions
-    if (selectedTask && !isEditorUpdating) {
-      // 关键修复：验证当前编辑的任务ID是否匹配
-      if (currentEditingTaskIdRef.current !== selectedTask.id) {
-        console.warn(`编辑器内容变化但任务ID不匹配：当前编辑=${currentEditingTaskIdRef.current}，selectedTask=${selectedTask.id}，忽略此次变化`);
-        return;
-      }
-
-      // Update local state immediately to prevent flickering
-      setEditorContent(content);
-
-      // Debounce the actual save operation，传入当前任务ID
-      debouncedContentSave(content, selectedTask.id);
+    // 防止竞态条件：确保当前编辑的任务与期望的任务一致
+    if (!selectedTask || isEditorUpdating) return;
+    
+    if (expectedTaskIdRef.current !== selectedTask.id) {
+      return;
     }
+
+    if (currentEditingTaskIdRef.current !== selectedTask.id) {
+      return;
+    }
+
+    setEditorContent(content);
+    debouncedContentSave(content, selectedTask.id);
   };
 
   const handleClose = () => {
@@ -376,6 +401,9 @@ const TaskDetail = () => {
     return () => {
       if (userInputTimeoutRef.current) {
         clearTimeout(userInputTimeoutRef.current);
+      }
+      if (editorUpdateTimerRef.current) {
+        clearTimeout(editorUpdateTimerRef.current);
       }
     };
   }, []);
