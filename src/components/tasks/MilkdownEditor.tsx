@@ -123,67 +123,111 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
     return result.url;
   };
 
+  const uploadNonImageFile = async (file: File): Promise<TaskAttachment | null> => {
+    try {
+      const result = await storageOps.uploadAttachment(taskIdRef.current || "temp", file);
+      return result;
+    } catch (error) {
+      console.error("Non-image upload failed:", error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     uploadHandlerRef.current = async (files, schema, _ctx, _insertPos) => {
       const imageNode = schema.nodes.image;
-      if (!imageNode || !files || files.length === 0) {
+      if (!files || files.length === 0) {
         return [];
       }
 
-      const pendingAttachments: TaskAttachment[] = [];
+      const pendingImageAttachments: TaskAttachment[] = [];
+      const pendingNonImageAttachments: TaskAttachment[] = [];
       const nodes: ReturnType<typeof imageNode.createAndFill>[] = [];
 
       for (let i = 0; i < files.length; i++) {
         const file = files.item(i);
-        if (!file || !file.type.startsWith("image/")) {
-          continue;
-        }
+        if (!file) continue;
 
-        try {
+        const isImage = file.type.startsWith("image/");
+
+        if (isImage && imageNode) {
+          try {
+            toast({
+              title: "正在上传图片...",
+              description: file.name,
+            });
+
+            const url = await uploadFile(file);
+
+            const attachment: TaskAttachment = {
+              id: crypto.randomUUID(),
+              url,
+              filename: file.name,
+              original_name: file.name,
+              type: file.type,
+              size: file.size,
+              uploaded_at: new Date().toISOString(),
+            };
+
+            pendingImageAttachments.push(attachment);
+
+            const node = imageNode.createAndFill({
+              src: url,
+              alt: file.name,
+              title: file.name,
+            });
+
+            nodes.push(node);
+
+            toast({
+              title: "图片上传成功",
+              description: file.name,
+            });
+          } catch (error) {
+            console.error("Image upload failed:", error);
+            toast({
+              title: "图片上传失败",
+              description: file?.name,
+              variant: "destructive",
+            });
+          }
+        } else {
+          // Handle non-image files as attachments
+          if (file.size > 10 * 1024 * 1024) {
+            toast({
+              title: "文件过大",
+              description: `${file.name} 超过 10MB 限制`,
+              variant: "destructive",
+            });
+            continue;
+          }
+
           toast({
-            title: "正在上传图片...",
+            title: "正在上传附件...",
             description: file.name,
           });
 
-          const url = await uploadFile(file);
-
-          const attachment: TaskAttachment = {
-            id: crypto.randomUUID(),
-            url,
-            filename: file.name,
-            original_name: file.name,
-            type: file.type,
-            size: file.size,
-            uploaded_at: new Date().toISOString(),
-          };
-
-          pendingAttachments.push(attachment);
-
-          const node = imageNode.createAndFill({
-            src: url,
-            alt: file.name,
-            title: file.name,
-          });
-
-          nodes.push(node);
-
-          toast({
-            title: "图片上传成功",
-            description: file.name,
-          });
-        } catch (error) {
-          console.error("Upload failed:", error);
-          toast({
-            title: "图片上传失败",
-            description: file?.name,
-            variant: "destructive",
-          });
+          const attachment = await uploadNonImageFile(file);
+          if (attachment) {
+            pendingNonImageAttachments.push(attachment);
+            toast({
+              title: "附件上传成功",
+              description: file.name,
+            });
+          } else {
+            toast({
+              title: "附件上传失败",
+              description: file.name,
+              variant: "destructive",
+            });
+          }
         }
       }
 
-      if (pendingAttachments.length > 0 && onAttachmentsChangeRef.current) {
+      const allPendingAttachments = [...pendingImageAttachments, ...pendingNonImageAttachments];
+      if (allPendingAttachments.length > 0 && onAttachmentsChangeRef.current) {
         const merged = [...attachmentsRef.current];
-        pendingAttachments.forEach((attachment) => {
+        allPendingAttachments.forEach((attachment) => {
           if (!merged.find((item) => item.url === attachment.url)) {
             merged.push(attachment);
           }
@@ -303,6 +347,26 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
         inst.action((ctx) => {
           const view = ctx.get(editorViewCtx);
           view.focus();
+        });
+      },
+      insertImage: (url: string, alt: string) => {
+        const inst = editor.get();
+        if (!inst) return;
+        inst.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          const { state } = view;
+          const imageNode = state.schema.nodes.image;
+          if (!imageNode) return;
+
+          const node = imageNode.create({
+            src: url,
+            alt: alt,
+            title: alt,
+          });
+
+          const endPos = state.doc.content.size;
+          const tr = state.tr.insert(endPos, node);
+          view.dispatch(tr);
         });
       },
     });
