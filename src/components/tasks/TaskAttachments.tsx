@@ -1,9 +1,11 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { TaskAttachment } from '@/types/task';
-import { Paperclip, Download, Trash2, FileText, Image, File, ChevronDown, ChevronUp } from 'lucide-react';
+import { Paperclip, Download, Trash2, FileText, Image, File, Plus } from 'lucide-react';
 import * as storageOps from '@/storage/operations';
+import clsx from 'clsx';
 
 interface TaskAttachmentsProps {
   attachments: TaskAttachment[];
@@ -19,15 +21,7 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [collapsed, setCollapsed] = useState(true);
-  const previousCountRef = useRef(attachments.length);
-
-  useEffect(() => {
-    if (attachments.length > previousCountRef.current) {
-      setCollapsed(false);
-    }
-    previousCountRef.current = attachments.length;
-  }, [attachments.length]);
+  const [open, setOpen] = useState(false);
 
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/')) return Image;
@@ -36,11 +30,11 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return '0 B';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
   const handleFileUpload = useCallback(async (files: FileList, taskId?: string) => {
@@ -92,6 +86,7 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       handleFileUpload(event.target.files);
+      event.target.value = '';
     }
   };
 
@@ -100,10 +95,8 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
 
     try {
       await storageOps.deleteAttachment(attachment.id);
-
       const updatedAttachments = attachments.filter((item) => item.id !== attachment.id);
       onAttachmentsChange(updatedAttachments);
-
       toast({
         title: '删除成功',
         description: '附件已删除',
@@ -118,107 +111,149 @@ const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
     }
   };
 
-  const downloadAttachment = (attachment: TaskAttachment) => {
-    const link = document.createElement('a');
-    link.href = attachment.url;
-    link.download = attachment.original_name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadAttachment = async (attachment: TaskAttachment) => {
+    try {
+      const response = await fetch(attachment.url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = attachment.original_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+      window.open(attachment.url, '_blank');
+    }
   };
 
+  const hasAttachments = attachments.length > 0;
+
   return (
-    <div className="rounded-lg border bg-muted/30">
-      <div className="flex items-center justify-between px-3 py-2">
-        <button
-          type="button"
-          onClick={() => setCollapsed((prev) => !prev)}
-          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Paperclip className="h-4 w-4" />
-          <span>附件 {attachments.length > 0 ? `(${attachments.length})` : ''}</span>
-          {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-        </button>
-
-        {!readOnly && (
-          <div className="flex items-center gap-2">
-            {uploading && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border border-muted-foreground border-t-transparent" />
-                上传中…
-              </div>
+    <div className="absolute bottom-6 right-6 z-20">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={clsx(
+              "relative flex items-center justify-center w-12 h-12 rounded-full shadow-lg transition-all duration-200",
+              "hover:scale-105 hover:shadow-xl active:scale-95",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+              hasAttachments
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted/80 text-muted-foreground hover:bg-muted"
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              onChange={handleInputChange}
-              className="hidden"
-              accept="*/*"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full border-dashed"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              添加附件
-            </Button>
-          </div>
-        )}
-      </div>
+            aria-label={`附件${hasAttachments ? ` (${attachments.length})` : ''}`}
+          >
+            <Paperclip className="h-5 w-5" />
+            {hasAttachments && (
+              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold bg-destructive text-destructive-foreground rounded-full">
+                {attachments.length}
+              </span>
+            )}
+          </button>
+        </PopoverTrigger>
 
-      {!collapsed && (
-        <div className="border-t">
-          {attachments.length === 0 ? (
-            <div className="px-3 py-4 text-sm text-muted-foreground">
-              暂无附件
+        <PopoverContent
+          side="top"
+          align="end"
+          sideOffset={8}
+          className="w-72 p-0 overflow-hidden"
+        >
+          <div className="px-4 py-3 border-b bg-muted/30">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium">
+                附件 {hasAttachments && <span className="text-muted-foreground">({attachments.length})</span>}
+              </h4>
+              {uploading && (
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              )}
             </div>
-          ) : (
-            <ul className="divide-y">
-              {attachments.map((attachment) => {
-                const IconComponent = getFileIcon(attachment.type);
-                return (
-                  <li key={attachment.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <IconComponent className="h-4 w-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-foreground" title={attachment.original_name}>
+          </div>
+
+          <div className="max-h-64 overflow-y-auto">
+            {!hasAttachments ? (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                暂无附件
+              </div>
+            ) : (
+              <ul className="divide-y">
+                {attachments.map((attachment) => {
+                  const IconComponent = getFileIcon(attachment.type);
+                  return (
+                    <li
+                      key={attachment.id}
+                      className="group flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-muted">
+                        <IconComponent className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-sm font-medium truncate"
+                          title={attachment.original_name}
+                        >
                           {attachment.original_name}
                         </p>
-                        <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatFileSize(attachment.size)}
+                        </p>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => downloadAttachment(attachment)}
-                        title="下载附件"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      {!readOnly && (
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => removeAttachment(attachment)}
-                          title="删除附件"
+                          className="h-7 w-7"
+                          onClick={() => downloadAttachment(attachment)}
+                          title="下载"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Download className="h-3.5 w-3.5" />
                         </Button>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                        {!readOnly && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => removeAttachment(attachment)}
+                            title="删除"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {!readOnly && (
+            <div className="px-3 py-2.5 border-t bg-muted/20">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleInputChange}
+                className="hidden"
+                accept="*/*"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-center gap-2 text-muted-foreground hover:text-foreground"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                <Plus className="h-4 w-4" />
+                添加附件
+              </Button>
+            </div>
           )}
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 };

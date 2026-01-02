@@ -1,6 +1,5 @@
 import React, { useRef, useState, useCallback } from "react";
 import MilkdownEditor from "./MilkdownEditor";
-import TaskAttachments from "./TaskAttachments";
 import type { TaskAttachment } from "@/types/task";
 import { useToast } from "@/hooks/use-toast";
 import * as storageOps from "@/storage/operations";
@@ -144,7 +143,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
   return (
     <div
       className={clsx(
-        "task-editor-shell flex-1 flex flex-col gap-4 relative",
+        "task-editor-shell flex-1 flex flex-col",
         isDragging && "ring-2 ring-primary ring-offset-2 rounded-lg"
       )}
       onClick={handleShellClick}
@@ -160,7 +159,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
           </div>
         </div>
       )}
-      <div className="w-full flex-1 overflow-visible relative">
+      <div className="w-full flex-1 overflow-visible">
         {!isEditorUpdating && (
           <MilkdownEditor
             taskId={taskId}
@@ -178,11 +177,6 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
           </div>
         )}
       </div>
-      <TaskAttachments
-        attachments={attachments}
-        onAttachmentsChange={onAttachmentsChange}
-        readOnly={isTaskInTrash}
-      />
     </div>
   );
 };
