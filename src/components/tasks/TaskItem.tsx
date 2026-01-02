@@ -608,7 +608,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
                   onKeyDown={handleKeyDown}
                   onCompositionStart={() => { isComposingRef.current = true; }}
                   onCompositionEnd={() => { isComposingRef.current = false; }}
-                  className="w-full px-0 border-none focus:outline-none focus:ring-0 bg-transparent"
+                  className="w-full px-0 border-none focus:outline-none focus:ring-0 bg-transparent font-medium"
                 />
               ) : (
                 <span className={cn(

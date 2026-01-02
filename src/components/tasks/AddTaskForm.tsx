@@ -62,7 +62,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) =>
           onCompositionStart={() => { isComposingRef.current = true; }}
           onCompositionEnd={() => { isComposingRef.current = false; }}
           placeholder="添加任务"
-          className="h-6 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm px-0"
+          className="h-6 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm font-medium px-0"
           disabled={isSubmitting}
         />
         <Popover>
