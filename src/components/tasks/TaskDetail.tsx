@@ -7,7 +7,6 @@ import { format, parseISO, isValid } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import TaskDetailSkeleton from "@/components/tasks/TaskDetailSkeleton";
 import { useDebouncedCallback } from 'use-debounce';
-import TaskDetailHeader from "./TaskDetailHeader";
 import TaskDetailTitleSection from "./TaskDetailTitleSection";
 import TaskDetailContent, { EditorBridge } from "./TaskDetailContent";
 import TaskActivityDialog from "./TaskActivityDialog";
@@ -429,20 +428,6 @@ const TaskDetail = () => {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-muted/10">
-      <TaskDetailHeader
-        completed={completed}
-        isTaskInTrash={isTaskInTrash}
-        flagged={flagged}
-        selectedDate={selectedDate}
-        onCompletedChange={handleCompletedChange}
-        onFlagToggle={handleFlagToggle}
-        onDateChange={handleDateChange}
-        onCopyAsMarkdown={handleCopyAsMarkdown}
-        onClose={handleClose}
-        onShowActivityLog={() => setActivityDialogOpen(true)}
-        isCompletionLoading={isCompletionLoading}
-      />
-
       <div className={`flex-1 overflow-y-auto custom-scrollbar px-6 py-5 flex flex-col gap-6 ${isCompletionLoading ? "opacity-60 pointer-events-none" : ""}`}>
         <section className="bg-background border border-border/60 rounded-xl shadow-sm px-5 py-4">
           <TaskDetailTitleSection
@@ -455,6 +440,16 @@ const TaskDetail = () => {
             selectedTask={selectedTask}
             completedAtLabel={completedAtLabel}
             deletedAtLabel={deletedAtLabel}
+            completed={completed}
+            flagged={flagged}
+            selectedDate={selectedDate}
+            isCompletionLoading={isCompletionLoading}
+            onCompletedChange={handleCompletedChange}
+            onFlagToggle={handleFlagToggle}
+            onDateChange={handleDateChange}
+            onCopyAsMarkdown={handleCopyAsMarkdown}
+            onClose={handleClose}
+            onShowActivityLog={() => setActivityDialogOpen(true)}
           />
         </section>
 
