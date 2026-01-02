@@ -262,16 +262,33 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // Add task
   const addTask = useCallback(async (task: Omit<Task, "id">) => {
-    try {
-      if (requiresAuth(user)) {
-        toast({
-          title: "添加失败",
-          description: "您需要登录才能添加任务",
-          variant: "destructive"
-        });
-        return;
-      }
+    if (requiresAuth(user)) {
+      toast({
+        title: "添加失败",
+        description: "您需要登录才能添加任务",
+        variant: "destructive"
+      });
+      return;
+    }
 
+    // 生成临时 ID 用于乐观更新
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    
+    // 构建乐观任务对象
+    const optimisticTask: Task = {
+      id: tempId,
+      ...task,
+      user_id: user?.id || 'offline-user',
+      completed: task.completed ?? false,
+      attachments: task.attachments ?? [],
+      _isPending: true,
+      _tempId: tempId,
+    };
+
+    // 立即更新 UI（乐观更新）
+    setTasks((current) => [optimisticTask, ...current]);
+
+    try {
       const taskWithUserId = {
         ...task,
         user_id: user?.id || 'offline-user'
@@ -282,11 +299,24 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         throw new Error("add task failed");
       }
 
-      setTasks((current) => [newTask!, ...current]);
+      // 用真实任务替换乐观任务
+      setTasks((current) => 
+        current.map((t) => 
+          t.id === tempId ? { ...newTask, _isPending: false } : t
+        )
+      );
+
       await recordTaskActivity(newTask.id, "task_created", { title: newTask.title });
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
+      // 回滚：移除乐观任务
+      setTasks((current) => current.filter((t) => t.id !== tempId));
       console.error("Failed to add task:", error);
+      toast({
+        title: "添加失败",
+        description: "无法添加任务，请稍后再试",
+        variant: "destructive"
+      });
       throw error;
     }
   }, [user, toast, setTasks, queryClient, recordTaskActivity]);

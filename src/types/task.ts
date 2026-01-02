@@ -16,6 +16,10 @@ export interface Task {
   abandoned_at?: string; // ISO string format representing when the task was abandoned
   flagged?: boolean; // Whether the task is flagged for quick access
   attachments?: TaskAttachment[]; // File attachments
+  /** 乐观更新标记：任务正在创建中，尚未持久化 */
+  _isPending?: boolean;
+  /** 乐观更新时的临时 ID，用于后续替换 */
+  _tempId?: string;
 }
 
 export interface TaskAttachment {
