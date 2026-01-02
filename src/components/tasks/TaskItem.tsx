@@ -401,7 +401,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
       {!task.abandoned && (
         <>
           <ContextMenuItem onClick={handleToggleFlag}>
-            <Icon icon="flag" size="16" className={cn("h-4 w-4 mr-2", task.flagged ? "text-amber-500" : undefined)} />
+            <Icon icon="flag" size="16" className={cn("h-4 w-4 mr-2", task.flagged ? "text-rose-700" : undefined)} />
             {task.flagged ? "取消标记" : "标记任务"}
           </ContextMenuItem>
           <ContextMenuSeparator />
@@ -596,7 +596,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
                 </span>
               )}
               {task.flagged && (
-                <Icon icon="flag" size="14" className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                <Icon icon="flag" size="14" className="h-3.5 w-3.5 text-rose-700 flex-shrink-0" />
               )}
               {isEditing ? (
                 <input

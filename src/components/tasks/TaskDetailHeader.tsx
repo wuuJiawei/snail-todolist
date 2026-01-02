@@ -48,7 +48,7 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
 }) => {
   return (
     <div className="p-3 flex items-center justify-between border-b bg-background">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {isCompletionLoading && (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         )}
@@ -58,21 +58,22 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
           className="rounded-full h-5 w-5"
           disabled={isTaskInTrash || isCompletionLoading}
         />
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
           onClick={onFlagToggle}
           disabled={isTaskInTrash || isCompletionLoading}
           className={cn(
-            "h-5 w-5 rounded-full border border-transparent transition-colors",
-            flagged ? "text-amber-500 bg-amber-50 dark:bg-amber-500/10" : "text-muted-foreground hover:text-foreground"
+            "h-5 w-5 rounded-full border flex items-center justify-center transition-colors",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            flagged 
+              ? "border-rose-700 bg-rose-700 text-white" 
+              : "border-primary text-primary hover:bg-primary/10"
           )}
           aria-pressed={flagged}
           title={flagged ? "取消标记" : "标记任务"}
         >
-          <Icon icon="flag" size="16" className="h-4 w-4" />
-        </Button>
-        <Separator orientation="vertical" />
+          <Icon icon="flag" size="12" className="h-3 w-3" />
+        </button>
+        <Separator orientation="vertical" className="h-5" />
         {isTaskInTrash ? (
           <div className="text-xs px-2 py-1 bg-muted rounded-md flex items-center">
             <CalendarIcon className="mr-2 h-3 w-3" />
@@ -99,7 +100,7 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
       <div className="flex items-center gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -114,7 +115,7 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button variant="ghost" size="icon" onClick={onClose}>
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </div>
