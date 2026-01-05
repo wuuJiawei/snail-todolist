@@ -250,7 +250,24 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
       try {
         const mapping = await storageOps.getTagsByTaskIds(activeTaskIds);
-        setTaskIdToTags(mapping);
+        const currentMapping = useTaskStore.getState().taskIdToTags;
+        
+        // 合并数据库结果和当前状态，保留乐观更新的标签
+        const mergedMapping: Record<string, Tag[]> = { ...mapping };
+        for (const taskId of activeTaskIds) {
+          const dbTags = mapping[taskId] || [];
+          const currentTags = currentMapping[taskId] || [];
+          
+          // 找出当前状态中有但数据库中没有的标签（乐观更新的）
+          const dbTagIds = new Set(dbTags.map(t => t.id));
+          const optimisticTags = currentTags.filter(t => !dbTagIds.has(t.id));
+          
+          if (optimisticTags.length > 0) {
+            mergedMapping[taskId] = [...dbTags, ...optimisticTags];
+          }
+        }
+        
+        setTaskIdToTags(mergedMapping);
         incrementTagsVersion();
       } catch (error) {
         console.error("Failed to load tags for tasks:", error);
