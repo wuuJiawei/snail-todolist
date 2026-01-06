@@ -31,7 +31,43 @@ import { basicSetup } from "codemirror";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { defaultKeymap } from "@codemirror/commands";
 import { keymap } from "@codemirror/view";
+import { $prose } from "@milkdown/kit/utils";
+import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import * as storageOps from "@/storage/operations";
+
+const taskListClickPlugin = $prose(() => {
+  return new Plugin({
+    key: new PluginKey("task-list-click"),
+    props: {
+      handleClick(view, pos, event) {
+        const target = event.target as HTMLElement;
+        const li = target.closest('li[data-item-type="task"]');
+        if (!li) return false;
+
+        const rect = li.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        if (clickX > 24) return false;
+
+        const $pos = view.state.doc.resolve(pos);
+        let depth = $pos.depth;
+        while (depth > 0) {
+          const node = $pos.node(depth);
+          if (node.type.name === "list_item" && node.attrs.checked !== null) {
+            const nodePos = $pos.before(depth);
+            const tr = view.state.tr.setNodeMarkup(nodePos, undefined, {
+              ...node.attrs,
+              checked: !node.attrs.checked,
+            });
+            view.dispatch(tr);
+            return true;
+          }
+          depth--;
+        }
+        return false;
+      },
+    },
+  });
+});
 
 const chevronDownIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
 const searchIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`;
@@ -319,7 +355,8 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
         // @ts-ignore - Type inference issue with tooltip plugin
         .use(tooltip)
         // @ts-ignore - Type inference issue with codeBlockComponent
-        .use(codeBlockComponent);
+        .use(codeBlockComponent)
+        .use(taskListClickPlugin);
     },
     []
   );
