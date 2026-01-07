@@ -108,31 +108,48 @@ export const getTagsByTaskIds = async (taskIds: string[]): Promise<Record<string
   const result: Record<string, Tag[]> = {};
   if (taskIds.length === 0) return result;
   
+  // 初始化所有 taskId 的空数组
+  for (const tid of taskIds) result[tid] = [];
+  
+  // 分批查询，每批最多 50 个 task_id，避免 URL 过长
+  const BATCH_SIZE = 50;
+  const allLinks: Array<{ task_id: string; tag_id: string }> = [];
+  
   try {
-    const { data: links, error: linkError } = await supabase
-      .from("task_tags")
-      .select("task_id, tag_id")
-      .in("task_id", taskIds);
-    if (linkError) throw linkError;
-    const tagIds = Array.from(new Set((links || []).map(l => l.tag_id)));
-    let tags: Tag[] = [];
-    if (tagIds.length > 0) {
-      const { data: tagRows, error: tagError } = await supabase.from("tags").select("*").in("id", tagIds);
-      if (tagError) throw tagError;
-      tags = (tagRows || []) as Tag[];
+    for (let i = 0; i < taskIds.length; i += BATCH_SIZE) {
+      const batch = taskIds.slice(i, i + BATCH_SIZE);
+      const { data: links, error: linkError } = await supabase
+        .from("task_tags")
+        .select("task_id, tag_id")
+        .in("task_id", batch);
+      if (linkError) throw linkError;
+      if (links) allLinks.push(...links);
     }
+    
+    const tagIds = Array.from(new Set(allLinks.map(l => l.tag_id)));
+    let tags: Tag[] = [];
+    
+    // 同样分批查询 tags
+    if (tagIds.length > 0) {
+      for (let i = 0; i < tagIds.length; i += BATCH_SIZE) {
+        const batch = tagIds.slice(i, i + BATCH_SIZE);
+        const { data: tagRows, error: tagError } = await supabase.from("tags").select("*").in("id", batch);
+        if (tagError) throw tagError;
+        if (tagRows) tags.push(...(tagRows as Tag[]));
+      }
+    }
+    
     const tagMap = new Map(tags.map(t => [t.id, t] as const));
-    for (const tid of taskIds) result[tid] = [];
-    (links || []).forEach(l => {
+    allLinks.forEach(l => {
       const tag = tagMap.get(l.tag_id);
-      if (!tag) return;
-      if (!result[l.task_id]) result[l.task_id] = [];
-      result[l.task_id].push(tag);
+      if (tag) {
+        result[l.task_id].push(tag);
+      }
     });
     return result;
   } catch (error) {
     console.error("Error fetching tags by task ids:", error);
-    return {};
+    return result;
   }
 };
 
