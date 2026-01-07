@@ -42,6 +42,7 @@ export interface PomodoroSession {
   completed_at?: string | null;
   created_at: string;
   notes?: string | null;
+  title?: string | null;
 }
 
 /**

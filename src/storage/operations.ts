@@ -459,6 +459,7 @@ export interface PomodoroSessionPublic {
   type: PomodoroSessionType;
   completed: boolean;
   created_at: string;
+  title?: string | null;
 }
 
 export interface FetchPomodoroSessionsOptions {
@@ -497,6 +498,7 @@ const mapSessionToPublic = (session: PomodoroSession): PomodoroSessionPublic => 
   type: mapInternalTypeToPublic(session.type),
   completed: !!session.completed_at,
   created_at: session.created_at,
+  title: session.title ?? null,
 });
 
 const calculateActualMinutes = (session: PomodoroSessionPublic): number => {
@@ -527,7 +529,8 @@ export async function getPomodoroSessions(taskId?: string): Promise<PomodoroSess
 
 export async function startPomodoroSession(
   sessionType: PomodoroSessionType,
-  durationMinutes: number
+  durationMinutes: number,
+  title?: string
 ): Promise<PomodoroSessionPublic | null> {
   try {
     const storage = await ensureStorage();
@@ -535,6 +538,7 @@ export async function startPomodoroSession(
       type: mapPublicTypeToInternal(sessionType),
       duration: durationMinutes,
       started_at: new Date().toISOString(),
+      title: title?.trim() || null,
     });
     return mapSessionToPublic(session);
   } catch (error) {

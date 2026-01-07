@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as storageOps from "@/storage/operations";
 import type { PomodoroSessionPublic, PomodoroSessionType } from "@/storage/operations";
-import { POMODORO_CYCLE_PROGRESS_KEY } from "@/constants/storage-keys";
+import { POMODORO_CYCLE_PROGRESS_KEY, POMODORO_FOCUS_TITLE_KEY } from "@/constants/storage-keys";
 import { PomodoroSettings } from "./usePomodoroSettings";
 
 type TransitionReason = "complete" | "skip" | "reset";
@@ -42,6 +42,35 @@ const persistFocusStreak = (value: number) => {
     localStorage.setItem(POMODORO_CYCLE_PROGRESS_KEY, JSON.stringify({ focusStreak: value }));
   } catch (error) {
     console.error("Failed to persist pomodoro focus streak:", error);
+  }
+};
+
+const loadFocusTitle = (): string => {
+  try {
+    const raw = localStorage.getItem(POMODORO_FOCUS_TITLE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { title?: string };
+      return parsed.title ?? "";
+    }
+  } catch (error) {
+    console.error("Failed to load pomodoro focus title:", error);
+  }
+  return "";
+};
+
+const persistFocusTitle = (title: string, sessionId?: string) => {
+  try {
+    localStorage.setItem(POMODORO_FOCUS_TITLE_KEY, JSON.stringify({ title, sessionId }));
+  } catch (error) {
+    console.error("Failed to persist pomodoro focus title:", error);
+  }
+};
+
+const clearPersistedFocusTitle = () => {
+  try {
+    localStorage.removeItem(POMODORO_FOCUS_TITLE_KEY);
+  } catch (error) {
+    console.error("Failed to clear pomodoro focus title:", error);
   }
 };
 
@@ -108,6 +137,8 @@ export interface PomodoroTimerState {
   upcomingMode: PomodoroSessionType;
   session: PomodoroSessionPublic | null;
   version: number;
+  focusTitle: string;
+  setFocusTitle: (title: string) => void;
   start: () => Promise<void>;
   pause: () => void;
   reset: () => Promise<void>;
@@ -122,11 +153,18 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
   const [remainingSeconds, setRemainingSeconds] = useState(() => settings.focusDuration * 60);
   const [focusStreak, setFocusStreak] = useState(() => loadFocusStreak(settings.cyclesBeforeLongBreak));
   const [version, setVersion] = useState(0);
+  const [focusTitle, setFocusTitleState] = useState(() => loadFocusTitle());
 
   const intervalRef = useRef<number | null>(null);
   const sessionRef = useRef<PomodoroSessionPublic | null>(null);
   const actionLockRef = useRef(false);
   const completionPendingRef = useRef(false);
+  const focusTitleRef = useRef(focusTitle);
+
+  const setFocusTitle = useCallback((title: string) => {
+    setFocusTitleState(title);
+    focusTitleRef.current = title;
+  }, []);
 
   const totalSeconds = useMemo(() => {
     let seconds = getDurationForMode(mode, settings) * 60;
@@ -186,14 +224,15 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
   }, [settings.cyclesBeforeLongBreak]);
 
   const startSessionForMode = useCallback(
-    async (targetMode: PomodoroSessionType, forceNew = false) => {
+    async (targetMode: PomodoroSessionType, forceNew = false, title?: string) => {
       const durationMinutes = getDurationForMode(targetMode, settings);
       const currentSession = sessionRef.current;
       const shouldCreateNew =
         forceNew || !currentSession || currentSession.type !== targetMode;
 
       if (shouldCreateNew) {
-        const created = await storageOps.startPomodoroSession(targetMode, durationMinutes);
+        const sessionTitle = targetMode === "focus" ? title : undefined;
+        const created = await storageOps.startPomodoroSession(targetMode, durationMinutes, sessionTitle);
         if (!created) {
           return;
         }
@@ -201,6 +240,10 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
         sessionRef.current = created;
         setMode(targetMode);
         setRemainingSeconds(durationMinutes * 60);
+
+        if (targetMode === "focus" && sessionTitle) {
+          persistFocusTitle(sessionTitle, created.id);
+        }
       } else if (currentSession) {
         setMode(currentSession.type);
       }
@@ -254,6 +297,10 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
         setSession(null);
         sessionRef.current = null;
 
+        clearPersistedFocusTitle();
+        setFocusTitleState("");
+        focusTitleRef.current = "";
+
         const targetMode = reason === "reset" ? mode : nextMode;
         setMode(targetMode);
         applyModeDefaults(targetMode);
@@ -295,7 +342,7 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
 
   const start = useCallback(async () => {
     if (isRunning) return;
-    await startSessionForMode(mode);
+    await startSessionForMode(mode, false, focusTitleRef.current);
   }, [isRunning, mode, startSessionForMode]);
 
   const pause = useCallback(() => {
@@ -381,6 +428,10 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
         setSession(active);
         setRemainingSeconds(remaining);
         setIsRunning(true);
+        if (active.type === "focus" && active.title) {
+          setFocusTitleState(active.title);
+          focusTitleRef.current = active.title;
+        }
       } else {
         sessionRef.current = active;
         setTimeout(() => {
@@ -410,6 +461,8 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
     upcomingMode,
     session,
     version,
+    focusTitle,
+    setFocusTitle,
     start,
     pause,
     reset,

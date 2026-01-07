@@ -279,6 +279,7 @@ export class SupabaseAdapter implements StorageAdapter {
       completed_at: s.end_time,
       created_at: s.created_at,
       notes: null as string | null,
+      title: s.title ?? null,
     }));
     
     if (taskId) {
@@ -301,7 +302,7 @@ export class SupabaseAdapter implements StorageAdapter {
 
   async createPomodoroSession(session: CreatePomodoroInput): Promise<PomodoroSession> {
     const type = session.type === 'work' ? 'focus' : session.type;
-    const result = await pomodoroService.startPomodoroSession(type, session.duration);
+    const result = await pomodoroService.startPomodoroSession(type, session.duration, session.title ?? undefined);
     
     if (!result) {
       throw new Error('Failed to create pomodoro session');
@@ -317,6 +318,7 @@ export class SupabaseAdapter implements StorageAdapter {
       completed_at: result.end_time,
       created_at: result.created_at,
       notes: null,
+      title: result.title ?? null,
     };
   }
 

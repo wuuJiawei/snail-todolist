@@ -132,6 +132,12 @@ const Pomodoro = () => {
       : "已暂停"
     : "未开始";
 
+  const showTitleInput = !timer.session && timer.mode === "focus";
+  const showTitleDisplay = timer.session && timer.mode === "focus" && timer.focusTitle;
+  const displayTitle = timer.focusTitle.length > 100 
+    ? timer.focusTitle.slice(0, 100) + "..." 
+    : timer.focusTitle;
+
   return (
     <div className="relative flex h-screen w-full items-center justify-center">
       <div className="absolute top-4 right-4 flex items-center gap-2">
@@ -158,9 +164,26 @@ const Pomodoro = () => {
           ))}
         </div>
 
-        <CircularProgress value={timer.progress} size={300} thickness={24}>
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-6xl font-semibold tracking-tight">{formattedTime}</span>
+        {showTitleInput && (
+          <Input
+            type="text"
+            placeholder="今天专注于..."
+            value={timer.focusTitle}
+            onChange={(e) => timer.setFocusTitle(e.target.value)}
+            className="w-[320px] text-center text-lg h-12"
+            maxLength={200}
+          />
+        )}
+
+        {showTitleDisplay && (
+          <div className="text-3xl font-bold text-primary text-center px-4 max-w-[400px] leading-tight animate-in fade-in duration-300">
+            {displayTitle}
+          </div>
+        )}
+
+        <CircularProgress value={timer.progress} size={280} thickness={20}>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-5xl font-semibold tracking-tight">{formattedTime}</span>
             <span className="text-xs text-muted-foreground">
               {MODE_LABELS[timer.mode]} · {sessionStatusLabel}
             </span>
@@ -236,24 +259,32 @@ const Pomodoro = () => {
                     )}
                     {recentSessions.map((session) => {
                       const startedAt = format(new Date(session.start_time), "MM/dd HH:mm");
+                      const sessionTitle = session.type === "focus" 
+                        ? (session.title || "未命名专注")
+                        : null;
                       return (
                         <div
                           key={session.id}
                           className="flex items-start justify-between rounded-lg border bg-background p-4"
                         >
-                          <div className="space-y-1">
-                            <div className="text-sm font-medium">
+                          <div className="space-y-1 flex-1 min-w-0">
+                            {sessionTitle && (
+                              <div className="text-sm font-semibold text-foreground truncate pr-2">
+                                {sessionTitle}
+                              </div>
+                            )}
+                            <div className="text-sm text-muted-foreground">
                               {MODE_LABELS[session.type]} · {formatDuration(session.duration)}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {session.completed ? "已完成" : "未完成"} · {startedAt}
-                              {session.end_time ? ` · 结束于 ${format(new Date(session.end_time), "HH:mm")}` : ""}
+                              {session.end_time ? ` → ${format(new Date(session.end_time), "HH:mm")}` : ""}
                             </div>
                           </div>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-muted-foreground hover:text-destructive"
+                            className="text-muted-foreground hover:text-destructive shrink-0"
                             onClick={() => void removeSession(session.id)}
                           >
                             <Trash2 className="h-4 w-4" />

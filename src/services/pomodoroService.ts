@@ -12,6 +12,7 @@ export interface PomodoroSession {
   type: PomodoroSessionType;
   completed: boolean;
   created_at: string;
+  title?: string | null;
 }
 
 export interface CompletePomodoroOptions {
@@ -125,6 +126,7 @@ const mapSession = (row: Record<string, unknown>): PomodoroSession => ({
   type: normalizeSessionType(row.type as string | null | undefined),
   completed: (row.completed ?? !!row.completed_at) as boolean,
   created_at: (row.created_at ?? row.start_time ?? row.started_at) as string,
+  title: (row.title as string | null | undefined) ?? null,
 });
 
 const calculateActualMinutes = (session: PomodoroSession): number => {
@@ -154,7 +156,8 @@ const calculateActualMinutes = (session: PomodoroSession): number => {
 
 export const startPomodoroSession = async (
   sessionType: PomodoroSessionType,
-  durationMinutes: number
+  durationMinutes: number,
+  title?: string
 ): Promise<PomodoroSession | null> => {
   const userId = await requireUserId();
   if (!userId) {
@@ -170,6 +173,7 @@ export const startPomodoroSession = async (
         duration: durationMinutes,
         start_time: new Date().toISOString(),
         completed: false,
+        title: title?.trim() || null,
       })
       .select()
       .single();
