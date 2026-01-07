@@ -180,7 +180,36 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   const queryClient = useQueryClient();
 
+  // 用于 description_updated 动态的防抖处理
+  const descriptionActivityTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const pendingDescriptionActivityRef = useRef<Record<string, { metadata: Record<string, unknown> }>>({});
+
   const recordTaskActivity = useCallback(async (taskId: string, action: TaskActivityAction, metadata?: Record<string, unknown>) => {
+    // 对 description_updated 做防抖处理，避免频繁记录动态
+    if (action === "description_updated") {
+      // 清除之前的定时器
+      if (descriptionActivityTimerRef.current[taskId]) {
+        clearTimeout(descriptionActivityTimerRef.current[taskId]);
+      }
+      // 保存最新的 metadata
+      pendingDescriptionActivityRef.current[taskId] = { metadata: metadata ?? {} };
+      // 设置新的定时器，5 秒后记录动态
+      descriptionActivityTimerRef.current[taskId] = setTimeout(async () => {
+        const pending = pendingDescriptionActivityRef.current[taskId];
+        if (pending) {
+          try {
+            await storageOps.createTaskActivity({ task_id: taskId, action: "description_updated", metadata: pending.metadata });
+            queryClient.invalidateQueries({ queryKey: taskActivityKeys.byTask(taskId) });
+          } catch (error) {
+            console.error("Failed to record task activity:", error);
+          }
+          delete pendingDescriptionActivityRef.current[taskId];
+          delete descriptionActivityTimerRef.current[taskId];
+        }
+      }, 5000);
+      return;
+    }
+
     try {
       await storageOps.createTaskActivity({ task_id: taskId, action, metadata });
       queryClient.invalidateQueries({ queryKey: taskActivityKeys.byTask(taskId) });
