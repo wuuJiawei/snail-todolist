@@ -48,6 +48,7 @@ export interface TaskContextType {
   createTag: (name: string, projectId?: string | null) => Promise<Tag | null>;
   deleteTagPermanently: (tagId: string) => Promise<boolean>;
   updateTagProject: (tagId: string, projectId: string | null) => Promise<Tag | null>;
+  renameTag: (tagId: string, newName: string) => Promise<Tag | null>;
   refreshAllTags: () => Promise<boolean>; // 新增：刷新所有标签
   getAllTagUsageCounts: () => Record<string, number>;
   // tags cache & lifecycle

@@ -11,13 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Pencil, Plus, Tag as TagIcon, Trash, RefreshCw } from "lucide-react";
 import { useProjectContext } from "@/contexts/ProjectContext";
-import * as storageOps from "@/storage/operations";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 
 const TagSettings = () => {
   const { projects } = useProjectContext();
-  const { listAllTags, createTag, deleteTagPermanently, getAllTagUsageCounts, tagsVersion, refreshAllTags } = useTaskContext();
+  const { listAllTags, createTag, deleteTagPermanently, updateTagProject, renameTag, getAllTagUsageCounts, tagsVersion, refreshAllTags } = useTaskContext();
 
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,16 +106,16 @@ const TagSettings = () => {
     
     // Update tag name if changed
     if (editedTagName !== tagBeingEdited.name) {
-      await storageOps.updateTag(tagBeingEdited.id, { name: editedTagName });
+      await renameTag(tagBeingEdited.id, editedTagName);
     }
     
     // Update project association if changed
     if (editedTagProject !== tagBeingEdited.project_id) {
-      await storageOps.updateTagProject(tagBeingEdited.id, editedTagProject);
+      await updateTagProject(tagBeingEdited.id, editedTagProject);
     }
     
     setEditDialogOpen(false);
-    loadTags();
+    // 不再需要手动 loadTags，tagsVersion 变化会自动触发 useEffect
   };
 
   const getProjectName = (projectId: string | null) => {

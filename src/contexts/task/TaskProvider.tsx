@@ -570,6 +570,85 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     return (projectId ?? null) === null ? "global" : (projectId as string);
   };
 
+  /**
+   * 同步更新标签到 tagsCache 和 taskIdToTags 两个缓存
+   * @param tagId 标签 ID
+   * @param updates 更新内容（如 name、project_id）
+   * @param options 选项：removeFromCache 是否删除，oldProjectId 旧项目 ID（用于移动缓存桶）
+   */
+  const syncTagUpdate = useCallback((
+    tagId: string,
+    updates: Partial<Tag>,
+    options?: {
+      removeFromCache?: boolean;
+      oldProjectId?: string | null;
+    }
+  ) => {
+    const store = useTaskStore.getState();
+    const { tagsCache: cache, taskIdToTags: mapping } = store;
+
+    // 1. 更新 tagsCache
+    const nextCache: Record<string, Tag[]> = {};
+    if (options?.removeFromCache) {
+      // 删除场景：从所有缓存桶中移除
+      Object.keys(cache).forEach((key) => {
+        nextCache[key] = (cache[key] || []).filter((t) => t.id !== tagId);
+      });
+    } else if (options?.oldProjectId !== undefined && updates.project_id !== undefined) {
+      // 项目范围变更场景：从旧桶移除，添加到新桶
+      const oldKey = keyForProject(options.oldProjectId);
+      const newKey = keyForProject(updates.project_id);
+      let movedTag: Tag | undefined;
+
+      Object.keys(cache).forEach((key) => {
+        if (key === oldKey) {
+          const list = cache[key] || [];
+          movedTag = list.find((t) => t.id === tagId);
+          nextCache[key] = list.filter((t) => t.id !== tagId);
+        } else {
+          nextCache[key] = cache[key] || [];
+        }
+      });
+
+      if (movedTag) {
+        const updatedTag = { ...movedTag, ...updates };
+        const targetList = nextCache[newKey] || [];
+        nextCache[newKey] = [updatedTag, ...targetList.filter((t) => t.id !== tagId)];
+      }
+    } else {
+      // 普通更新场景：在原位置更新
+      Object.keys(cache).forEach((key) => {
+        nextCache[key] = (cache[key] || []).map((t) =>
+          t.id === tagId ? { ...t, ...updates } : t
+        );
+      });
+    }
+
+    // 2. 更新 taskIdToTags
+    const nextMapping: Record<string, Tag[]> = {};
+    Object.keys(mapping).forEach((taskId) => {
+      const tags = mapping[taskId] || [];
+      if (options?.removeFromCache) {
+        // 删除场景：从所有任务中移除该标签
+        nextMapping[taskId] = tags.filter((t) => t.id !== tagId);
+      } else {
+        // 更新场景：更新匹配的标签
+        const hasTag = tags.some((t) => t.id === tagId);
+        if (hasTag) {
+          nextMapping[taskId] = tags.map((t) =>
+            t.id === tagId ? { ...t, ...updates } : t
+          );
+        } else {
+          nextMapping[taskId] = tags;
+        }
+      }
+    });
+
+    store.setTagsCache(nextCache);
+    store.setTaskIdToTags(nextMapping);
+    store.incrementTagsVersion();
+  }, []);
+
   const mergeTagLists = (incoming: Tag[], existing: Tag[] = []) => {
     const map = new Map<string, Tag>();
     incoming.forEach((tag) => {
@@ -684,46 +763,103 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // 修改deleteTagPermanently函数
   const deleteTagPermanently = useCallback(async (tagId: string): Promise<boolean> => {
-    const ok = await storageOps.deleteTagById(tagId);
-    if (ok) {
+    // 保存当前状态用于回滚
+    const store = useTaskStore.getState();
+    const previousTagsCache = { ...store.tagsCache };
+    const previousTaskIdToTags = { ...store.taskIdToTags };
+
+    // 乐观更新：从两个缓存中移除
+    syncTagUpdate(tagId, {}, { removeFromCache: true });
+
+    try {
+      const ok = await storageOps.deleteTagById(tagId);
+      if (!ok) {
+        throw new Error("Delete tag failed");
+      }
       await queryClient.invalidateQueries({ queryKey: tagKeys.all });
-      const cache = useTaskStore.getState().tagsCache;
-      const nextCache: Record<string, Tag[]> = {};
-      Object.keys(cache).forEach((k) => {
-        nextCache[k] = (cache[k] || []).filter((t) => t.id !== tagId);
-        });
-      const store = useTaskStore.getState();
-      store.setTagsCache(nextCache);
-      const mapping = useTaskStore.getState().taskIdToTags;
-      const mappingNext: Record<string, Tag[]> = {};
-      Object.keys(mapping).forEach((taskId) => {
-        mappingNext[taskId] = (mapping[taskId] || []).filter((t) => t.id !== tagId);
-        });
-      store.setTaskIdToTags(mappingNext);
+      return true;
+    } catch (error) {
+      // 回滚
+      store.setTagsCache(previousTagsCache);
+      store.setTaskIdToTags(previousTaskIdToTags);
       store.incrementTagsVersion();
+      toast({
+        title: "删除标签失败",
+        variant: "destructive"
+      });
+      return false;
     }
-    return ok;
-  }, [queryClient]);
+  }, [queryClient, syncTagUpdate, toast]);
 
   // 修改updateTagProject函数
   const updateTagProject = useCallback(async (tagId: string, projectId: string | null): Promise<Tag | null> => {
-    const updatedTag = await storageOps.updateTagProject(tagId, projectId);
-    if (updatedTag) {
-      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
-      const cache = useTaskStore.getState().tagsCache;
-      const next = { ...cache };
-      Object.keys(next).forEach((key) => {
-        next[key] = (next[key] || []).filter((t) => t.id !== tagId);
-        });
-      const targetKey = projectId === null ? "global" : projectId;
-      const targetList = next[targetKey] || [];
-      next[targetKey] = [updatedTag, ...targetList];
-      const store = useTaskStore.getState();
-      store.setTagsCache(next);
-      store.incrementTagsVersion();
+    // 保存当前状态用于回滚
+    const store = useTaskStore.getState();
+    const previousTagsCache = { ...store.tagsCache };
+    const previousTaskIdToTags = { ...store.taskIdToTags };
+
+    // 找到旧的 project_id
+    let oldProjectId: string | null = null;
+    for (const list of Object.values(store.tagsCache)) {
+      const found = (list || []).find((t) => t.id === tagId);
+      if (found) {
+        oldProjectId = found.project_id;
+        break;
+      }
     }
-    return updatedTag;
-  }, [queryClient]);
+
+    // 乐观更新
+    syncTagUpdate(tagId, { project_id: projectId }, { oldProjectId });
+
+    try {
+      const updatedTag = await storageOps.updateTagProject(tagId, projectId);
+      if (!updatedTag) {
+        throw new Error("Update tag project failed");
+      }
+      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
+      return updatedTag;
+    } catch (error) {
+      // 回滚
+      store.setTagsCache(previousTagsCache);
+      store.setTaskIdToTags(previousTaskIdToTags);
+      store.incrementTagsVersion();
+      toast({
+        title: "修改标签范围失败",
+        variant: "destructive"
+      });
+      return null;
+    }
+  }, [queryClient, syncTagUpdate, toast]);
+
+  // 重命名标签
+  const renameTag = useCallback(async (tagId: string, newName: string): Promise<Tag | null> => {
+    // 保存当前状态用于回滚
+    const store = useTaskStore.getState();
+    const previousTagsCache = { ...store.tagsCache };
+    const previousTaskIdToTags = { ...store.taskIdToTags };
+
+    // 乐观更新
+    syncTagUpdate(tagId, { name: newName });
+
+    try {
+      const updatedTag = await storageOps.updateTag(tagId, { name: newName });
+      if (!updatedTag) {
+        throw new Error("Rename tag failed");
+      }
+      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
+      return updatedTag;
+    } catch (error) {
+      // 回滚
+      store.setTagsCache(previousTagsCache);
+      store.setTaskIdToTags(previousTaskIdToTags);
+      store.incrementTagsVersion();
+      toast({
+        title: "重命名标签失败",
+        variant: "destructive"
+      });
+      return null;
+    }
+  }, [queryClient, syncTagUpdate, toast]);
 
   const getAllTagUsageCounts = useCallback(() => {
     const counts: Record<string, number> = {};
@@ -1294,6 +1430,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     createTag,
     deleteTagPermanently,
     updateTagProject,
+    renameTag,
     refreshAllTags,
     getAllTagUsageCounts,
     getCachedTags,
@@ -1333,6 +1470,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         createTag,
         deleteTagPermanently,
         updateTagProject,
+        renameTag,
         refreshAllTags,
         getAllTagUsageCounts,
         getCachedTags,
