@@ -171,3 +171,23 @@ func (h *TaskHandler) GetUpcomingTasks(c *gin.Context) {
 
 	model.Success(c, tasks)
 }
+
+// SearchTasks 搜索任务
+func (h *TaskHandler) SearchTasks(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+	query := c.Query("q")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	if query == "" {
+		model.Error(c, model.CodeParamError, "搜索关键词不能为空")
+		return
+	}
+
+	results, err := h.taskService.SearchTasks(userID, query, limit)
+	if err != nil {
+		model.Error(c, model.CodeInternalError, err.Error())
+		return
+	}
+
+	model.Success(c, results)
+}

@@ -141,3 +141,29 @@ func (r *TaskRepository) CountByUserID(userID uuid.UUID) (total, todo, doing, do
 
 	return
 }
+
+// SearchResult 搜索结果（包含清单名称）
+type SearchResult struct {
+	model.Task
+	ListName string `json:"list_name"`
+}
+
+// Search 搜索任务（使用 pg_trgm 模糊匹配）
+func (r *TaskRepository) Search(userID uuid.UUID, query string, limit int) ([]SearchResult, error) {
+	var results []SearchResult
+
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+
+	err := r.db.Table("tasks").
+		Select("tasks.*, lists.name as list_name").
+		Joins("LEFT JOIN lists ON lists.id = tasks.list_id").
+		Where("tasks.user_id = ? AND tasks.deleted_at IS NULL", userID).
+		Where("tasks.title ILIKE ?", "%"+query+"%").
+		Order("tasks.created_at DESC").
+		Limit(limit).
+		Scan(&results).Error
+
+	return results, err
+}

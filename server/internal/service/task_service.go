@@ -188,3 +188,11 @@ func (s *TaskService) GetTodayTasks(userID uuid.UUID) ([]model.Task, error) {
 func (s *TaskService) GetUpcomingTasks(userID uuid.UUID) ([]model.Task, error) {
 	return s.taskRepo.GetUpcomingTasks(userID, 7)
 }
+
+// SearchTasks 搜索任务
+func (s *TaskService) SearchTasks(userID uuid.UUID, query string, limit int) ([]repository.SearchResult, error) {
+	if query == "" {
+		return []repository.SearchResult{}, nil
+	}
+	return s.taskRepo.Search(userID, query, limit)
+}

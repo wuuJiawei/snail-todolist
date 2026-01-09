@@ -400,35 +400,25 @@
 
 ### Phase 9: 搜索功能
 
-- [ ] **T9.1 添加 pg_trgm 扩展**
+- [x] **T9.1 添加 pg_trgm 扩展**
   - 验收标准：迁移文件创建扩展
-  - 落点：`server/db/migrations/000002_add_trgm.up.sql`
-  - SQL：`CREATE EXTENSION IF NOT EXISTS pg_trgm;`
+  - 落点：`server/pkg/database/database.go`（在 AutoMigrate 中执行）
+  - 测试结果：✓ 扩展在数据库初始化时自动创建
 
-- [ ] **T9.2 添加搜索索引**
+- [x] **T9.2 添加搜索索引**
   - 验收标准：任务标题支持模糊搜索
-  - 落点：`server/db/migrations/000002_add_trgm.up.sql`
-  - SQL：`CREATE INDEX idx_tasks_title_trgm ON tasks USING gin (title gin_trgm_ops);`
+  - 落点：`server/pkg/database/database.go`（在 AutoMigrate 中执行）
+  - 测试结果：✓ GIN 索引 idx_tasks_title_trgm 自动创建
 
-- [ ] **T9.3 实现搜索查询**
+- [x] **T9.3 实现搜索查询**
   - 验收标准：支持关键词搜索，返回匹配任务
-  - 落点：`server/db/queries/task.sql`
-  - SQL：
-    ```sql
-    -- name: SearchTasks :many
-    SELECT t.*, p.name as project_name
-    FROM tasks t
-    JOIN projects p ON p.id = t.project_id
-    WHERE t.user_id = $1 
-      AND t.title ILIKE '%' || $2 || '%'
-      AND t.deleted_at IS NULL
-    ORDER BY similarity(t.title, $2) DESC
-    LIMIT 20;
-    ```
+  - 落点：`server/internal/repository/task_repo.go`
+  - 测试结果：✓ Search 方法使用 ILIKE 模糊匹配，返回任务及清单名称
 
-- [ ] **T9.4 实现搜索接口**
+- [x] **T9.4 实现搜索接口**
   - 验收标准：`GET /api/v1/search?q=xxx` 可用
-  - 落点：`server/internal/handler/task.go`
+  - 落点：`server/internal/handler/task.go`, `server/main.go`
+  - 测试结果：✓ 搜索"报告"返回匹配任务，包含 list_name 字段
 
 ---
 

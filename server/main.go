@@ -130,6 +130,9 @@ func main() {
 			protected.PUT("/tasks/:id", taskHandler.UpdateTask)
 			protected.DELETE("/tasks/:id", taskHandler.DeleteTask)
 			protected.PATCH("/tasks/:id/status", taskHandler.UpdateStatus)
+
+			// 搜索
+			protected.GET("/search", taskHandler.SearchTasks)
 		}
 	}
 
