@@ -1,0 +1,665 @@
+# SnailTask Server 开发任务清单
+
+> 按里程碑拆分的可执行任务清单，每个任务包含验收标准（DoD）和相关文件落点。
+
+---
+
+## M0 - MVP 基础功能
+
+### Phase 0: 项目初始化
+
+- [ ] **T0.1 初始化 Go 模块**
+  - 验收标准：`go mod init` 完成，`go.mod` 存在
+  - 落点：`server/go.mod`
+  - 命令：`go mod init github.com/yourname/snailtask/server`
+
+- [ ] **T0.2 创建目录结构**
+  - 验收标准：README 中描述的目录结构全部创建
+  - 落点：`server/cmd/`, `server/internal/`, `server/db/`
+  - 命令：
+    ```bash
+    mkdir -p cmd/server internal/{config,handler,middleware,service,repository,model,pkg/{jwt,hash,validator,logger}} db/{migrations,queries} scripts
+    ```
+
+- [ ] **T0.3 添加核心依赖**
+  - 验收标准：`go mod tidy` 成功，无报错
+  - 落点：`server/go.mod`, `server/go.sum`
+  - 依赖列表：
+    ```bash
+    go get github.com/gin-gonic/gin
+    go get github.com/jackc/pgx/v5
+    go get github.com/golang-jwt/jwt/v5
+    go get github.com/spf13/viper
+    go get go.uber.org/zap
+    go get github.com/go-playground/validator/v10
+    go get golang.org/x/crypto
+    ```
+
+- [ ] **T0.4 创建 .env.example**
+  - 验收标准：包含所有必需环境变量，有注释说明
+  - 落点：`server/.env.example`
+
+- [ ] **T0.5 创建 Makefile**
+  - 验收标准：`make help` 显示所有可用命令
+  - 落点：`server/Makefile`
+  - 必须包含：dev, build, test, lint, sqlc, migrate-up, migrate-down
+
+- [ ] **T0.6 创建 .air.toml 热重载配置**
+  - 验收标准：`air` 命令可启动并监听文件变化
+  - 落点：`server/.air.toml`
+
+- [ ] **T0.7 创建 Dockerfile**
+  - 验收标准：`docker build .` 成功，镜像小于 50MB
+  - 落点：`server/Dockerfile`
+  - 要求：多阶段构建，使用 alpine 基础镜像
+
+- [ ] **T0.8 创建 docker-compose.yml**
+  - 验收标准：`docker compose up` 启动 server + postgres
+  - 落点：`server/docker-compose.yml`
+
+---
+
+### Phase 1: 配置与日志
+
+- [ ] **T1.1 实现配置加载**
+  - 验收标准：从环境变量和 .env 文件加载配置，优先级正确
+  - 落点：`server/internal/config/config.go`
+  - 测试：修改 .env 后重启，配置生效
+  - 结构体定义：
+    ```go
+    type Config struct {
+        Server   ServerConfig
+        Database DatabaseConfig
+        JWT      JWTConfig
+        CORS     CORSConfig
+        Log      LogConfig
+    }
+    ```
+
+- [ ] **T1.2 实现结构化日志**
+  - 验收标准：日志包含 timestamp, level, msg, request_id
+  - 落点：`server/internal/pkg/logger/logger.go`
+  - 要求：开发环境 console 格式，生产环境 JSON 格式
+
+- [ ] **T1.3 实现 request_id 中间件**
+  - 验收标准：每个请求有唯一 ID，响应头包含 X-Request-ID
+  - 落点：`server/internal/middleware/request_id.go`
+
+- [ ] **T1.4 实现请求日志中间件**
+  - 验收标准：记录 method, path, status, latency, request_id
+  - 落点：`server/internal/middleware/logger.go`
+
+---
+
+### Phase 2: 数据库与迁移
+
+- [ ] **T2.1 创建初始迁移文件**
+  - 验收标准：包含 users, projects, tasks 表及索引
+  - 落点：`server/db/migrations/000001_init_schema.up.sql`
+  - 落点：`server/db/migrations/000001_init_schema.down.sql`
+  - 要求：down 文件能完全回滚 up 的变更
+
+- [ ] **T2.2 配置 sqlc**
+  - 验收标准：`sqlc generate` 成功生成代码
+  - 落点：`server/db/sqlc.yaml`
+  - 配置示例：
+    ```yaml
+    version: "2"
+    sql:
+      - engine: "postgresql"
+        queries: "queries/"
+        schema: "migrations/"
+        gen:
+          go:
+            package: "db"
+            out: "../internal/repository/db"
+            sql_package: "pgx/v5"
+            emit_json_tags: true
+            emit_prepared_queries: false
+            emit_interface: true
+    ```
+
+- [ ] **T2.3 编写 user 查询**
+  - 验收标准：sqlc 生成 CreateUser, GetUserByEmail, GetUserByID
+  - 落点：`server/db/queries/user.sql`
+  - SQL 示例：
+    ```sql
+    -- name: CreateUser :one
+    INSERT INTO users (email, password_hash, name)
+    VALUES ($1, $2, $3)
+    RETURNING *;
+
+    -- name: GetUserByEmail :one
+    SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL;
+
+    -- name: GetUserByID :one
+    SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL;
+    ```
+
+- [ ] **T2.4 编写 project 查询**
+  - 验收标准：CRUD + 按用户查询 + 带任务统计查询
+  - 落点：`server/db/queries/project.sql`
+  - 关键查询（聚合统计）：
+    ```sql
+    -- name: GetProjectsWithStats :many
+    SELECT 
+        p.*,
+        COUNT(t.id) FILTER (WHERE t.deleted_at IS NULL) as total_tasks,
+        COUNT(t.id) FILTER (WHERE t.status = 'todo' AND t.deleted_at IS NULL) as todo_count,
+        COUNT(t.id) FILTER (WHERE t.status = 'doing' AND t.deleted_at IS NULL) as doing_count,
+        COUNT(t.id) FILTER (WHERE t.status = 'done' AND t.deleted_at IS NULL) as done_count
+    FROM projects p
+    LEFT JOIN tasks t ON t.project_id = p.id
+    WHERE p.user_id = $1 AND p.deleted_at IS NULL
+    GROUP BY p.id
+    ORDER BY p.sort_order, p.created_at;
+    ```
+
+- [ ] **T2.5 编写 task 查询**
+  - 验收标准：CRUD + 分页 + 按状态/日期过滤
+  - 落点：`server/db/queries/task.sql`
+
+- [ ] **T2.6 编写聚合查询（overview）**
+  - 验收标准：单次查询返回仪表盘所需全部数据
+  - 落点：`server/db/queries/overview.sql`
+  - SQL 示例：
+    ```sql
+    -- name: GetUserOverview :one
+    SELECT 
+        (SELECT COUNT(*) FROM projects WHERE user_id = $1 AND deleted_at IS NULL) as total_projects,
+        (SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND deleted_at IS NULL) as total_tasks,
+        (SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND status = 'todo' AND deleted_at IS NULL) as todo_count,
+        (SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND status = 'doing' AND deleted_at IS NULL) as doing_count,
+        (SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND status = 'done' AND deleted_at IS NULL) as done_count,
+        (SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND due_date < CURRENT_DATE AND status != 'done' AND deleted_at IS NULL) as overdue_count;
+
+    -- name: GetTodayTasks :many
+    SELECT t.*, p.name as project_name, p.color as project_color
+    FROM tasks t
+    JOIN projects p ON p.id = t.project_id
+    WHERE t.user_id = $1 
+      AND t.due_date = CURRENT_DATE 
+      AND t.status != 'done'
+      AND t.deleted_at IS NULL
+    ORDER BY t.priority DESC, t.created_at;
+    ```
+
+- [ ] **T2.7 实现数据库连接池**
+  - 验收标准：连接池配置可调，支持健康检查
+  - 落点：`server/internal/repository/db.go`
+  - 配置项：max_open_conns, max_idle_conns, conn_max_lifetime
+
+---
+
+### Phase 3: 认证模块
+
+- [ ] **T3.1 实现密码哈希工具**
+  - 验收标准：使用 bcrypt，cost=10，Hash/Verify 函数可用
+  - 落点：`server/internal/pkg/hash/hash.go`
+
+- [ ] **T3.2 实现 JWT 工具**
+  - 验收标准：生成/验证 access token 和 refresh token
+  - 落点：`server/internal/pkg/jwt/jwt.go`
+  - 要求：
+    - Access Token 有效期 15 分钟
+    - Refresh Token 有效期 7 天
+    - Claims 包含 user_id, email, exp, iat
+
+- [ ] **T3.3 实现认证中间件**
+  - 验收标准：从 Authorization header 解析 token，注入 user_id 到 context
+  - 落点：`server/internal/middleware/auth.go`
+  - 错误响应：401 Unauthorized（无 token / token 过期 / token 无效）
+
+- [ ] **T3.4 实现 auth service**
+  - 验收标准：Register, Login, Logout, RefreshToken 方法可用
+  - 落点：`server/internal/service/auth.go`
+  - 业务逻辑：
+    - Register：检查邮箱唯一性，哈希密码，创建用户
+    - Login：验证邮箱密码，生成 token pair
+    - RefreshToken：验证 refresh token，生成新 token pair
+
+- [ ] **T3.5 实现 auth handler**
+  - 验收标准：4 个接口可用，参数校验完整
+  - 落点：`server/internal/handler/auth.go`
+  - 接口：
+    - `POST /api/v1/auth/register` - 请求体：`{email, password, name}`
+    - `POST /api/v1/auth/login` - 请求体：`{email, password}`
+    - `POST /api/v1/auth/logout` - 需认证
+    - `POST /api/v1/auth/refresh` - 请求体：`{refresh_token}`
+
+- [ ] **T3.6 认证接口测试**
+  - 验收标准：curl 测试通过，错误场景覆盖
+  - 测试用例：
+    ```bash
+    # 注册
+    curl -X POST http://localhost:8080/api/v1/auth/register \
+      -H "Content-Type: application/json" \
+      -d '{"email":"test@example.com","password":"123456","name":"Test"}'
+    
+    # 登录
+    curl -X POST http://localhost:8080/api/v1/auth/login \
+      -H "Content-Type: application/json" \
+      -d '{"email":"test@example.com","password":"123456"}'
+    
+    # 预期响应
+    # {"code":0,"data":{"access_token":"...","refresh_token":"...","expires_in":900}}
+    ```
+
+---
+
+### Phase 4: 项目模块
+
+- [ ] **T4.1 实现 project repository**
+  - 验收标准：封装 sqlc 生成代码，提供业务友好接口
+  - 落点：`server/internal/repository/project.go`
+
+- [ ] **T4.2 实现 project service**
+  - 验收标准：CRUD + 权限检查（只能操作自己的项目）
+  - 落点：`server/internal/service/project.go`
+  - 方法：Create, GetByID, List, Update, Delete
+
+- [ ] **T4.3 实现 project handler**
+  - 验收标准：5 个接口可用，参数校验完整
+  - 落点：`server/internal/handler/project.go`
+  - 接口：
+    - `GET /api/v1/projects` - 获取当前用户的项目列表（含任务统计）
+    - `POST /api/v1/projects` - 创建项目
+    - `GET /api/v1/projects/:id` - 获取项目详情
+    - `PUT /api/v1/projects/:id` - 更新项目
+    - `DELETE /api/v1/projects/:id` - 删除项目（软删除）
+
+- [ ] **T4.4 项目接口测试**
+  - 验收标准：curl 测试通过
+  - 测试用例：
+    ```bash
+    # 创建项目
+    curl -X POST http://localhost:8080/api/v1/projects \
+      -H "Authorization: Bearer <token>" \
+      -H "Content-Type: application/json" \
+      -d '{"name":"工作","color":"#6366f1"}'
+    
+    # 获取项目列表（含统计）
+    curl http://localhost:8080/api/v1/projects \
+      -H "Authorization: Bearer <token>"
+    
+    # 预期响应
+    # {"code":0,"data":[{"id":"...","name":"工作","task_stats":{"total":0,"todo":0,"doing":0,"done":0}}]}
+    ```
+
+---
+
+### Phase 5: 任务模块
+
+- [ ] **T5.1 实现 task repository**
+  - 验收标准：封装 sqlc 生成代码，支持分页和过滤
+  - 落点：`server/internal/repository/task.go`
+
+- [ ] **T5.2 实现 task service**
+  - 验收标准：CRUD + 权限检查 + 状态流转
+  - 落点：`server/internal/service/task.go`
+  - 方法：Create, GetByID, ListByProject, Update, Delete, UpdateStatus
+
+- [ ] **T5.3 实现 task handler**
+  - 验收标准：6 个接口可用，参数校验完整
+  - 落点：`server/internal/handler/task.go`
+  - 接口：
+    - `GET /api/v1/projects/:id/tasks` - 获取项目下任务（分页）
+    - `POST /api/v1/projects/:id/tasks` - 创建任务
+    - `GET /api/v1/tasks/:id` - 获取任务详情
+    - `PUT /api/v1/tasks/:id` - 更新任务
+    - `DELETE /api/v1/tasks/:id` - 删除任务
+    - `PATCH /api/v1/tasks/:id/status` - 更新状态
+
+- [ ] **T5.4 任务接口测试**
+  - 验收标准：curl 测试通过
+  - 测试用例：
+    ```bash
+    # 创建任务
+    curl -X POST http://localhost:8080/api/v1/projects/<project_id>/tasks \
+      -H "Authorization: Bearer <token>" \
+      -H "Content-Type: application/json" \
+      -d '{"title":"完成报告","priority":2,"due_date":"2026-01-15"}'
+    
+    # 更新状态
+    curl -X PATCH http://localhost:8080/api/v1/tasks/<task_id>/status \
+      -H "Authorization: Bearer <token>" \
+      -H "Content-Type: application/json" \
+      -d '{"status":"doing"}'
+    ```
+
+---
+
+### Phase 6: 聚合查询接口（核心）
+
+- [ ] **T6.1 实现 overview service**
+  - 验收标准：单次调用返回仪表盘所需全部数据
+  - 落点：`server/internal/service/overview.go`
+  - 返回数据：
+    - 全局统计（total_projects, total_tasks, todo/doing/done/overdue_count）
+    - 项目列表（含每个项目的任务统计）
+    - 每个项目的最近 3 个截止任务
+    - 今日任务列表
+
+- [ ] **T6.2 实现 overview handler**
+  - 验收标准：3 个聚合接口可用
+  - 落点：`server/internal/handler/overview.go`
+  - 接口：
+    - `GET /api/v1/overview` - 仪表盘概览
+    - `GET /api/v1/today` - 今日任务
+    - `GET /api/v1/upcoming` - 即将到期任务（7 天内）
+
+- [ ] **T6.3 聚合接口测试**
+  - 验收标准：curl 测试通过，响应结构符合预期
+  - 测试用例：
+    ```bash
+    # 获取仪表盘概览
+    curl http://localhost:8080/api/v1/overview \
+      -H "Authorization: Bearer <token>"
+    
+    # 预期响应结构
+    # {
+    #   "code": 0,
+    #   "data": {
+    #     "stats": { "total_projects": 2, "total_tasks": 10, ... },
+    #     "projects": [
+    #       { "id": "...", "name": "工作", "task_stats": {...}, "upcoming_tasks": [...] }
+    #     ],
+    #     "today_tasks": [...]
+    #   }
+    # }
+    ```
+
+- [ ] **T6.4 性能验证**
+  - 验收标准：overview 接口响应时间 < 100ms（100 个项目 + 1000 个任务）
+  - 方法：使用 EXPLAIN ANALYZE 检查 SQL 执行计划
+  - 落点：确保索引生效，无全表扫描
+
+---
+
+### Phase 7: 路由与中间件整合
+
+- [ ] **T7.1 实现 CORS 中间件**
+  - 验收标准：允许配置的域名跨域访问
+  - 落点：`server/internal/middleware/cors.go`
+  - 配置：从 CORS_ORIGINS 环境变量读取
+
+- [ ] **T7.2 实现统一响应结构**
+  - 验收标准：所有接口响应格式一致
+  - 落点：`server/internal/model/response.go`
+  - 结构：
+    ```go
+    type Response struct {
+        Code    int         `json:"code"`
+        Data    interface{} `json:"data,omitempty"`
+        Message string      `json:"message,omitempty"`
+    }
+    ```
+
+- [ ] **T7.3 实现统一错误处理**
+  - 验收标准：panic 恢复、错误码映射、友好错误信息
+  - 落点：`server/internal/middleware/recovery.go`
+  - 落点：`server/internal/model/errors.go`
+
+- [ ] **T7.4 实现参数校验**
+  - 验收标准：使用 validator，校验失败返回具体字段错误
+  - 落点：`server/internal/pkg/validator/validator.go`
+
+- [ ] **T7.5 整合路由**
+  - 验收标准：所有路由注册完成，中间件链正确
+  - 落点：`server/internal/handler/router.go`
+  - 路由组织：
+    ```go
+    // 公开路由
+    public := r.Group("/api/v1")
+    public.POST("/auth/register", authHandler.Register)
+    public.POST("/auth/login", authHandler.Login)
+    
+    // 需认证路由
+    protected := r.Group("/api/v1")
+    protected.Use(middleware.Auth())
+    protected.GET("/overview", overviewHandler.GetOverview)
+    // ...
+    ```
+
+- [ ] **T7.6 实现健康检查**
+  - 验收标准：/healthz 和 /readyz 可用
+  - 落点：`server/internal/handler/health.go`
+  - /healthz：返回 {"status":"ok"}
+  - /readyz：检查数据库连接
+
+---
+
+### Phase 8: 入口与启动
+
+- [ ] **T8.1 实现 main.go**
+  - 验收标准：`go run cmd/server/main.go` 启动成功
+  - 落点：`server/cmd/server/main.go`
+  - 启动流程：
+    1. 加载配置
+    2. 初始化日志
+    3. 连接数据库
+    4. 注册路由
+    5. 启动 HTTP 服务
+    6. 优雅关闭
+
+- [ ] **T8.2 实现优雅关闭**
+  - 验收标准：收到 SIGTERM 后等待请求完成再退出
+  - 落点：`server/cmd/server/main.go`
+
+- [ ] **T8.3 端到端测试**
+  - 验收标准：完整流程可跑通
+  - 测试流程：
+    1. 注册用户
+    2. 登录获取 token
+    3. 创建项目
+    4. 创建任务
+    5. 获取 overview
+    6. 验证数据正确
+
+---
+
+## M1 - 增强功能
+
+### Phase 9: 搜索功能
+
+- [ ] **T9.1 添加 pg_trgm 扩展**
+  - 验收标准：迁移文件创建扩展
+  - 落点：`server/db/migrations/000002_add_trgm.up.sql`
+  - SQL：`CREATE EXTENSION IF NOT EXISTS pg_trgm;`
+
+- [ ] **T9.2 添加搜索索引**
+  - 验收标准：任务标题支持模糊搜索
+  - 落点：`server/db/migrations/000002_add_trgm.up.sql`
+  - SQL：`CREATE INDEX idx_tasks_title_trgm ON tasks USING gin (title gin_trgm_ops);`
+
+- [ ] **T9.3 实现搜索查询**
+  - 验收标准：支持关键词搜索，返回匹配任务
+  - 落点：`server/db/queries/task.sql`
+  - SQL：
+    ```sql
+    -- name: SearchTasks :many
+    SELECT t.*, p.name as project_name
+    FROM tasks t
+    JOIN projects p ON p.id = t.project_id
+    WHERE t.user_id = $1 
+      AND t.title ILIKE '%' || $2 || '%'
+      AND t.deleted_at IS NULL
+    ORDER BY similarity(t.title, $2) DESC
+    LIMIT 20;
+    ```
+
+- [ ] **T9.4 实现搜索接口**
+  - 验收标准：`GET /api/v1/search?q=xxx` 可用
+  - 落点：`server/internal/handler/task.go`
+
+---
+
+### Phase 10: 批量操作
+
+- [ ] **T10.1 实现批量更新状态**
+  - 验收标准：一次请求更新多个任务状态
+  - 落点：`server/db/queries/task.sql`
+  - SQL：
+    ```sql
+    -- name: BatchUpdateStatus :execrows
+    UPDATE tasks SET status = $2, updated_at = NOW()
+    WHERE id = ANY($1::uuid[]) AND user_id = $3 AND deleted_at IS NULL;
+    ```
+
+- [ ] **T10.2 实现批量删除**
+  - 验收标准：一次请求删除多个任务
+  - 落点：`server/db/queries/task.sql`
+
+- [ ] **T10.3 实现批量操作接口**
+  - 验收标准：接口可用，事务保证原子性
+  - 落点：`server/internal/handler/task.go`
+  - 接口：
+    - `POST /api/v1/tasks/batch/status` - 批量更新状态
+    - `POST /api/v1/tasks/batch/delete` - 批量删除
+
+---
+
+### Phase 11: 拖拽排序
+
+- [ ] **T11.1 设计排序字段策略**
+  - 验收标准：文档说明排序算法
+  - 方案：使用浮点数 sort_order，插入时取前后平均值
+  - 落点：`server/docs/sorting.md`
+
+- [ ] **T11.2 实现排序更新接口**
+  - 验收标准：拖拽后更新 sort_order
+  - 落点：`server/internal/handler/task.go`
+  - 接口：`PATCH /api/v1/tasks/:id/sort`
+  - 请求体：`{"after_id": "uuid"}` 或 `{"before_id": "uuid"}`
+
+- [ ] **T11.3 实现项目排序**
+  - 验收标准：项目也支持拖拽排序
+  - 落点：`server/internal/handler/project.go`
+  - 接口：`PATCH /api/v1/projects/:id/sort`
+
+---
+
+## M2 - 协作功能（规划）
+
+### Phase 12: 项目共享
+
+- [ ] **T12.1 设计共享数据模型**
+  - 验收标准：ER 图和迁移文件
+  - 新增表：project_members (project_id, user_id, role, invited_at, accepted_at)
+
+- [ ] **T12.2 实现邀请接口**
+  - 验收标准：项目所有者可邀请成员
+  - 接口：`POST /api/v1/projects/:id/members`
+
+- [ ] **T12.3 实现权限检查**
+  - 验收标准：成员只能查看/编辑，所有者可删除
+  - 角色：owner, editor, viewer
+
+---
+
+## M3 - 生产化
+
+### Phase 13: 缓存与限流
+
+- [ ] **T13.1 集成 Redis**
+  - 验收标准：Redis 连接可用
+  - 落点：`server/internal/pkg/redis/redis.go`
+
+- [ ] **T13.2 实现请求限流**
+  - 验收标准：每用户每分钟 100 次请求限制
+  - 落点：`server/internal/middleware/ratelimit.go`
+
+- [ ] **T13.3 实现 overview 缓存**
+  - 验收标准：overview 数据缓存 30 秒
+  - 落点：`server/internal/service/overview.go`
+  - 缓存失效：任务/项目变更时清除
+
+---
+
+### Phase 14: 可观测性
+
+- [ ] **T14.1 添加 Prometheus metrics**
+  - 验收标准：/metrics 端点可用
+  - 落点：`server/internal/middleware/metrics.go`
+  - 指标：request_count, request_duration, error_count
+
+- [ ] **T14.2 添加链路追踪**
+  - 验收标准：请求可追踪
+  - 落点：`server/internal/middleware/tracing.go`
+
+- [ ] **T14.3 完善日志**
+  - 验收标准：关键操作有审计日志
+  - 落点：`server/internal/pkg/logger/logger.go`
+
+---
+
+### Phase 15: 发布与部署
+
+- [ ] **T15.1 发布到 Docker Hub**
+  - 验收标准：`docker pull yourname/snailtask-server` 可用
+  - 落点：`.github/workflows/release.yml`
+
+- [ ] **T15.2 编写部署文档**
+  - 验收标准：文档完整，可照做部署
+  - 落点：`server/docs/deployment.md`
+
+- [ ] **T15.3 一键部署脚本**
+  - 验收标准：`curl -sSL https://... | bash` 可部署
+  - 落点：`server/scripts/install.sh`
+  - 功能：检查依赖、下载 docker-compose、配置环境变量、启动服务
+
+---
+
+## 附录
+
+### A. 开发环境检查清单
+
+```bash
+# 检查 Go 版本
+go version  # 需要 1.22+
+
+# 检查 PostgreSQL
+psql --version  # 需要 15+
+
+# 检查开发工具
+sqlc version
+migrate -version
+air -v
+
+# 检查 Docker
+docker --version
+docker compose version
+```
+
+### B. 常用命令速查
+
+```bash
+# 开发
+make dev              # 启动开发服务器
+make sqlc             # 生成 sqlc 代码
+make migrate-up       # 执行迁移
+make test             # 运行测试
+
+# Docker
+make docker-up        # 启动所有服务
+make docker-down      # 停止所有服务
+make docker-logs      # 查看日志
+
+# 数据库
+make db-shell         # 进入 psql
+make db-reset         # 重置数据库
+```
+
+### C. 错误码定义
+
+| Code | 含义 |
+|------|------|
+| 0 | 成功 |
+| 1001 | 参数校验失败 |
+| 1002 | 未授权 |
+| 1003 | 禁止访问 |
+| 1004 | 资源不存在 |
+| 2001 | 邮箱已注册 |
+| 2002 | 邮箱或密码错误 |
+| 2003 | Token 过期 |
+| 5000 | 服务器内部错误 |
