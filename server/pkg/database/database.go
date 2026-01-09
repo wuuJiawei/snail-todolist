@@ -29,5 +29,6 @@ func AutoMigrate() error {
 		&model.User{},
 		&model.EmailCode{},
 		&model.List{},
+		&model.Task{},
 	)
 }

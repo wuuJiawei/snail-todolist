@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  server:
+    build: .
+    ports:
+      - "23333:23333"
+    environment:
+      - PORT=23333
+      - DATABASE_URL=postgres://snailtask:snailtask123@db:5432/snailtask?sslmode=disable
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+      - JWT_EXPIRE_HOURS=72
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=snailtask
+      - POSTGRES_PASSWORD=snailtask123
+      - POSTGRES_DB=snailtask
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snailtask"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

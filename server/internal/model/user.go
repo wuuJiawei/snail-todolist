@@ -8,13 +8,15 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	Email     string    `gorm:"uniqueIndex;not null" json:"email"`
-	Password  string    `gorm:"" json:"-"`
-	Nickname  string    `gorm:"size:100" json:"nickname"`
-	Avatar    string    `gorm:"size:500" json:"avatar"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
+	Email     string         `gorm:"uniqueIndex;not null" json:"email"`
+	Password  string         `gorm:"" json:"-"`
+	Name      string         `gorm:"size:100" json:"name"`
+	Nickname  string         `gorm:"size:100" json:"nickname"`
+	Avatar    string         `gorm:"size:500" json:"avatar"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (u *User) BeforeCreate(tx *gorm.DB) error {

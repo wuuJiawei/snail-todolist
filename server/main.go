@@ -1,7 +1,12 @@
 package main
 
 import (
-	"log"
+	"context"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -13,11 +18,18 @@ import (
 	"snail-server/pkg/database"
 	"snail-server/pkg/email"
 	"snail-server/pkg/jwt"
+	"snail-server/pkg/logger"
 )
 
 func main() {
 	_ = godotenv.Load()
 	config.Load()
+
+	// 初始化日志
+	logger.Init(config.AppConfig.ServerMode, config.AppConfig.LogLevel)
+	defer logger.Sync()
+
+	logger.Info("Starting SnailTask Server...")
 
 	// 初始化 JWT
 	jwt.Init(config.AppConfig.JWTSecret, config.AppConfig.JWTExpireHours)
@@ -33,34 +45,51 @@ func main() {
 
 	// 连接数据库
 	if err := database.Connect(config.AppConfig.DatabaseURL); err != nil {
-		log.Fatal("Failed to connect database:", err)
+		logger.Fatal("Failed to connect database", err)
 	}
 
 	// 自动迁移
 	if err := database.AutoMigrate(); err != nil {
-		log.Fatal("Failed to migrate database:", err)
+		logger.Fatal("Failed to migrate database", err)
 	}
 
 	// 初始化 repositories
 	userRepo := repository.NewUserRepository(database.DB)
 	emailCodeRepo := repository.NewEmailCodeRepository(database.DB)
 	listRepo := repository.NewListRepository(database.DB)
+	taskRepo := repository.NewTaskRepository(database.DB)
 
 	// 初始化 services
 	authService := service.NewAuthService(userRepo, emailCodeRepo)
 	userService := service.NewUserService(userRepo)
 	listService := service.NewListService(listRepo)
+	taskService := service.NewTaskService(taskRepo, listRepo)
+	overviewService := service.NewOverviewService(listRepo, taskRepo)
 
 	// 初始化 handlers
 	authHandler := handler.NewAuthHandler(authService)
 	userHandler := handler.NewUserHandler(userService)
 	listHandler := handler.NewListHandler(listService)
+	taskHandler := handler.NewTaskHandler(taskService)
+	overviewHandler := handler.NewOverviewHandler(overviewService, taskService)
 
-	r := gin.Default()
+	// 设置 Gin 模式
+	if config.IsProduction() {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	r := gin.New()
+
+	// 中间件
+	r.Use(middleware.RequestID())
+	r.Use(middleware.Logger())
+	r.Use(gin.Recovery())
 	r.Use(middleware.CORS())
 
 	// 健康检查
-	r.GET("/health", handler.Health)
+	r.GET("/healthz", handler.Healthz)
+	r.GET("/readyz", handler.Readyz)
+	r.GET("/health", handler.Health) // 兼容旧接口
 
 	// API 路由
 	api := r.Group("/api/v1")
@@ -83,16 +112,54 @@ func main() {
 			protected.PUT("/user/profile", userHandler.UpdateProfile)
 			protected.PUT("/user/password", userHandler.UpdatePassword)
 
-			// 清单
+			// 聚合查询（核心）
+			protected.GET("/overview", overviewHandler.GetOverview)
+			protected.GET("/today", overviewHandler.GetTodayTasks)
+			protected.GET("/upcoming", overviewHandler.GetUpcomingTasks)
+
+			// 清单（项目）
 			protected.GET("/lists", listHandler.GetLists)
 			protected.POST("/lists", listHandler.CreateList)
 			protected.PUT("/lists/:id", listHandler.UpdateList)
 			protected.DELETE("/lists/:id", listHandler.DeleteList)
+
+			// 任务
+			protected.GET("/lists/:id/tasks", taskHandler.GetTasksByList)
+			protected.POST("/lists/:id/tasks", taskHandler.CreateTask)
+			protected.GET("/tasks/:id", taskHandler.GetTask)
+			protected.PUT("/tasks/:id", taskHandler.UpdateTask)
+			protected.DELETE("/tasks/:id", taskHandler.DeleteTask)
+			protected.PATCH("/tasks/:id/status", taskHandler.UpdateStatus)
 		}
 	}
 
-	log.Printf("Server starting on :%s", config.AppConfig.Port)
-	if err := r.Run(":" + config.AppConfig.Port); err != nil {
-		log.Fatal("Failed to start server:", err)
+	// 创建 HTTP 服务器
+	srv := &http.Server{
+		Addr:    ":" + config.AppConfig.Port,
+		Handler: r,
 	}
+
+	// 启动服务器（非阻塞）
+	go func() {
+		logger.Info("Server starting on :" + config.AppConfig.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("Failed to start server", err)
+		}
+	}()
+
+	// 优雅关闭
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Fatal("Server forced to shutdown", err)
+	}
+
+	logger.Info("Server exited")
 }
