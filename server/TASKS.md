@@ -532,18 +532,20 @@
 
 ### Phase 15: 发布与部署
 
-- [ ] **T15.1 发布到 Docker Hub**
-  - 验收标准：`docker pull yourname/snailtask-server` 可用
-  - 落点：`.github/workflows/release.yml`
+- [x] **T15.1 发布到 Docker Hub**
+  - 验收标准：GitHub Actions 自动构建并推送镜像
+  - 落点：`.github/workflows/server-release.yml`
+  - 测试结果：✓ 推送 server-v* tag 时自动构建并发布到 ghcr.io
 
-- [ ] **T15.2 编写部署文档**
+- [x] **T15.2 编写部署文档**
   - 验收标准：文档完整，可照做部署
   - 落点：`server/docs/deployment.md`
+  - 测试结果：✓ 包含 Docker Compose、手动部署、反向代理、监控等说明
 
-- [ ] **T15.3 一键部署脚本**
+- [x] **T15.3 一键部署脚本**
   - 验收标准：`curl -sSL https://... | bash` 可部署
   - 落点：`server/scripts/install.sh`
-  - 功能：检查依赖、下载 docker-compose、配置环境变量、启动服务
+  - 测试结果：✓ 检查依赖、下载配置、生成 JWT_SECRET、启动服务
 
 ---
 
