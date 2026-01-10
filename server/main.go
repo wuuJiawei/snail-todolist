@@ -133,6 +133,10 @@ func main() {
 
 			// 搜索
 			protected.GET("/search", taskHandler.SearchTasks)
+
+			// 批量操作
+			protected.POST("/tasks/batch/status", taskHandler.BatchUpdateStatus)
+			protected.POST("/tasks/batch/delete", taskHandler.BatchDelete)
 		}
 	}
 

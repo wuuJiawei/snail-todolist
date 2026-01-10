@@ -191,3 +191,52 @@ func (h *TaskHandler) SearchTasks(c *gin.Context) {
 
 	model.Success(c, results)
 }
+
+// BatchStatusInput 批量更新状态请求
+type BatchStatusInput struct {
+	TaskIDs []uuid.UUID      `json:"task_ids" binding:"required,min=1"`
+	Status  model.TaskStatus `json:"status" binding:"required,oneof=todo doing done"`
+}
+
+// BatchDeleteInput 批量删除请求
+type BatchDeleteInput struct {
+	TaskIDs []uuid.UUID `json:"task_ids" binding:"required,min=1"`
+}
+
+// BatchUpdateStatus 批量更新任务状态
+func (h *TaskHandler) BatchUpdateStatus(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+
+	var input BatchStatusInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	affected, err := h.taskService.BatchUpdateStatus(userID, input.TaskIDs, input.Status)
+	if err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	model.Success(c, gin.H{"affected": affected})
+}
+
+// BatchDelete 批量删除任务
+func (h *TaskHandler) BatchDelete(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+
+	var input BatchDeleteInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	affected, err := h.taskService.BatchDelete(userID, input.TaskIDs)
+	if err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	model.Success(c, gin.H{"affected": affected})
+}

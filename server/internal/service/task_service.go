@@ -196,3 +196,25 @@ func (s *TaskService) SearchTasks(userID uuid.UUID, query string, limit int) ([]
 	}
 	return s.taskRepo.Search(userID, query, limit)
 }
+
+// BatchUpdateStatus 批量更新任务状态
+func (s *TaskService) BatchUpdateStatus(userID uuid.UUID, taskIDs []uuid.UUID, status model.TaskStatus) (int64, error) {
+	if len(taskIDs) == 0 {
+		return 0, nil
+	}
+	if len(taskIDs) > 100 {
+		return 0, errors.New("批量操作最多支持 100 个任务")
+	}
+	return s.taskRepo.BatchUpdateStatus(userID, taskIDs, status)
+}
+
+// BatchDelete 批量删除任务
+func (s *TaskService) BatchDelete(userID uuid.UUID, taskIDs []uuid.UUID) (int64, error) {
+	if len(taskIDs) == 0 {
+		return 0, nil
+	}
+	if len(taskIDs) > 100 {
+		return 0, errors.New("批量操作最多支持 100 个任务")
+	}
+	return s.taskRepo.BatchDelete(userID, taskIDs)
+}

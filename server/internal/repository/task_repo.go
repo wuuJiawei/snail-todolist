@@ -167,3 +167,17 @@ func (r *TaskRepository) Search(userID uuid.UUID, query string, limit int) ([]Se
 
 	return results, err
 }
+
+// BatchUpdateStatus 批量更新任务状态
+func (r *TaskRepository) BatchUpdateStatus(userID uuid.UUID, taskIDs []uuid.UUID, status model.TaskStatus) (int64, error) {
+	result := r.db.Model(&model.Task{}).
+		Where("id IN ? AND user_id = ?", taskIDs, userID).
+		Update("status", status)
+	return result.RowsAffected, result.Error
+}
+
+// BatchDelete 批量删除任务（软删除）
+func (r *TaskRepository) BatchDelete(userID uuid.UUID, taskIDs []uuid.UUID) (int64, error) {
+	result := r.db.Where("id IN ? AND user_id = ?", taskIDs, userID).Delete(&model.Task{})
+	return result.RowsAffected, result.Error
+}

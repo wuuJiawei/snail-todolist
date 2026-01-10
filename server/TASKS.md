@@ -424,23 +424,20 @@
 
 ### Phase 10: 批量操作
 
-- [ ] **T10.1 实现批量更新状态**
+- [x] **T10.1 实现批量更新状态**
   - 验收标准：一次请求更新多个任务状态
-  - 落点：`server/db/queries/task.sql`
-  - SQL：
-    ```sql
-    -- name: BatchUpdateStatus :execrows
-    UPDATE tasks SET status = $2, updated_at = NOW()
-    WHERE id = ANY($1::uuid[]) AND user_id = $3 AND deleted_at IS NULL;
-    ```
+  - 落点：`server/internal/repository/task_repo.go`
+  - 测试结果：✓ BatchUpdateStatus 方法支持批量更新，返回影响行数
 
-- [ ] **T10.2 实现批量删除**
+- [x] **T10.2 实现批量删除**
   - 验收标准：一次请求删除多个任务
-  - 落点：`server/db/queries/task.sql`
+  - 落点：`server/internal/repository/task_repo.go`
+  - 测试结果：✓ BatchDelete 方法支持批量软删除
 
-- [ ] **T10.3 实现批量操作接口**
+- [x] **T10.3 实现批量操作接口**
   - 验收标准：接口可用，事务保证原子性
-  - 落点：`server/internal/handler/task.go`
+  - 落点：`server/internal/handler/task.go`, `server/main.go`
+  - 测试结果：✓ POST /api/v1/tasks/batch/status 和 /batch/delete 可用
   - 接口：
     - `POST /api/v1/tasks/batch/status` - 批量更新状态
     - `POST /api/v1/tasks/batch/delete` - 批量删除
