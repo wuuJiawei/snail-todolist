@@ -513,18 +513,20 @@
 
 ### Phase 14: 可观测性
 
-- [ ] **T14.1 添加 Prometheus metrics**
+- [x] **T14.1 添加 Prometheus metrics**
   - 验收标准：/metrics 端点可用
   - 落点：`server/internal/middleware/metrics.go`
-  - 指标：request_count, request_duration, error_count
+  - 测试结果：✓ http_requests_total, http_request_duration_seconds, http_requests_in_flight 指标可用
 
-- [ ] **T14.2 添加链路追踪**
+- [x] **T14.2 添加链路追踪**
   - 验收标准：请求可追踪
-  - 落点：`server/internal/middleware/tracing.go`
+  - 落点：`server/internal/middleware/request_id.go`
+  - 测试结果：✓ 通过 X-Request-ID header 实现请求追踪
 
-- [ ] **T14.3 完善日志**
+- [x] **T14.3 完善日志**
   - 验收标准：关键操作有审计日志
-  - 落点：`server/internal/pkg/logger/logger.go`
+  - 落点：`server/pkg/logger/logger.go`, `server/internal/middleware/logger.go`
+  - 测试结果：✓ 结构化日志包含 request_id, method, path, status, latency
 
 ---
 

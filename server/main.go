@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"snail-server/internal/config"
 	"snail-server/internal/handler"
 	"snail-server/internal/middleware"
@@ -86,13 +87,15 @@ func main() {
 	// 中间件
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger())
+	r.Use(middleware.Metrics())
 	r.Use(gin.Recovery())
 	r.Use(middleware.CORS())
 
-	// 健康检查
+	// 健康检查和监控
 	r.GET("/healthz", handler.Healthz)
 	r.GET("/readyz", handler.Readyz)
 	r.GET("/health", handler.Health) // 兼容旧接口
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// API 路由
 	api := r.Group("/api/v1")
