@@ -240,3 +240,37 @@ func (h *TaskHandler) BatchDelete(c *gin.Context) {
 
 	model.Success(c, gin.H{"affected": affected})
 }
+
+// SortInput 排序请求
+type SortInput struct {
+	AfterID  *uuid.UUID `json:"after_id"`
+	BeforeID *uuid.UUID `json:"before_id"`
+}
+
+// UpdateSortOrder 更新任务排序
+func (h *TaskHandler) UpdateSortOrder(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+	taskID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		model.Error(c, model.CodeParamError, "无效的任务ID")
+		return
+	}
+
+	var input SortInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	if input.AfterID == nil && input.BeforeID == nil {
+		model.Error(c, model.CodeParamError, "after_id 或 before_id 至少需要一个")
+		return
+	}
+
+	if err := h.taskService.UpdateSortOrder(userID, taskID, input.AfterID, input.BeforeID); err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	model.Success(c, gin.H{"message": "排序更新成功"})
+}

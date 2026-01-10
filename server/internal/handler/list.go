@@ -84,3 +84,37 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
 }
+
+// SortInput 排序请求
+type ListSortInput struct {
+	AfterID  *uuid.UUID `json:"after_id"`
+	BeforeID *uuid.UUID `json:"before_id"`
+}
+
+// UpdateSortOrder 更新清单排序
+func (h *ListHandler) UpdateSortOrder(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+	listID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的清单ID"})
+		return
+	}
+
+	var input ListSortInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if input.AfterID == nil && input.BeforeID == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "after_id 或 before_id 至少需要一个"})
+		return
+	}
+
+	if err := h.listService.UpdateSortOrder(userID, listID, input.AfterID, input.BeforeID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "排序更新成功"})
+}

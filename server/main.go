@@ -122,6 +122,7 @@ func main() {
 			protected.POST("/lists", listHandler.CreateList)
 			protected.PUT("/lists/:id", listHandler.UpdateList)
 			protected.DELETE("/lists/:id", listHandler.DeleteList)
+			protected.PATCH("/lists/:id/sort", listHandler.UpdateSortOrder)
 
 			// 任务
 			protected.GET("/lists/:id/tasks", taskHandler.GetTasksByList)
@@ -130,6 +131,7 @@ func main() {
 			protected.PUT("/tasks/:id", taskHandler.UpdateTask)
 			protected.DELETE("/tasks/:id", taskHandler.DeleteTask)
 			protected.PATCH("/tasks/:id/status", taskHandler.UpdateStatus)
+			protected.PATCH("/tasks/:id/sort", taskHandler.UpdateSortOrder)
 
 			// 搜索
 			protected.GET("/search", taskHandler.SearchTasks)

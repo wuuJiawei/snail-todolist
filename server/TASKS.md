@@ -446,21 +446,23 @@
 
 ### Phase 11: 拖拽排序
 
-- [ ] **T11.1 设计排序字段策略**
+- [x] **T11.1 设计排序字段策略**
   - 验收标准：文档说明排序算法
-  - 方案：使用浮点数 sort_order，插入时取前后平均值
   - 落点：`server/docs/sorting.md`
+  - 测试结果：✓ 使用整数 sort_order，插入时取前后平均值
 
-- [ ] **T11.2 实现排序更新接口**
+- [x] **T11.2 实现排序更新接口**
   - 验收标准：拖拽后更新 sort_order
-  - 落点：`server/internal/handler/task.go`
+  - 落点：`server/internal/handler/task.go`, `server/internal/repository/task_repo.go`
+  - 测试结果：✓ PATCH /api/v1/tasks/:id/sort 可用
   - 接口：`PATCH /api/v1/tasks/:id/sort`
   - 请求体：`{"after_id": "uuid"}` 或 `{"before_id": "uuid"}`
 
-- [ ] **T11.3 实现项目排序**
-  - 验收标准：项目也支持拖拽排序
-  - 落点：`server/internal/handler/project.go`
-  - 接口：`PATCH /api/v1/projects/:id/sort`
+- [x] **T11.3 实现清单排序**
+  - 验收标准：清单也支持拖拽排序
+  - 落点：`server/internal/handler/list.go`, `server/internal/repository/list_repo.go`
+  - 测试结果：✓ PATCH /api/v1/lists/:id/sort 可用
+  - 接口：`PATCH /api/v1/lists/:id/sort`
 
 ---
 

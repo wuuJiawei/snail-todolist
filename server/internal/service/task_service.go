@@ -218,3 +218,22 @@ func (s *TaskService) BatchDelete(userID uuid.UUID, taskIDs []uuid.UUID) (int64,
 	}
 	return s.taskRepo.BatchDelete(userID, taskIDs)
 }
+
+// UpdateSortOrder 更新任务排序
+func (s *TaskService) UpdateSortOrder(userID, taskID uuid.UUID, afterID, beforeID *uuid.UUID) error {
+	task, err := s.taskRepo.FindByID(taskID)
+	if err != nil {
+		return errors.New("任务不存在")
+	}
+	if task.UserID != userID {
+		return errors.New("无权操作此任务")
+	}
+
+	afterOrder, beforeOrder, err := s.taskRepo.GetAdjacentSortOrders(task.ListID, afterID, beforeID)
+	if err != nil {
+		return err
+	}
+
+	newOrder := (afterOrder + beforeOrder) / 2
+	return s.taskRepo.UpdateSortOrder(taskID, newOrder)
+}

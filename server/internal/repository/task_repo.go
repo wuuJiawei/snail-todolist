@@ -181,3 +181,40 @@ func (r *TaskRepository) BatchDelete(userID uuid.UUID, taskIDs []uuid.UUID) (int
 	result := r.db.Where("id IN ? AND user_id = ?", taskIDs, userID).Delete(&model.Task{})
 	return result.RowsAffected, result.Error
 }
+
+// GetSortOrder 获取指定任务的 sort_order
+func (r *TaskRepository) GetSortOrder(taskID uuid.UUID) (int, error) {
+	var task model.Task
+	err := r.db.Select("sort_order").First(&task, "id = ?", taskID).Error
+	return task.SortOrder, err
+}
+
+// UpdateSortOrder 更新任务的 sort_order
+func (r *TaskRepository) UpdateSortOrder(taskID uuid.UUID, sortOrder int) error {
+	return r.db.Model(&model.Task{}).Where("id = ?", taskID).Update("sort_order", sortOrder).Error
+}
+
+// GetAdjacentSortOrders 获取相邻任务的 sort_order（用于计算新位置）
+func (r *TaskRepository) GetAdjacentSortOrders(listID uuid.UUID, afterID, beforeID *uuid.UUID) (afterOrder, beforeOrder int, err error) {
+	if afterID != nil {
+		var task model.Task
+		if err = r.db.Select("sort_order").First(&task, "id = ?", *afterID).Error; err != nil {
+			return
+		}
+		afterOrder = task.SortOrder
+	} else {
+		afterOrder = -1000000
+	}
+
+	if beforeID != nil {
+		var task model.Task
+		if err = r.db.Select("sort_order").First(&task, "id = ?", *beforeID).Error; err != nil {
+			return
+		}
+		beforeOrder = task.SortOrder
+	} else {
+		beforeOrder = afterOrder + 2000
+	}
+
+	return
+}

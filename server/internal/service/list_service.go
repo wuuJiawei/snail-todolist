@@ -92,3 +92,22 @@ func (s *ListService) DeleteList(userID, listID uuid.UUID) error {
 
 	return s.listRepo.Delete(listID)
 }
+
+// UpdateSortOrder 更新清单排序
+func (s *ListService) UpdateSortOrder(userID, listID uuid.UUID, afterID, beforeID *uuid.UUID) error {
+	list, err := s.listRepo.FindByID(listID)
+	if err != nil {
+		return errors.New("清单不存在")
+	}
+	if list.UserID != userID {
+		return errors.New("无权操作此清单")
+	}
+
+	afterOrder, beforeOrder, err := s.listRepo.GetAdjacentSortOrders(userID, afterID, beforeID)
+	if err != nil {
+		return err
+	}
+
+	newOrder := (afterOrder + beforeOrder) / 2
+	return s.listRepo.UpdateSortOrder(listID, newOrder)
+}
