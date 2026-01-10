@@ -58,6 +58,7 @@ func main() {
 	emailCodeRepo := repository.NewEmailCodeRepository(database.DB)
 	listRepo := repository.NewListRepository(database.DB)
 	taskRepo := repository.NewTaskRepository(database.DB)
+	listMemberRepo := repository.NewListMemberRepository(database.DB)
 
 	// 初始化 services
 	authService := service.NewAuthService(userRepo, emailCodeRepo)
@@ -65,6 +66,7 @@ func main() {
 	listService := service.NewListService(listRepo)
 	taskService := service.NewTaskService(taskRepo, listRepo)
 	overviewService := service.NewOverviewService(listRepo, taskRepo)
+	listMemberService := service.NewListMemberService(listMemberRepo, listRepo, userRepo)
 
 	// 初始化 handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -72,6 +74,7 @@ func main() {
 	listHandler := handler.NewListHandler(listService)
 	taskHandler := handler.NewTaskHandler(taskService)
 	overviewHandler := handler.NewOverviewHandler(overviewService, taskService)
+	listMemberHandler := handler.NewListMemberHandler(listMemberService)
 
 	// 设置 Gin 模式
 	if config.IsProduction() {
@@ -123,6 +126,12 @@ func main() {
 			protected.PUT("/lists/:id", listHandler.UpdateList)
 			protected.DELETE("/lists/:id", listHandler.DeleteList)
 			protected.PATCH("/lists/:id/sort", listHandler.UpdateSortOrder)
+
+			// 清单成员
+			protected.GET("/lists/:id/members", listMemberHandler.GetMembers)
+			protected.POST("/lists/:id/members", listMemberHandler.InviteMember)
+			protected.PUT("/lists/:id/members/:memberId", listMemberHandler.UpdateMember)
+			protected.DELETE("/lists/:id/members/:memberId", listMemberHandler.RemoveMember)
 
 			// 任务
 			protected.GET("/lists/:id/tasks", taskHandler.GetTasksByList)

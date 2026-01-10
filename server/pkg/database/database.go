@@ -30,6 +30,7 @@ func AutoMigrate() error {
 		&model.EmailCode{},
 		&model.List{},
 		&model.Task{},
+		&model.ListMember{},
 	); err != nil {
 		return err
 	}

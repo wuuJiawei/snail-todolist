@@ -470,17 +470,25 @@
 
 ### Phase 12: 项目共享
 
-- [ ] **T12.1 设计共享数据模型**
+- [x] **T12.1 设计共享数据模型**
   - 验收标准：ER 图和迁移文件
-  - 新增表：project_members (project_id, user_id, role, invited_at, accepted_at)
+  - 落点：`server/internal/model/list_member.go`
+  - 测试结果：✓ ListMember 模型包含 list_id, user_id, role, invited_by, invited_at, accepted_at
 
-- [ ] **T12.2 实现邀请接口**
-  - 验收标准：项目所有者可邀请成员
-  - 接口：`POST /api/v1/projects/:id/members`
+- [x] **T12.2 实现邀请接口**
+  - 验收标准：清单所有者可邀请成员
+  - 落点：`server/internal/handler/list_member.go`
+  - 测试结果：✓ POST /api/v1/lists/:id/members 可用
+  - 接口：
+    - `GET /api/v1/lists/:id/members` - 获取成员列表
+    - `POST /api/v1/lists/:id/members` - 邀请成员
+    - `PUT /api/v1/lists/:id/members/:memberId` - 更新成员角色
+    - `DELETE /api/v1/lists/:id/members/:memberId` - 移除成员
 
-- [ ] **T12.3 实现权限检查**
+- [x] **T12.3 实现权限检查**
   - 验收标准：成员只能查看/编辑，所有者可删除
-  - 角色：owner, editor, viewer
+  - 落点：`server/internal/service/list_member_service.go`
+  - 测试结果：✓ CheckAccess 方法支持 owner/editor/viewer 角色检查
 
 ---
 
