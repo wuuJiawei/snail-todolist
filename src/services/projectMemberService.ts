@@ -1,4 +1,9 @@
-import { supabase } from "@/integrations/supabase/client";
+/**
+ * Project Member Service
+ * Handles project member operations using the backend API
+ */
+
+import { apiClient } from "@/lib/apiClient";
 
 export type Profile = {
   id: string;
@@ -16,46 +21,66 @@ export type ProjectMemberRow = {
   profile?: Profile | null;
 };
 
+interface ApiMember {
+  id: string;
+  list_id: string;
+  user_id: string;
+  role: string;
+  created_at: string;
+  user?: {
+    id: string;
+    email: string;
+    username?: string;
+    avatar_url?: string;
+  };
+}
+
 export const listMembers = async (projectId: string): Promise<ProjectMemberRow[]> => {
-  const { data, error } = await supabase
-    .from("project_members")
-    .select("id, project_id, user_id, role, created_at")
-    .eq("project_id", projectId)
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-  const rows = (data || []) as Array<{ id: string; project_id: string | null; user_id: string | null; role: string; created_at: string | null; }>;
-  const ids = Array.from(new Set(rows.map(r => r.user_id).filter(Boolean))) as string[];
-  if (ids.length === 0) return rows as ProjectMemberRow[];
-  const { data: profiles, error: pErr } = await (supabase as any)
-    .from('profiles')
-    .select('id, email, display_name, avatar_url')
-    .in('id', ids);
-  if (pErr) {
-    // 降级：不影响成员基本显示
-    return rows as ProjectMemberRow[];
+  try {
+    const data = await apiClient.get<ApiMember[]>(`/lists/${projectId}/members`);
+    return data.map(m => ({
+      id: m.id,
+      project_id: m.list_id,
+      user_id: m.user_id,
+      role: m.role,
+      created_at: m.created_at,
+      profile: m.user ? {
+        id: m.user.id,
+        email: m.user.email,
+        display_name: m.user.username || null,
+        avatar_url: m.user.avatar_url || null,
+      } : null,
+    }));
+  } catch (error) {
+    console.error('Failed to list members:', error);
+    return [];
   }
-  const map: Record<string, Profile> = {};
-  (profiles || []).forEach((p: any) => { map[p.id] = p as Profile; });
-  const result: ProjectMemberRow[] = rows.map(r => ({ ...r, profile: r.user_id ? map[r.user_id] : null }));
-  return result;
 };
 
 export const removeMember = async (projectId: string, userId: string): Promise<boolean> => {
-  const { error } = await supabase
-    .from("project_members")
-    .delete()
-    .eq("project_id", projectId)
-    .eq("user_id", userId);
-  if (error) throw error;
-  return true;
+  try {
+    await apiClient.delete(`/lists/${projectId}/members/${userId}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to remove member:', error);
+    return false;
+  }
 };
 
 export const getProfileById = async (userId: string): Promise<Profile | null> => {
-  const { data, error } = await (supabase as any)
-    .from('profiles')
-    .select('id, email, display_name, avatar_url')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error) throw error;
-  return (data as Profile) || null;
+  try {
+    const data = await apiClient.get<{ id: string; email: string; username?: string; avatar_url?: string }>(`/user/profile`);
+    if (data.id === userId) {
+      return {
+        id: data.id,
+        email: data.email,
+        display_name: data.username || null,
+        avatar_url: data.avatar_url || null,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to get profile:', error);
+    return null;
+  }
 };
