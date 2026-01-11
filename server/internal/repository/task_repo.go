@@ -284,3 +284,12 @@ func (r *TaskRepository) SetAbandoned(id uuid.UUID, abandoned bool) error {
 	}
 	return r.db.Model(&model.Task{}).Where("id = ?", id).Updates(updates).Error
 }
+
+// FindAllByUserID 获取用户所有任务（用于数据导出）
+func (r *TaskRepository) FindAllByUserID(userID uuid.UUID) ([]model.Task, error) {
+	var tasks []model.Task
+	err := r.db.Where("user_id = ?", userID).
+		Order("created_at ASC").
+		Find(&tasks).Error
+	return tasks, err
+}

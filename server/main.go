@@ -77,6 +77,7 @@ func main() {
 	taskActivityService := service.NewTaskActivityService(taskActivityRepo, taskRepo)
 	pomodoroService := service.NewPomodoroService(pomodoroRepo)
 	projectShareService := service.NewProjectShareService(projectShareRepo, listRepo, listMemberRepo)
+	migrationService := service.NewMigrationService(database.DB, listRepo, taskRepo, tagRepo, taskTagRepo, pomodoroRepo, taskActivityRepo)
 
 	// 初始化 handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -90,6 +91,7 @@ func main() {
 	pomodoroHandler := handler.NewPomodoroHandler(pomodoroService)
 	projectShareHandler := handler.NewProjectShareHandler(projectShareService)
 	attachmentHandler := handler.NewAttachmentHandler(taskRepo, config.AppConfig.StoragePath, config.AppConfig.BaseURL)
+	migrationHandler := handler.NewMigrationHandler(migrationService)
 
 	// 设置 Gin 模式
 	if config.IsProduction() {
@@ -209,6 +211,10 @@ func main() {
 			// 批量操作
 			protected.POST("/tasks/batch/status", taskHandler.BatchUpdateStatus)
 			protected.POST("/tasks/batch/delete", taskHandler.BatchDelete)
+
+			// 数据迁移
+			protected.GET("/export", migrationHandler.Export)
+			protected.POST("/import", migrationHandler.Import)
 		}
 	}
 

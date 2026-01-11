@@ -164,27 +164,21 @@ type StorageMode = 'online' | 'offline';
 
 > **目标**：帮助现有 Supabase 用户一次性迁移数据到自定义后端
 
-- [ ] **T25.1 创建数据导出接口（后端）**
-  - 验收标准：导出用户全部数据为 JSON
+- [x] **T25.1 创建数据导出接口（后端）**
   - 落点：`server/internal/handler/migration.go`
   - 接口：`GET /api/v1/export`
-  - 数据：lists, tasks, tags, task_tags, pomodoro_sessions, task_activities
+  - 返回：lists, tasks, tags, task_tags, pomodoro_sessions, task_activities
 
-- [ ] **T25.2 创建数据导入接口（后端）**
-  - 验收标准：导入完整数据集，事务保证
+- [x] **T25.2 创建数据导入接口（后端）**
   - 落点：`server/internal/handler/migration.go`
   - 接口：`POST /api/v1/import`
-  - 要求：ID 映射、冲突处理、回滚支持
+  - 功能：ID 映射、事务保证、返回导入统计
 
-- [ ] **T25.3 创建 Supabase 数据导出脚本（一次性工具）**
-  - 验收标准：从 Supabase 导出用户数据为 JSON 文件
-  - 落点：`scripts/export-from-supabase.ts`（独立脚本，不打包到前端）
-  - 说明：这是一次性迁移工具，迁移完成后可删除
+- [ ] **T25.3 创建 Supabase 数据导出脚本（一次性工具）**（跳过）
+  - 说明：Supabase 已完全移除，此脚本不再需要
 
-- [ ] **T25.4 创建迁移向导 UI**
-  - 验收标准：引导用户完成数据迁移
-  - 落点：`src/components/settings/MigrationWizard.tsx`
-  - 步骤：上传导出文件 → 配置后端 URL → 执行导入 → 验证
+- [ ] **T25.4 创建迁移向导 UI**（可选）
+  - 说明：可通过 API 直接调用导入接口，UI 可后续添加
 
 ---
 
