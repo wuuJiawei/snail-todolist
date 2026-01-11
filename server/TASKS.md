@@ -111,16 +111,24 @@ type StorageMode = 'online' | 'offline';
   - 落点：`src/lib/authApi.ts`, `src/types/auth.ts`, `src/contexts/AuthContext.tsx`
   - 支持 online 模式使用自定义后端 JWT 认证
 
-- [x] **T23.6 移除 Supabase 相关代码**（部分完成）
+- [x] **T23.6 移除 Supabase 相关代码**（完成）
   - ✅ TaskProvider: 移除 supabase 实时订阅，改用轮询
   - ✅ ProjectContext: 移除 supabase 实时订阅，改用轮询
-  - ⏳ 待处理文件（仍引用 supabase，但不影响 online 模式运行）：
-    - `src/services/*.ts` - 这些服务被 SupabaseAdapter 使用，online 模式不调用
-    - `src/pages/Chat.tsx` - 聊天功能，可后续重构或移除
-    - `src/components/projects/ShareProjectDialog.tsx` - 分享功能
-    - `src/components/projects/JoinSharedProjectDialog.tsx` - 加入分享
-    - `src/pages/JoinSharedProject.tsx` - 加入分享页面
-    - `src/pages/AuthCallback.tsx` - OAuth 回调，online 模式暂不支持 OAuth
+  - ✅ ShareProjectDialog: 移除 supabase 实时订阅
+  - ✅ JoinSharedProjectDialog: 使用 apiClient
+  - ✅ JoinSharedProject 页面: 使用 apiClient
+  - ✅ AuthCallback: 简化（OAuth 暂不支持）
+  - ✅ Chat 页面: 禁用（显示开发中提示）
+  - ✅ projectShareService: 使用 apiClient
+  - ✅ projectMemberService: 使用 apiClient
+  - ⏳ 保留文件（仅被 SupabaseAdapter 使用，online 模式不调用）：
+    - `src/services/taskService.ts`
+    - `src/services/tagService.ts`
+    - `src/services/pomodoroService.ts`
+    - `src/services/taskActivityService.ts`
+    - `src/services/checkInService.ts`
+    - `src/integrations/supabase/*`
+    - `src/storage/supabase/*`
 
 ---
 
