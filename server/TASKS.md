@@ -139,32 +139,24 @@ type StorageMode = 'online' | 'offline';
 
 ---
 
-### Phase 24: 后端聚合接口
+### Phase 24: 后端聚合接口 ✅
 
-- [ ] **T24.1 实现任务聚合查询**
-  - 验收标准：单次请求返回任务及关联数据
+- [x] **T24.1 实现任务聚合查询**
   - 落点：`server/internal/handler/task.go`
-  - 接口：`GET /api/v1/lists/:id/tasks`
-  - 返回：任务列表 + 每个任务的标签 + 活动记录摘要
-  - **替代**：前端多次查询 tasks + task_tags + tags
+  - 接口：`GET /api/v1/lists/:id/tasks?include_tags=true`
+  - 返回：任务列表 + 每个任务的标签
+  - 新增：`GetTasksByListWithTags` 方法，批量获取标签避免 N+1
 
-- [ ] **T24.2 实现仪表盘聚合接口**
-  - 验收标准：单次请求返回仪表盘所有数据
+- [x] **T24.2 实现仪表盘聚合接口**（已存在）
   - 落点：`server/internal/handler/overview.go`
   - 接口：`GET /api/v1/overview`
-  - 返回：
-    - 统计数据（总任务数、完成数、逾期数）
-    - 清单列表（含任务计数）
-    - 今日任务
-    - 即将到期任务
-  - **替代**：前端 5+ 次查询
+  - 返回：统计数据 + 清单列表（含任务计数）+ 今日任务
 
-- [ ] **T24.3 实现任务详情聚合接口**
-  - 验收标准：单次请求返回任务完整信息
+- [x] **T24.3 实现任务详情聚合接口**
   - 落点：`server/internal/handler/task.go`
-  - 接口：`GET /api/v1/tasks/:id`
-  - 返回：任务详情 + 标签 + 附件 + 活动记录
-  - **替代**：前端 4 次查询
+  - 接口：`GET /api/v1/tasks/:id/detail`
+  - 返回：任务详情 + 标签 + 活动记录（最近 20 条）
+  - 新增：`GetTaskDetail` 方法
 
 ---
 

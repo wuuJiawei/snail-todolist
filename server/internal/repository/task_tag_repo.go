@@ -54,3 +54,37 @@ func (r *TaskTagRepository) Exists(taskID, tagID uuid.UUID) (bool, error) {
 	err := r.db.Model(&model.TaskTag{}).Where("task_id = ? AND tag_id = ?", taskID, tagID).Count(&count).Error
 	return count > 0, err
 }
+
+// GetTagsByTaskIDs 批量获取多个任务的标签
+func (r *TaskTagRepository) GetTagsByTaskIDs(taskIDs []uuid.UUID) (map[uuid.UUID][]model.Tag, error) {
+	if len(taskIDs) == 0 {
+		return make(map[uuid.UUID][]model.Tag), nil
+	}
+
+	type taskTagResult struct {
+		TaskID uuid.UUID
+		model.Tag
+	}
+
+	var results []taskTagResult
+	err := r.db.Table("tags").
+		Select("task_tags.task_id, tags.*").
+		Joins("INNER JOIN task_tags ON task_tags.tag_id = tags.id").
+		Where("task_tags.task_id IN ?", taskIDs).
+		Order("tags.name ASC").
+		Scan(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	tagMap := make(map[uuid.UUID][]model.Tag)
+	for _, taskID := range taskIDs {
+		tagMap[taskID] = []model.Tag{}
+	}
+	for _, r := range results {
+		tagMap[r.TaskID] = append(tagMap[r.TaskID], r.Tag)
+	}
+
+	return tagMap, nil
+}

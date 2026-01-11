@@ -10,14 +10,18 @@ import (
 )
 
 type TaskService struct {
-	taskRepo *repository.TaskRepository
-	listRepo *repository.ListRepository
+	taskRepo    *repository.TaskRepository
+	listRepo    *repository.ListRepository
+	taskTagRepo *repository.TaskTagRepository
+	activityRepo *repository.TaskActivityRepository
 }
 
-func NewTaskService(taskRepo *repository.TaskRepository, listRepo *repository.ListRepository) *TaskService {
+func NewTaskService(taskRepo *repository.TaskRepository, listRepo *repository.ListRepository, taskTagRepo *repository.TaskTagRepository, activityRepo *repository.TaskActivityRepository) *TaskService {
 	return &TaskService{
-		taskRepo: taskRepo,
-		listRepo: listRepo,
+		taskRepo:    taskRepo,
+		listRepo:    listRepo,
+		taskTagRepo: taskTagRepo,
+		activityRepo: activityRepo,
 	}
 }
 
@@ -48,6 +52,27 @@ type TaskListResponse struct {
 	Total int64        `json:"total"`
 	Page  int          `json:"page"`
 	Limit int          `json:"limit"`
+}
+
+// TaskWithTags 任务及其标签
+type TaskWithTags struct {
+	model.Task
+	Tags []model.Tag `json:"tags"`
+}
+
+// TaskListWithTagsResponse 带标签的任务列表响应
+type TaskListWithTagsResponse struct {
+	Tasks []TaskWithTags `json:"tasks"`
+	Total int64          `json:"total"`
+	Page  int            `json:"page"`
+	Limit int            `json:"limit"`
+}
+
+// TaskDetailResponse 任务详情聚合响应
+type TaskDetailResponse struct {
+	model.Task
+	Tags       []model.Tag          `json:"tags"`
+	Activities []model.TaskActivity `json:"activities"`
 }
 
 func (s *TaskService) CreateTask(userID, listID uuid.UUID, input *CreateTaskInput) (*model.Task, error) {
@@ -115,6 +140,86 @@ func (s *TaskService) GetTasksByList(userID, listID uuid.UUID, status string, pa
 		Total: total,
 		Page:  page,
 		Limit: limit,
+	}, nil
+}
+
+// GetTasksByListWithTags 获取清单任务（带标签）- 聚合查询
+func (s *TaskService) GetTasksByListWithTags(userID, listID uuid.UUID, status string, page, limit int) (*TaskListWithTagsResponse, error) {
+	list, err := s.listRepo.FindByID(listID)
+	if err != nil {
+		return nil, errors.New("清单不存在")
+	}
+	if list.UserID != userID {
+		return nil, errors.New("无权访问此清单")
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	tasks, total, err := s.taskRepo.FindByListID(listID, status, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	// 批量获取任务标签
+	taskIDs := make([]uuid.UUID, len(tasks))
+	for i, t := range tasks {
+		taskIDs[i] = t.ID
+	}
+
+	tagMap, err := s.taskTagRepo.GetTagsByTaskIDs(taskIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// 组装结果
+	tasksWithTags := make([]TaskWithTags, len(tasks))
+	for i, t := range tasks {
+		tasksWithTags[i] = TaskWithTags{
+			Task: t,
+			Tags: tagMap[t.ID],
+		}
+	}
+
+	return &TaskListWithTagsResponse{
+		Tasks: tasksWithTags,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}, nil
+}
+
+// GetTaskDetail 获取任务详情（聚合：任务 + 标签 + 活动记录）
+func (s *TaskService) GetTaskDetail(userID, taskID uuid.UUID) (*TaskDetailResponse, error) {
+	task, err := s.taskRepo.FindByID(taskID)
+	if err != nil {
+		return nil, errors.New("任务不存在")
+	}
+	if task.UserID != userID {
+		return nil, errors.New("无权访问此任务")
+	}
+
+	// 获取标签
+	tags, err := s.taskTagRepo.GetTagsByTask(taskID)
+	if err != nil {
+		tags = []model.Tag{}
+	}
+
+	// 获取最近活动记录（最多 20 条）
+	activities, _, err := s.activityRepo.FindByTask(taskID, 20, 0)
+	if err != nil {
+		activities = []model.TaskActivity{}
+	}
+
+	return &TaskDetailResponse{
+		Task:       *task,
+		Tags:       tags,
+		Activities: activities,
 	}, nil
 }
 

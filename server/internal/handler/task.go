@@ -59,6 +59,24 @@ func (h *TaskHandler) GetTask(c *gin.Context) {
 	model.Success(c, task)
 }
 
+// GetTaskDetail 获取任务详情（聚合：任务 + 标签 + 活动记录）
+func (h *TaskHandler) GetTaskDetail(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+	taskID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		model.Error(c, model.CodeParamError, "无效的任务ID")
+		return
+	}
+
+	detail, err := h.taskService.GetTaskDetail(userID, taskID)
+	if err != nil {
+		model.Error(c, model.CodeNotFound, err.Error())
+		return
+	}
+
+	model.Success(c, detail)
+}
+
 // GetTasksByList 获取清单下的任务
 func (h *TaskHandler) GetTasksByList(c *gin.Context) {
 	userID := c.MustGet("userID").(uuid.UUID)
@@ -71,6 +89,17 @@ func (h *TaskHandler) GetTasksByList(c *gin.Context) {
 	status := c.Query("status")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	includeTags := c.Query("include_tags") == "true"
+
+	if includeTags {
+		result, err := h.taskService.GetTasksByListWithTags(userID, listID, status, page, limit)
+		if err != nil {
+			model.Error(c, model.CodeParamError, err.Error())
+			return
+		}
+		model.Success(c, result)
+		return
+	}
 
 	result, err := h.taskService.GetTasksByList(userID, listID, status, page, limit)
 	if err != nil {
