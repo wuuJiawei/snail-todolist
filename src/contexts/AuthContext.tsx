@@ -1,28 +1,24 @@
+/**
+ * Authentication Context
+ * Supports both online (custom backend) and offline (local) modes
+ */
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
-import { isTauriRuntime } from "@/utils/runtime";
-import { toast } from "@/hooks/use-toast";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { isOfflineMode } from "@/storage";
+import { toast } from "@/hooks/use-toast";
+import { isOfflineMode, isOnlineMode } from "@/config/storage";
+import { authApi, ApiClientError } from "@/lib/authApi";
+import { AppUser, AppSession, createOfflineUser, createGuestUser, createOnlineUser } from "@/types/auth";
 
-// 游客ID本地存储key
 const GUEST_ID_KEY = "snail_guest_id";
 
-// 获取本地存储的游客ID
-const getGuestId = (): string | null => {
-  return localStorage.getItem(GUEST_ID_KEY);
-};
-
-// 清除本地存储的游客ID
-const clearGuestId = (): void => {
-  localStorage.removeItem(GUEST_ID_KEY);
-};
+const getGuestId = (): string | null => localStorage.getItem(GUEST_ID_KEY);
+const setGuestId = (id: string): void => localStorage.setItem(GUEST_ID_KEY, id);
+const clearGuestId = (): void => localStorage.removeItem(GUEST_ID_KEY);
 
 interface AuthContextType {
-  session: Session | null;
-  user: User | null;
+  session: AppSession | null;
+  user: AppUser | null;
   loading: boolean;
   isGuest: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
@@ -36,142 +32,69 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<AppSession | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
   const navigate = useNavigate();
 
-  // Track if we've already shown the login toast
-  const [hasShownLoginToast, setHasShownLoginToast] = useState(false);
-
-  useEffect(() => {
-    // In offline mode, skip Supabase auth entirely
+  const initializeAuth = useCallback(async () => {
     if (isOfflineMode) {
-      // Create a mock offline user
-      const offlineUser = {
-        id: 'offline-user',
-        email: 'offline@local',
-        app_metadata: {},
-        user_metadata: { name: 'Offline User' },
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-      } as User;
-      
-      setUser(offlineUser);
+      setUser(createOfflineUser());
       setSession(null);
       setIsGuest(false);
       setLoading(false);
       return;
     }
 
-    // Set up auth state listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-
-        if (event === 'SIGNED_IN' && !hasShownLoginToast) {
-          // Only show login toast for explicit sign-in events, not for session recovery
-          const isFromAuthCallback = window.location.pathname.includes('/auth/callback');
-          if (isFromAuthCallback) {
-            toast({
-              title: "登录成功",
-              description: "欢迎回来！",
-            });
-            setHasShownLoginToast(true);
-            
-            // 如果用户登录时有游客数据，迁移数据
-            const guestId = getGuestId();
-            if (guestId && currentSession?.user) {
-              await migrateGuestDataToUser(guestId, currentSession.user.id);
-            }
-          }
-        } else if (event === 'SIGNED_OUT') {
-          toast({
-            title: "已退出登录",
-            description: "期待您的再次使用",
+    if (isOnlineMode) {
+      if (authApi.isAuthenticated()) {
+        try {
+          const profile = await authApi.getProfile();
+          const appUser = createOnlineUser(profile);
+          setUser(appUser);
+          setSession({
+            access_token: authApi.getToken()!,
+            user: appUser,
           });
-          navigate('/auth');
-          setHasShownLoginToast(false);
-          setIsGuest(false);
-        } else if (event === 'USER_UPDATED') {
-          // User metadata has been updated, refresh the user state
-          setUser(currentSession?.user ?? null);
+        } catch (error) {
+          if (error instanceof ApiClientError && error.isUnauthorized()) {
+            authApi.logout();
+          }
+          setUser(null);
+          setSession(null);
         }
       }
-    );
-
-    // Then check for existing session - only once
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
       setLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [navigate, hasShownLoginToast]);
-
-  // 将游客数据迁移到正式用户账户
-  const migrateGuestDataToUser = async (guestId: string, userId: string) => {
-    try {
-      // 显示迁移过程提示
-      const migrationToast = toast({
-        title: "数据同步中...",
-        description: "正在将您的游客数据同步到您的账户",
-      });
-      
-      // 调用服务端函数迁移数据
-      const { error } = await supabase.rpc('migrate_guest_data', {
-        p_guest_id: guestId,
-        p_user_id: userId
-      });
-      
-      if (error) throw error;
-      
-      // 迁移成功后清除游客ID
-      clearGuestId();
-      
-      // 更新提示信息
-      toast({
-        title: "数据同步完成",
-        description: "您的所有任务已成功同步到您的账户",
-      });
-    } catch (error) {
-      console.error("Error migrating guest data:", error);
-      toast({
-        title: "数据同步失败",
-        description: "无法将游客数据迁移到您的账户，请联系管理员",
-        variant: "destructive",
-      });
+      return;
     }
-  };
 
-  // Sign in with email and password
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      const response = await authApi.login(email, password);
+      const appUser = createOnlineUser(response.user);
+      
+      setUser(appUser);
+      setSession({
+        access_token: response.token,
+        user: appUser,
+      });
+      setIsGuest(false);
 
-      // Show login toast and set flag
       toast({
         title: "登录成功",
         description: "欢迎回来！",
       });
-      setHasShownLoginToast(true);
-      setIsGuest(false);
-
-      // 如果用户登录时有游客数据，迁移数据
-      const { data: { user } } = await supabase.auth.getUser();
-      const guestId = getGuestId();
-      if (guestId && user) {
-        await migrateGuestDataToUser(guestId, user.id);
-      }
 
       navigate('/');
-    } catch (error: unknown) {
+    } catch (error) {
       toast({
         title: "登录失败",
         description: error instanceof Error ? error.message : "请检查您的邮箱和密码",
@@ -180,25 +103,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Sign up with email and password
   const signUpWithEmail = async (email: string, password: string) => {
     try {
-      const { error, data } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
+      await authApi.register(email, password);
       
       toast({
         title: "注册成功",
-        description: "请检查您的邮箱以验证账户",
+        description: "请使用您的邮箱和密码登录",
       });
-      
-      // 如果注册后立即获得用户且有游客数据，迁移数据
-      if (data.user) {
-        const guestId = getGuestId();
-        if (guestId) {
-          await migrateGuestDataToUser(guestId, data.user.id);
-        }
-      }
-    } catch (error: unknown) {
+    } catch (error) {
       toast({
         title: "注册失败",
         description: error instanceof Error ? error.message : "请稍后再试",
@@ -207,32 +120,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Sign in with OAuth provider
-  const signInWithOAuth = async (provider: 'github' | 'google') => {
-    try {
-      const redirectTo = isTauriRuntime()
-        ? "snailtodo://auth-callback"
-        : `${window.location.origin}/auth/callback`;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo,
-        },
-      });
-      if (error) throw error;
-    } catch (error: unknown) {
-      toast({
-        title: "登录失败",
-        description: error instanceof Error ? error.message : "请稍后再试",
-        variant: "destructive",
-      });
-    }
+  const signInWithOAuth = async (_provider: 'github' | 'google') => {
+    toast({
+      title: "暂不支持",
+      description: "OAuth 登录功能正在开发中",
+      variant: "destructive",
+    });
   };
 
-  // Sign in as guest
   const signInAsGuest = async () => {
     try {
-      // 启用游客模式而不是实际登录
+      let guestId = getGuestId();
+      if (!guestId) {
+        guestId = `guest-${crypto.randomUUID()}`;
+        setGuestId(guestId);
+      }
+
+      const guestUser = createGuestUser(guestId);
+      setUser(guestUser);
       setIsGuest(true);
       
       toast({
@@ -241,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       navigate('/');
-    } catch (error: unknown) {
+    } catch (error) {
       toast({
         title: "游客登录失败",
         description: error instanceof Error ? error.message : "请稍后再试",
@@ -250,31 +155,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Sign out
   const signOut = async () => {
     if (isGuest) {
       setIsGuest(false);
+      setUser(null);
+      setSession(null);
       navigate('/auth');
       return;
     }
+
+    authApi.logout();
+    setUser(null);
+    setSession(null);
     
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast({
-        title: "退出失败",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "已退出登录",
+      description: "期待您的再次使用",
+    });
+    
+    navigate('/auth');
   };
 
-  // Refresh user data from Supabase
   const refreshUser = async () => {
-    if (isOfflineMode || isGuest) return;
+    if (isOfflineMode || isGuest || !authApi.isAuthenticated()) return;
     
-    const { data: { user: freshUser } } = await supabase.auth.getUser();
-    if (freshUser) {
-      setUser(freshUser);
+    try {
+      const profile = await authApi.getProfile();
+      const appUser = createOnlineUser(profile);
+      setUser(appUser);
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
     }
   };
 

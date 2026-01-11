@@ -15,7 +15,7 @@ import { Project } from '@/types/project';
 import { PomodoroSession, TaskActivity, CheckInRecord, CreatePomodoroInput, CreateActivityInput } from './types';
 import { getStorage, initializeStorage, isOfflineMode } from './index';
 import { toast } from '@/hooks/use-toast';
-import type { User } from '@supabase/supabase-js';
+import type { AppUser } from '@/types/auth';
 
 // ============================================
 // Helper Functions
@@ -37,7 +37,7 @@ async function ensureStorage() {
  * 
  * Use this to replace `!!user || isOfflineMode` pattern in contexts/components.
  */
-export function canPerformOperation(user: User | null): boolean {
+export function canPerformOperation(user: AppUser | null): boolean {
   return isOfflineMode || !!user;
 }
 
@@ -47,7 +47,7 @@ export function canPerformOperation(user: User | null): boolean {
  * 
  * Use this to replace `!user && !isOfflineMode` pattern for showing auth errors.
  */
-export function requiresAuth(user: User | null): boolean {
+export function requiresAuth(user: AppUser | null): boolean {
   return !isOfflineMode && !user;
 }
 

@@ -5,7 +5,7 @@
 
 import { StorageAdapter } from './types';
 import { IndexedDBAdapter } from './indexeddb';
-import { SupabaseAdapter } from './supabase';
+import { OnlineStorageAdapter } from './online';
 import { isOfflineMode, getStorageConfig } from '@/config/storage';
 
 let storageInstance: StorageAdapter | null = null;
@@ -21,7 +21,7 @@ export function getStorage(): StorageAdapter {
     if (config.mode === 'offline') {
       storageInstance = new IndexedDBAdapter();
     } else {
-      storageInstance = new SupabaseAdapter();
+      storageInstance = new OnlineStorageAdapter();
     }
   }
   

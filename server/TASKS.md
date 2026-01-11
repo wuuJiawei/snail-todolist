@@ -91,58 +91,37 @@ type StorageMode = 'online' | 'offline';
 
 > **目标**：完全移除 Supabase，前端只保留 online 和 offline 两种模式
 
-- [ ] **T23.1 创建轻量 API 客户端**
-  - 验收标准：统一的 HTTP 客户端，仅负责请求/响应
+- [x] **T23.1 创建轻量 API 客户端**
   - 落点：`src/lib/apiClient.ts`
-  - 功能：
-    - fetch 封装，自动附加 Authorization header
-    - 统一错误处理（网络错误、业务错误）
-    - Token 管理（存储、刷新）
-  - **不包含**：业务逻辑、数据转换、缓存
+  - 功能：fetch 封装、Authorization header、统一错误处理、Token 管理
 
-- [ ] **T23.2 简化存储模式配置**
-  - 验收标准：只支持 online 和 offline 两种模式
+- [x] **T23.2 简化存储模式配置**
   - 落点：`src/config/storage.ts`
-  - 变更：
-    ```typescript
-    // 移除 supabase，只保留两种模式
-    type StorageMode = 'online' | 'offline';
-    ```
+  - 变更：`type StorageMode = 'online' | 'offline'`
 
-- [ ] **T23.3 创建 OnlineStorageAdapter**
-  - 验收标准：实现 StorageAdapter 接口，调用后端 API
+- [x] **T23.3 创建 OnlineStorageAdapter**
   - 落点：`src/storage/online/OnlineStorageAdapter.ts`
-  - 要求：
-    - 直接调用后端聚合接口
-    - 不在前端做数据组装
-    - 错误处理委托给 apiClient
+  - 实现 StorageAdapter 接口，调用后端 API
 
-- [ ] **T23.4 更新存储工厂**
-  - 验收标准：根据配置返回对应适配器（无 Supabase）
+- [x] **T23.4 更新存储工厂**
   - 落点：`src/storage/index.ts`
-  - 逻辑：
-    ```typescript
-    // 只有两种模式，online 为默认
-    if (mode === 'offline') return new IndexedDBAdapter();
-    return new OnlineStorageAdapter();
-    ```
+  - 根据配置返回 OnlineStorageAdapter 或 IndexedDBAdapter
 
-- [ ] **T23.5 移除 Supabase 相关代码**
-  - 验收标准：完全删除 Supabase 依赖
-  - 删除文件：
-    - `src/lib/supabase.ts`
-    - `src/storage/supabase/*`
-  - 删除依赖：
-    - `@supabase/supabase-js`
+- [x] **T23.5 创建新认证系统**
+  - 落点：`src/lib/authApi.ts`, `src/types/auth.ts`, `src/contexts/AuthContext.tsx`
+  - 支持 online 模式使用自定义后端 JWT 认证
+
+- [ ] **T23.6 移除 Supabase 相关代码**（进行中）
+  - 删除文件：`src/integrations/supabase/*`, `src/storage/supabase/*`
+  - 删除依赖：`@supabase/supabase-js`
   - 清理引用：移除所有 import supabase 的代码
-
-- [ ] **T23.6 简化前端服务层**
-  - 验收标准：移除前端业务逻辑，保留 UI 相关代码
-  - 落点：`src/services/*.ts`
-  - 重构：
-    - 删除权限检查逻辑（后端负责）
-    - 删除数据组装逻辑（后端负责）
-    - 保留 toast 提示、UI 状态管理
+  - 需要重构的文件：
+    - `src/services/*.ts` - 使用 storage operations
+    - `src/contexts/task/TaskProvider.tsx` - 移除 supabase 实时订阅
+    - `src/contexts/ProjectContext.tsx` - 移除 supabase 实时订阅
+    - `src/pages/Chat.tsx` - 移除或重构
+    - `src/components/projects/ShareProjectDialog.tsx` - 使用 apiClient
+    - `src/components/projects/JoinSharedProjectDialog.tsx` - 使用 apiClient
 
 ---
 

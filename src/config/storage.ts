@@ -2,13 +2,18 @@
  * Storage configuration module
  * Determines which storage backend to use based on user preference (localStorage)
  * with fallback to environment configuration
+ * 
+ * Storage modes:
+ * - online: Uses custom backend API (Go + PostgreSQL)
+ * - offline: Uses IndexedDB for local-only storage
  */
 
-export type StorageMode = 'supabase' | 'offline';
+export type StorageMode = 'online' | 'offline';
 
 export interface StorageConfig {
   mode: StorageMode;
   isOfflineMode: boolean;
+  isOnlineMode: boolean;
 }
 
 /** localStorage key for user's storage mode preference */
@@ -40,15 +45,15 @@ export function clearStorageMode(): void {
 
 /**
  * Get storage configuration
- * Priority: localStorage > environment variable > default ('supabase')
+ * Priority: localStorage > environment variable > default ('online')
  */
 export const getStorageConfig = (): StorageConfig => {
-  let mode: StorageMode = 'supabase';
+  let mode: StorageMode = 'online';
   
   // Priority 1: Check localStorage for user preference
   try {
     const stored = localStorage.getItem(STORAGE_MODE_KEY);
-    if (stored === 'offline' || stored === 'supabase') {
+    if (stored === 'offline' || stored === 'online') {
       mode = stored;
     } else if (!stored) {
       // Priority 2: Fallback to environment variable
@@ -68,6 +73,7 @@ export const getStorageConfig = (): StorageConfig => {
   return {
     mode,
     isOfflineMode: mode === 'offline',
+    isOnlineMode: mode === 'online',
   };
 };
 
@@ -76,3 +82,4 @@ const config = getStorageConfig();
 
 export const STORAGE_MODE = config.mode;
 export const isOfflineMode = config.isOfflineMode;
+export const isOnlineMode = config.isOnlineMode;

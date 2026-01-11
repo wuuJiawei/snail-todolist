@@ -1,6 +1,5 @@
 
 import React, { useState, ReactNode, useEffect, useMemo, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task } from "@/types/task";
 import { useToast } from "@/hooks/use-toast";
@@ -848,44 +847,18 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     }
   }, [selectedProject, user, loadTrashedTasks, loadAbandonedTasks]);
 
-  // Supabase Realtime: tasks changes（按用户 + 可见清单集合过滤；大量项目时分片；若选中具体清单则优先只订阅该清单）
-  const visibleProjectIds = useMemo(() => (projects || []).map(p => p.id), [projects]);
-  const narrowedProjectIds = useMemo(() => {
-    if (selectedProject && !builtinScopes.has(selectedProject)) {
-      // 当前选中为具体清单，则仅订阅该清单
-      return visibleProjectIds.includes(selectedProject) ? [selectedProject] : [];
-    }
-    return visibleProjectIds;
-  }, [selectedProject, builtinScopes, visibleProjectIds]);
-
+  // Polling-based refresh for online mode (replaces Supabase realtime)
   useEffect(() => {
-    // Skip realtime subscriptions in offline mode
     if (isOfflineMode) return;
     if (!user) return;
-    const uid = user.id;
-    const invalidate = () => queryClient.invalidateQueries({ queryKey: taskKeys.active() });
-    const channels: ReturnType<typeof supabase.channel>[] = [];
+    
+    // Refresh tasks periodically in online mode
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
+    }, 30000); // 30 seconds
 
-    // 1) 订阅属于当前用户的任务变更
-    const chUser = supabase.channel(`tasks:user:${uid}`);
-    chUser.on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `user_id=eq.${uid}` }, invalidate).subscribe();
-    channels.push(chUser);
-
-    // 2) 订阅可见清单内任务的变更（按 50 个一组分片）
-    const chunkSize = 50;
-    for (let i = 0; i < narrowedProjectIds.length; i += chunkSize) {
-      const group = narrowedProjectIds.slice(i, i + chunkSize);
-      if (group.length === 0) continue;
-      const inList = group.map(id => `"${id}"`).join(",");
-      const ch = supabase.channel(`tasks:projects:${uid}:${i / chunkSize}`);
-      ch.on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `project=in.(${inList})` }, invalidate).subscribe();
-      channels.push(ch);
-    }
-
-    return () => {
-      channels.forEach(ch => supabase.removeChannel(ch));
-    };
-  }, [user, queryClient, narrowedProjectIds]);
+    return () => clearInterval(interval);
+  }, [user, queryClient]);
 
   const selectTask = useCallback((id: string | null) => {
     setSelectedTaskId(id);
