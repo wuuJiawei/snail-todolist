@@ -182,19 +182,18 @@ type StorageMode = 'online' | 'offline';
 
 ---
 
-### Phase 26: 后端配置 UI
+### Phase 26: 后端配置 UI ✅
 
-- [ ] **T26.1 创建后端配置页面**
-  - 验收标准：用户可配置后端 URL 和切换离线模式
-  - 落点：`src/pages/Settings/BackendSettings.tsx`
+- [x] **T26.1 创建后端配置页面**
+  - 落点：`src/components/settings/BackendSettings.tsx`
   - 功能：
+    - 存储模式切换（online/offline）
     - 后端 URL 配置
     - 连接测试
-    - 切换离线模式
 
-- [ ] **T26.2 实现配置持久化**
-  - 验收标准：配置保存到 localStorage，启动时加载
-  - 落点：`src/config/storage.ts`
+- [x] **T26.2 实现配置持久化**
+  - 落点：`src/config/storage.ts`, `src/lib/apiClient.ts`
+  - 配置保存到 localStorage，启动时自动加载
 
 ---
 
