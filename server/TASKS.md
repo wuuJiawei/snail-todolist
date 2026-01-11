@@ -259,36 +259,18 @@ type StorageMode = 'online' | 'offline';
 
 ---
 
-### Phase 20: 项目分享功能（待实现）
+### Phase 20: 项目分享功能 ✅
 
-- [ ] **T20.1 创建 ProjectShare 模型**
-  - 验收标准：项目分享模型定义完整
+- [x] **T20.1 创建 ProjectShare 模型**
   - 落点：`server/internal/model/project_share.go`
-  - 结构：
-    ```go
-    type ProjectShare struct {
-        ID        uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-        ProjectID uuid.UUID  `gorm:"type:uuid;index;not null" json:"project_id"`
-        CreatedBy uuid.UUID  `gorm:"type:uuid;not null" json:"created_by"`
-        ShareCode string     `gorm:"size:8;uniqueIndex;not null" json:"share_code"`
-        IsActive  bool       `gorm:"default:true" json:"is_active"`
-        ExpiresAt time.Time  `gorm:"not null" json:"expires_at"`
-        CreatedAt time.Time  `json:"created_at"`
-    }
-    ```
 
-- [ ] **T20.2 实现 ProjectShare Repository**
-  - 验收标准：分享数据访问层完整
+- [x] **T20.2 实现 ProjectShare Repository**
   - 落点：`server/internal/repository/project_share_repo.go`
-  - 方法：Create, FindByCode, FindActiveByProject, Deactivate
 
-- [ ] **T20.3 实现 ProjectShare Service**
-  - 验收标准：分享业务逻辑完整
+- [x] **T20.3 实现 ProjectShare Service**
   - 落点：`server/internal/service/project_share_service.go`
-  - 方法：GetOrCreateShare, DeactivateShare, JoinByCode
 
-- [ ] **T20.4 实现 ProjectShare Handler**
-  - 验收标准：分享 API 接口可用
+- [x] **T20.4 实现 ProjectShare Handler**
   - 落点：`server/internal/handler/project_share.go`
   - 接口：
     - `GET /api/v1/lists/:id/share` - 获取或创建分享链接
@@ -297,36 +279,22 @@ type StorageMode = 'online' | 'offline';
 
 ---
 
-### Phase 21: 任务附件功能
+### Phase 21: 任务附件功能 ✅
 
-- [ ] **T21.1 更新 Task 模型支持附件**
-  - 验收标准：attachments 字段可正确存取
+- [x] **T21.1 更新 Task 模型支持附件**
   - 落点：`server/internal/model/task.go`
-  - 附件结构：
-    ```go
-    type TaskAttachment struct {
-        ID           string    `json:"id"`
-        Filename     string    `json:"filename"`
-        OriginalName string    `json:"original_name"`
-        URL          string    `json:"url"`
-        Size         int64     `json:"size"`
-        Type         string    `json:"type"`
-        UploadedAt   time.Time `json:"uploaded_at"`
-    }
-    ```
+  - 附件结构：`TaskAttachment` (ID, Filename, OriginalName, URL, Size, Type, UploadedAt)
 
-- [ ] **T21.2 实现附件上传接口**
-  - 验收标准：文件可上传并关联到任务
+- [x] **T21.2 实现附件上传接口**
   - 落点：`server/internal/handler/attachment.go`
   - 接口：
+    - `GET /api/v1/tasks/:id/attachments` - 获取任务附件列表
     - `POST /api/v1/tasks/:id/attachments` - 上传附件
     - `DELETE /api/v1/tasks/:id/attachments/:attachmentId` - 删除附件
-    - `GET /api/v1/tasks/:id/attachments` - 获取任务附件列表
 
-- [ ] **T21.3 集成文件存储**
-  - 验收标准：支持本地存储或 S3 兼容存储
-  - 落点：`server/pkg/storage/storage.go`
-  - 配置：STORAGE_TYPE (local/s3), STORAGE_PATH, S3_BUCKET 等
+- [x] **T21.3 集成文件存储**
+  - 落点：`server/internal/config/config.go`
+  - 配置：STORAGE_PATH, BASE_URL（本地存储，静态文件服务）
 
 ---
 
@@ -418,9 +386,9 @@ type StorageMode = 'online' | 'offline';
 #### 项目分享
 | 方法 | 路径 | 描述 | 状态 |
 |------|------|------|------|
-| GET | /api/v1/lists/:id/share | 获取/创建分享 | ❌ |
-| DELETE | /api/v1/lists/:id/share | 停用分享 | ❌ |
-| POST | /api/v1/share/join | 加入项目 | ❌ |
+| GET | /api/v1/lists/:id/share | 获取/创建分享 | ✅ |
+| DELETE | /api/v1/lists/:id/share | 停用分享 | ✅ |
+| POST | /api/v1/share/join | 加入项目 | ✅ |
 
 #### 任务
 | 方法 | 路径 | 描述 | 状态 |
@@ -441,9 +409,9 @@ type StorageMode = 'online' | 'offline';
 #### 任务附件
 | 方法 | 路径 | 描述 | 状态 |
 |------|------|------|------|
-| GET | /api/v1/tasks/:id/attachments | 获取附件 | ❌ |
-| POST | /api/v1/tasks/:id/attachments | 上传附件 | ❌ |
-| DELETE | /api/v1/tasks/:id/attachments/:aid | 删除附件 | ❌ |
+| GET | /api/v1/tasks/:id/attachments | 获取附件 | ✅ |
+| POST | /api/v1/tasks/:id/attachments | 上传附件 | ✅ |
+| DELETE | /api/v1/tasks/:id/attachments/:aid | 删除附件 | ✅ |
 
 #### 标签
 | 方法 | 路径 | 描述 | 状态 |

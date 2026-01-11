@@ -35,6 +35,7 @@ func AutoMigrate() error {
 		&model.TaskTag{},
 		&model.TaskActivity{},
 		&model.PomodoroSession{},
+		&model.ProjectShare{},
 	); err != nil {
 		return err
 	}

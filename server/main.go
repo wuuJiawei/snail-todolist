@@ -64,6 +64,7 @@ func main() {
 	taskTagRepo := repository.NewTaskTagRepository(database.DB)
 	taskActivityRepo := repository.NewTaskActivityRepository(database.DB)
 	pomodoroRepo := repository.NewPomodoroRepository(database.DB)
+	projectShareRepo := repository.NewProjectShareRepository(database.DB)
 
 	// 初始化 services
 	authService := service.NewAuthService(userRepo, emailCodeRepo)
@@ -75,6 +76,7 @@ func main() {
 	tagService := service.NewTagService(tagRepo, taskTagRepo, taskRepo)
 	taskActivityService := service.NewTaskActivityService(taskActivityRepo, taskRepo)
 	pomodoroService := service.NewPomodoroService(pomodoroRepo)
+	projectShareService := service.NewProjectShareService(projectShareRepo, listRepo, listMemberRepo)
 
 	// 初始化 handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -86,6 +88,8 @@ func main() {
 	tagHandler := handler.NewTagHandler(tagService)
 	taskActivityHandler := handler.NewTaskActivityHandler(taskActivityService)
 	pomodoroHandler := handler.NewPomodoroHandler(pomodoroService)
+	projectShareHandler := handler.NewProjectShareHandler(projectShareService)
+	attachmentHandler := handler.NewAttachmentHandler(taskRepo, config.AppConfig.StoragePath, config.AppConfig.BaseURL)
 
 	// 设置 Gin 模式
 	if config.IsProduction() {
@@ -106,6 +110,9 @@ func main() {
 	r.GET("/readyz", handler.Readyz)
 	r.GET("/health", handler.Health) // 兼容旧接口
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// 静态文件服务（附件）
+	r.Static("/uploads", config.AppConfig.StoragePath)
 
 	// API 路由
 	api := r.Group("/api/v1")
@@ -146,6 +153,11 @@ func main() {
 			protected.PUT("/lists/:id/members/:memberId", listMemberHandler.UpdateMember)
 			protected.DELETE("/lists/:id/members/:memberId", listMemberHandler.RemoveMember)
 
+			// 项目分享
+			protected.GET("/lists/:id/share", projectShareHandler.GetOrCreateShare)
+			protected.DELETE("/lists/:id/share", projectShareHandler.DeactivateShare)
+			protected.POST("/share/join", projectShareHandler.JoinByCode)
+
 			// 任务
 			protected.GET("/lists/:id/tasks", taskHandler.GetTasksByList)
 			protected.POST("/lists/:id/tasks", taskHandler.CreateTask)
@@ -159,6 +171,11 @@ func main() {
 			protected.POST("/tasks/:id/abandon", taskHandler.AbandonTask)
 			protected.POST("/tasks/:id/reactivate", taskHandler.ReactivateTask)
 			protected.PATCH("/tasks/:id/flag", taskHandler.ToggleFlag)
+
+			// 任务附件
+			protected.GET("/tasks/:id/attachments", attachmentHandler.GetAttachments)
+			protected.POST("/tasks/:id/attachments", attachmentHandler.UploadAttachment)
+			protected.DELETE("/tasks/:id/attachments/:attachmentId", attachmentHandler.DeleteAttachment)
 
 			// 聚合查询
 			protected.GET("/trash", taskHandler.GetTrashTasks)

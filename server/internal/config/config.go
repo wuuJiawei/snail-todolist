@@ -31,6 +31,10 @@ type Config struct {
 	SMTPUser     string
 	SMTPPassword string
 	SMTPFrom     string
+
+	// Storage (attachments)
+	StoragePath string
+	BaseURL     string
 }
 
 var AppConfig *Config
@@ -59,6 +63,8 @@ func Load() {
 		SMTPUser:       getEnv("SMTP_USER", ""),
 		SMTPPassword:   getEnv("SMTP_PASSWORD", ""),
 		SMTPFrom:       getEnv("SMTP_FROM", ""),
+		StoragePath:    getEnv("STORAGE_PATH", "./uploads"),
+		BaseURL:        getEnv("BASE_URL", "http://localhost:23333"),
 	}
 }
 
