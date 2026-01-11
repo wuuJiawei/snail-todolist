@@ -111,7 +111,7 @@ type StorageMode = 'online' | 'offline';
   - 落点：`src/lib/authApi.ts`, `src/types/auth.ts`, `src/contexts/AuthContext.tsx`
   - 支持 online 模式使用自定义后端 JWT 认证
 
-- [x] **T23.6 移除 Supabase 相关代码**（完成）
+- [x] **T23.6 移除 Supabase 相关代码**（✅ 完成）
   - ✅ TaskProvider: 移除 supabase 实时订阅，改用轮询
   - ✅ ProjectContext: 移除 supabase 实时订阅，改用轮询
   - ✅ ShareProjectDialog: 移除 supabase 实时订阅
@@ -121,14 +121,21 @@ type StorageMode = 'online' | 'offline';
   - ✅ Chat 页面: 禁用（显示开发中提示）
   - ✅ projectShareService: 使用 apiClient
   - ✅ projectMemberService: 使用 apiClient
-  - ⏳ 保留文件（仅被 SupabaseAdapter 使用，online 模式不调用）：
-    - `src/services/taskService.ts`
-    - `src/services/tagService.ts`
-    - `src/services/pomodoroService.ts`
-    - `src/services/taskActivityService.ts`
-    - `src/services/checkInService.ts`
-    - `src/integrations/supabase/*`
-    - `src/storage/supabase/*`
+  - ✅ 已删除所有 Supabase 相关文件：
+    - `src/storage/supabase/*` - 已删除
+    - `src/integrations/supabase/*` - 已删除
+    - `src/services/taskService.ts` - 已删除
+    - `src/services/tagService.ts` - 已删除
+    - `src/services/pomodoroService.ts` - 已删除
+    - `src/services/taskActivityService.ts` - 已删除
+    - `src/services/checkInService.ts` - 已删除
+    - `src/services/searchService.ts` - 已删除
+    - `src/services/appInfoService.ts` - 已删除
+    - `src/config/env.ts` - 已删除
+  - ✅ 已卸载 @supabase/supabase-js 依赖
+  - ✅ 已更新 .env.example（移除 Supabase 配置，添加 VITE_API_BASE_URL）
+  - ✅ 已更新 package.json keywords（移除 supabase）
+  - ✅ 构建验证通过 (npm run build)
 
 ---
 
