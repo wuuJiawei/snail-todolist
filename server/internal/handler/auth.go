@@ -1,9 +1,8 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"snail-server/internal/model"
 	"snail-server/internal/service"
 )
 
@@ -18,62 +17,62 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var input service.RegisterInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeParamError, err.Error())
 		return
 	}
 
 	resp, err := h.authService.Register(&input)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeEmailExists, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	model.Success(c, resp)
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
 	var input service.LoginInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeParamError, err.Error())
 		return
 	}
 
 	resp, err := h.authService.Login(&input)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeInvalidCredential, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	model.Success(c, resp)
 }
 
 func (h *AuthHandler) SendEmailCode(c *gin.Context) {
 	var input service.EmailCodeInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeParamError, err.Error())
 		return
 	}
 
 	if err := h.authService.SendEmailCode(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeParamError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "验证码已发送"})
+	model.Success(c, gin.H{"message": "验证码已发送"})
 }
 
 func (h *AuthHandler) EmailLogin(c *gin.Context) {
 	var input service.EmailLoginInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeParamError, err.Error())
 		return
 	}
 
 	resp, err := h.authService.EmailLogin(&input)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeInvalidCredential, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	model.Success(c, resp)
 }

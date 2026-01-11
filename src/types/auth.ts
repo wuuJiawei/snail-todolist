@@ -48,7 +48,10 @@ export function createOnlineUser(data: {
   id: string;
   email: string;
   username?: string;
+  nickname?: string;
+  name?: string;
   avatar_url?: string;
+  avatar?: string;
   created_at: string;
 }): AppUser {
   return {
@@ -56,8 +59,8 @@ export function createOnlineUser(data: {
     email: data.email,
     app_metadata: {},
     user_metadata: {
-      name: data.username || data.email,
-      avatar_url: data.avatar_url,
+      name: data.username || data.nickname || data.name || data.email,
+      avatar_url: data.avatar_url || data.avatar,
     },
     aud: 'authenticated',
     created_at: data.created_at,

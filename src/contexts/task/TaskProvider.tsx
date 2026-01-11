@@ -12,7 +12,6 @@ import { Tag } from "@/types/tag";
 import { useTaskStore } from "@/store/taskStore";
 import { taskKeys, taskQueries } from "@/queries/taskQueries";
 import { tagKeys, tagQueries } from "@/queries/tagQueries";
-import { taskActivityKeys } from "@/queries/taskActivityQueries";
 import type { TaskActivityAction, TaskActivityInput } from "@/types/taskActivity";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { isOfflineMode } from "@/storage";
@@ -182,11 +181,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const recordTaskActivity = useCallback(async (taskId: string, action: TaskActivityAction, metadata?: Record<string, unknown>) => {
     try {
       await storageOps.createTaskActivity({ task_id: taskId, action, metadata });
-      queryClient.invalidateQueries({ queryKey: taskActivityKeys.byTask(taskId) });
     } catch (error) {
       console.error("Failed to record task activity:", error);
     }
-  }, [queryClient]);
+  }, []);
 
   const {
     data: activeTasks = [],
@@ -306,7 +304,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       );
 
       await recordTaskActivity(newTask.id, "task_created", { title: newTask.title });
-      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
       // 回滚：移除乐观任务
       setTasks((current) => current.filter((t) => t.id !== tempId));
@@ -847,18 +844,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     }
   }, [selectedProject, user, loadTrashedTasks, loadAbandonedTasks]);
 
-  // Polling-based refresh for online mode (replaces Supabase realtime)
-  useEffect(() => {
-    if (isOfflineMode) return;
-    if (!user) return;
-    
-    // Refresh tasks periodically in online mode
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.active() });
-    }, 30000); // 30 seconds
 
-    return () => clearInterval(interval);
-  }, [user, queryClient]);
 
   const selectTask = useCallback((id: string | null) => {
     setSelectedTaskId(id);

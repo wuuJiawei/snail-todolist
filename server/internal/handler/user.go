@@ -1,10 +1,9 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"snail-server/internal/model"
 	"snail-server/internal/service"
 )
 
@@ -21,11 +20,11 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 	user, err := h.userService.GetUser(userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		model.Error(c, model.CodeNotFound, "用户不存在")
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	model.Success(c, user)
 }
 
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
@@ -33,17 +32,17 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 	var input service.UpdateUserInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeParamError, err.Error())
 		return
 	}
 
 	user, err := h.userService.UpdateUser(userID, &input)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeParamError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	model.Success(c, user)
 }
 
 func (h *UserHandler) UpdatePassword(c *gin.Context) {
@@ -51,14 +50,14 @@ func (h *UserHandler) UpdatePassword(c *gin.Context) {
 
 	var input service.UpdatePasswordInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeParamError, err.Error())
 		return
 	}
 
 	if err := h.userService.UpdatePassword(userID, &input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		model.Error(c, model.CodeParamError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "密码修改成功"})
+	model.Success(c, gin.H{"message": "密码修改成功"})
 }

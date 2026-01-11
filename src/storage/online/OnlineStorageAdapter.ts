@@ -427,8 +427,7 @@ export class OnlineStorageAdapter implements StorageAdapter {
   }
 
   async createTaskActivity(activity: CreateActivityInput): Promise<TaskActivity> {
-    const activities = await this.getTaskActivities(activity.task_id);
-    return activities[0] || {
+    return {
       id: crypto.randomUUID(),
       task_id: activity.task_id,
       user_id: activity.user_id || '',

@@ -8,7 +8,10 @@ export interface AuthUser {
   id: string;
   email: string;
   username?: string;
+  nickname?: string;
+  name?: string;
   avatar_url?: string;
+  avatar?: string;
   created_at: string;
   updated_at: string;
 }
