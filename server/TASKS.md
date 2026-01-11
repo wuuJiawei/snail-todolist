@@ -111,17 +111,16 @@ type StorageMode = 'online' | 'offline';
   - 落点：`src/lib/authApi.ts`, `src/types/auth.ts`, `src/contexts/AuthContext.tsx`
   - 支持 online 模式使用自定义后端 JWT 认证
 
-- [ ] **T23.6 移除 Supabase 相关代码**（进行中）
-  - 删除文件：`src/integrations/supabase/*`, `src/storage/supabase/*`
-  - 删除依赖：`@supabase/supabase-js`
-  - 清理引用：移除所有 import supabase 的代码
-  - 需要重构的文件：
-    - `src/services/*.ts` - 使用 storage operations
-    - `src/contexts/task/TaskProvider.tsx` - 移除 supabase 实时订阅
-    - `src/contexts/ProjectContext.tsx` - 移除 supabase 实时订阅
-    - `src/pages/Chat.tsx` - 移除或重构
-    - `src/components/projects/ShareProjectDialog.tsx` - 使用 apiClient
-    - `src/components/projects/JoinSharedProjectDialog.tsx` - 使用 apiClient
+- [x] **T23.6 移除 Supabase 相关代码**（部分完成）
+  - ✅ TaskProvider: 移除 supabase 实时订阅，改用轮询
+  - ✅ ProjectContext: 移除 supabase 实时订阅，改用轮询
+  - ⏳ 待处理文件（仍引用 supabase，但不影响 online 模式运行）：
+    - `src/services/*.ts` - 这些服务被 SupabaseAdapter 使用，online 模式不调用
+    - `src/pages/Chat.tsx` - 聊天功能，可后续重构或移除
+    - `src/components/projects/ShareProjectDialog.tsx` - 分享功能
+    - `src/components/projects/JoinSharedProjectDialog.tsx` - 加入分享
+    - `src/pages/JoinSharedProject.tsx` - 加入分享页面
+    - `src/pages/AuthCallback.tsx` - OAuth 回调，online 模式暂不支持 OAuth
 
 ---
 

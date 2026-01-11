@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Project } from "@/types/project";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Copy, Check, Users, Link2, X, WifiOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -146,25 +145,21 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
     }
   }, [open, project?.id, user?.id]);
 
+  // Polling-based refresh for members (replaces Supabase realtime)
   useEffect(() => {
     if (!open || !project) return;
-    const pid = project.id;
-    const channel = supabase.channel(`share:members:${pid}`);
-    const onChange = async () => {
-      delete membersCacheRef.current[pid];
-      setMembersLoading(true);
+    
+    const interval = setInterval(async () => {
       try {
-        const list = await listMembers(pid);
+        const list = await listMembers(project.id);
         setMembers(list);
-        membersCacheRef.current[pid] = list;
-      } finally {
-        setMembersLoading(false);
+        membersCacheRef.current[project.id] = list;
+      } catch (e) {
+        console.error('refresh members error', e);
       }
-    };
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "project_members", filter: `project_id=eq.${pid}` }, onChange).subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
   }, [open, project?.id]);
 
   const handleCopyToClipboard = () => {
