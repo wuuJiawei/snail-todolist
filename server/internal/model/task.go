@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -16,19 +17,40 @@ const (
 )
 
 type Task struct {
-	ID          uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
-	ListID      uuid.UUID      `gorm:"type:uuid;index;not null" json:"list_id"`
-	UserID      uuid.UUID      `gorm:"type:uuid;index;not null" json:"user_id"`
-	Title       string         `gorm:"size:500;not null" json:"title"`
-	Description string         `gorm:"type:text" json:"description"`
-	Status      TaskStatus     `gorm:"size:20;default:todo;index" json:"status"`
-	Priority    int            `gorm:"default:0" json:"priority"`
-	DueDate     *time.Time     `gorm:"index" json:"due_date"`
-	Tags        StringArray    `gorm:"type:text[]" json:"tags"`
-	SortOrder   int            `gorm:"default:0" json:"sort_order"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	ListID      uuid.UUID `gorm:"type:uuid;index;not null" json:"list_id"`
+	UserID      uuid.UUID `gorm:"type:uuid;index;not null" json:"user_id"`
+	Title       string    `gorm:"size:500;not null" json:"title"`
+	Description string    `gorm:"type:text" json:"description"`
+	Status      TaskStatus `gorm:"size:20;default:todo;index" json:"status"`
+	Priority    int       `gorm:"default:0" json:"priority"`
+	DueDate     *time.Time `gorm:"index" json:"due_date"`
+	SortOrder   int       `gorm:"default:0" json:"sort_order"`
+
+	// 完成状态
+	Completed   bool       `gorm:"default:false" json:"completed"`
+	CompletedAt *time.Time `json:"completed_at"`
+
+	// 软删除（自定义，非 GORM 内置）
+	Deleted   bool       `gorm:"default:false;index" json:"deleted"`
+	DeletedAt *time.Time `json:"deleted_at"`
+
+	// 放弃状态
+	Abandoned   bool       `gorm:"default:false" json:"abandoned"`
+	AbandonedAt *time.Time `json:"abandoned_at"`
+
+	// 标记
+	Flagged bool `gorm:"default:false;index" json:"flagged"`
+
+	// 图标
+	Icon string `gorm:"size:50" json:"icon"`
+
+	// 附件（JSONB）
+	Attachments datatypes.JSON `gorm:"type:jsonb;default:'[]'" json:"attachments"`
+
+	// 时间戳
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 
 	// 关联
 	List *List `gorm:"foreignKey:ListID" json:"list,omitempty"`
@@ -44,5 +66,13 @@ func (t *Task) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// StringArray 用于 PostgreSQL text[] 类型
-type StringArray []string
+// TaskAttachment 附件结构
+type TaskAttachment struct {
+	ID           string    `json:"id"`
+	Filename     string    `json:"filename"`
+	OriginalName string    `json:"original_name"`
+	URL          string    `json:"url"`
+	Size         int64     `json:"size"`
+	Type         string    `json:"type"`
+	UploadedAt   time.Time `json:"uploaded_at"`
+}

@@ -26,7 +26,7 @@ type CreateTaskInput struct {
 	Description string     `json:"description"`
 	Priority    int        `json:"priority"`
 	DueDate     *time.Time `json:"due_date"`
-	Tags        []string   `json:"tags"`
+	Icon        string     `json:"icon"`
 }
 
 type UpdateTaskInput struct {
@@ -34,8 +34,9 @@ type UpdateTaskInput struct {
 	Description *string    `json:"description"`
 	Priority    *int       `json:"priority"`
 	DueDate     *time.Time `json:"due_date"`
-	Tags        []string   `json:"tags"`
 	SortOrder   *int       `json:"sort_order"`
+	Icon        *string    `json:"icon"`
+	Flagged     *bool      `json:"flagged"`
 }
 
 type UpdateStatusInput struct {
@@ -65,7 +66,7 @@ func (s *TaskService) CreateTask(userID, listID uuid.UUID, input *CreateTaskInpu
 		Description: input.Description,
 		Priority:    input.Priority,
 		DueDate:     input.DueDate,
-		Tags:        input.Tags,
+		Icon:        input.Icon,
 		Status:      model.TaskStatusTodo,
 	}
 
@@ -138,11 +139,14 @@ func (s *TaskService) UpdateTask(userID, taskID uuid.UUID, input *UpdateTaskInpu
 	if input.DueDate != nil {
 		task.DueDate = input.DueDate
 	}
-	if input.Tags != nil {
-		task.Tags = input.Tags
-	}
 	if input.SortOrder != nil {
 		task.SortOrder = *input.SortOrder
+	}
+	if input.Icon != nil {
+		task.Icon = *input.Icon
+	}
+	if input.Flagged != nil {
+		task.Flagged = *input.Flagged
 	}
 
 	if err := s.taskRepo.Update(task); err != nil {
@@ -162,6 +166,17 @@ func (s *TaskService) UpdateStatus(userID, taskID uuid.UUID, status model.TaskSt
 	}
 
 	task.Status = status
+
+	// 同步 completed 状态
+	if status == model.TaskStatusDone {
+		task.Completed = true
+		now := time.Now()
+		task.CompletedAt = &now
+	} else {
+		task.Completed = false
+		task.CompletedAt = nil
+	}
+
 	if err := s.taskRepo.Update(task); err != nil {
 		return nil, err
 	}
@@ -178,7 +193,111 @@ func (s *TaskService) DeleteTask(userID, taskID uuid.UUID) error {
 		return errors.New("无权操作此任务")
 	}
 
+	// 软删除
+	return s.taskRepo.SoftDelete(taskID)
+}
+
+// RestoreTask 恢复任务（从回收站）
+func (s *TaskService) RestoreTask(userID, taskID uuid.UUID) (*model.Task, error) {
+	task, err := s.taskRepo.FindByIDIncludeDeleted(taskID)
+	if err != nil {
+		return nil, errors.New("任务不存在")
+	}
+	if task.UserID != userID {
+		return nil, errors.New("无权操作此任务")
+	}
+	if !task.Deleted {
+		return nil, errors.New("任务不在回收站中")
+	}
+
+	if err := s.taskRepo.Restore(taskID); err != nil {
+		return nil, err
+	}
+
+	task.Deleted = false
+	task.DeletedAt = nil
+	return task, nil
+}
+
+// PermanentDeleteTask 永久删除任务
+func (s *TaskService) PermanentDeleteTask(userID, taskID uuid.UUID) error {
+	task, err := s.taskRepo.FindByIDIncludeDeleted(taskID)
+	if err != nil {
+		return errors.New("任务不存在")
+	}
+	if task.UserID != userID {
+		return errors.New("无权操作此任务")
+	}
+
 	return s.taskRepo.Delete(taskID)
+}
+
+// GetTrashTasks 获取回收站任务
+func (s *TaskService) GetTrashTasks(userID uuid.UUID) ([]model.Task, error) {
+	return s.taskRepo.GetTrashTasks(userID)
+}
+
+// AbandonTask 放弃任务
+func (s *TaskService) AbandonTask(userID, taskID uuid.UUID) (*model.Task, error) {
+	task, err := s.taskRepo.FindByID(taskID)
+	if err != nil {
+		return nil, errors.New("任务不存在")
+	}
+	if task.UserID != userID {
+		return nil, errors.New("无权操作此任务")
+	}
+
+	if err := s.taskRepo.SetAbandoned(taskID, true); err != nil {
+		return nil, err
+	}
+
+	task.Abandoned = true
+	now := time.Now()
+	task.AbandonedAt = &now
+	return task, nil
+}
+
+// ReactivateTask 重新激活任务
+func (s *TaskService) ReactivateTask(userID, taskID uuid.UUID) (*model.Task, error) {
+	task, err := s.taskRepo.FindByID(taskID)
+	if err != nil {
+		return nil, errors.New("任务不存在")
+	}
+	if task.UserID != userID {
+		return nil, errors.New("无权操作此任务")
+	}
+
+	if err := s.taskRepo.SetAbandoned(taskID, false); err != nil {
+		return nil, err
+	}
+
+	task.Abandoned = false
+	task.AbandonedAt = nil
+	return task, nil
+}
+
+// ToggleFlag 切换任务标记状态
+func (s *TaskService) ToggleFlag(userID, taskID uuid.UUID) (*model.Task, error) {
+	task, err := s.taskRepo.FindByID(taskID)
+	if err != nil {
+		return nil, errors.New("任务不存在")
+	}
+	if task.UserID != userID {
+		return nil, errors.New("无权操作此任务")
+	}
+
+	newFlagged := !task.Flagged
+	if err := s.taskRepo.SetFlagged(taskID, newFlagged); err != nil {
+		return nil, err
+	}
+
+	task.Flagged = newFlagged
+	return task, nil
+}
+
+// GetFlaggedTasks 获取标记的任务
+func (s *TaskService) GetFlaggedTasks(userID uuid.UUID) ([]model.Task, error) {
+	return s.taskRepo.GetFlaggedTasks(userID)
 }
 
 func (s *TaskService) GetTodayTasks(userID uuid.UUID) ([]model.Task, error) {

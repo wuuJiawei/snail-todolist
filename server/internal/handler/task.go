@@ -129,7 +129,7 @@ func (h *TaskHandler) UpdateStatus(c *gin.Context) {
 	model.Success(c, task)
 }
 
-// DeleteTask 删除任务
+// DeleteTask 删除任务（软删除，移入回收站）
 func (h *TaskHandler) DeleteTask(c *gin.Context) {
 	userID := c.MustGet("userID").(uuid.UUID)
 	taskID, err := uuid.Parse(c.Param("id"))
@@ -143,7 +143,122 @@ func (h *TaskHandler) DeleteTask(c *gin.Context) {
 		return
 	}
 
-	model.Success(c, gin.H{"message": "删除成功"})
+	model.Success(c, gin.H{"message": "已移入回收站"})
+}
+
+// RestoreTask 恢复任务（从回收站）
+func (h *TaskHandler) RestoreTask(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+	taskID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		model.Error(c, model.CodeParamError, "无效的任务ID")
+		return
+	}
+
+	task, err := h.taskService.RestoreTask(userID, taskID)
+	if err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	model.Success(c, task)
+}
+
+// PermanentDeleteTask 永久删除任务
+func (h *TaskHandler) PermanentDeleteTask(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+	taskID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		model.Error(c, model.CodeParamError, "无效的任务ID")
+		return
+	}
+
+	if err := h.taskService.PermanentDeleteTask(userID, taskID); err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	model.Success(c, gin.H{"message": "已永久删除"})
+}
+
+// GetTrashTasks 获取回收站任务
+func (h *TaskHandler) GetTrashTasks(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+
+	tasks, err := h.taskService.GetTrashTasks(userID)
+	if err != nil {
+		model.Error(c, model.CodeInternalError, err.Error())
+		return
+	}
+
+	model.Success(c, tasks)
+}
+
+// AbandonTask 放弃任务
+func (h *TaskHandler) AbandonTask(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+	taskID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		model.Error(c, model.CodeParamError, "无效的任务ID")
+		return
+	}
+
+	task, err := h.taskService.AbandonTask(userID, taskID)
+	if err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	model.Success(c, task)
+}
+
+// ReactivateTask 重新激活任务
+func (h *TaskHandler) ReactivateTask(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+	taskID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		model.Error(c, model.CodeParamError, "无效的任务ID")
+		return
+	}
+
+	task, err := h.taskService.ReactivateTask(userID, taskID)
+	if err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	model.Success(c, task)
+}
+
+// ToggleFlag 切换任务标记状态
+func (h *TaskHandler) ToggleFlag(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+	taskID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		model.Error(c, model.CodeParamError, "无效的任务ID")
+		return
+	}
+
+	task, err := h.taskService.ToggleFlag(userID, taskID)
+	if err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	model.Success(c, task)
+}
+
+// GetFlaggedTasks 获取标记的任务
+func (h *TaskHandler) GetFlaggedTasks(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+
+	tasks, err := h.taskService.GetFlaggedTasks(userID)
+	if err != nil {
+		model.Error(c, model.CodeInternalError, err.Error())
+		return
+	}
+
+	model.Success(c, tasks)
 }
 
 // GetTodayTasks 获取今日任务

@@ -60,6 +60,10 @@ func main() {
 	listRepo := repository.NewListRepository(database.DB)
 	taskRepo := repository.NewTaskRepository(database.DB)
 	listMemberRepo := repository.NewListMemberRepository(database.DB)
+	tagRepo := repository.NewTagRepository(database.DB)
+	taskTagRepo := repository.NewTaskTagRepository(database.DB)
+	taskActivityRepo := repository.NewTaskActivityRepository(database.DB)
+	pomodoroRepo := repository.NewPomodoroRepository(database.DB)
 
 	// 初始化 services
 	authService := service.NewAuthService(userRepo, emailCodeRepo)
@@ -68,6 +72,9 @@ func main() {
 	taskService := service.NewTaskService(taskRepo, listRepo)
 	overviewService := service.NewOverviewService(listRepo, taskRepo)
 	listMemberService := service.NewListMemberService(listMemberRepo, listRepo, userRepo)
+	tagService := service.NewTagService(tagRepo, taskTagRepo, taskRepo)
+	taskActivityService := service.NewTaskActivityService(taskActivityRepo, taskRepo)
+	pomodoroService := service.NewPomodoroService(pomodoroRepo)
 
 	// 初始化 handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -76,6 +83,9 @@ func main() {
 	taskHandler := handler.NewTaskHandler(taskService)
 	overviewHandler := handler.NewOverviewHandler(overviewService, taskService)
 	listMemberHandler := handler.NewListMemberHandler(listMemberService)
+	tagHandler := handler.NewTagHandler(tagService)
+	taskActivityHandler := handler.NewTaskActivityHandler(taskActivityService)
+	pomodoroHandler := handler.NewPomodoroHandler(pomodoroService)
 
 	// 设置 Gin 模式
 	if config.IsProduction() {
@@ -144,6 +154,36 @@ func main() {
 			protected.DELETE("/tasks/:id", taskHandler.DeleteTask)
 			protected.PATCH("/tasks/:id/status", taskHandler.UpdateStatus)
 			protected.PATCH("/tasks/:id/sort", taskHandler.UpdateSortOrder)
+			protected.POST("/tasks/:id/restore", taskHandler.RestoreTask)
+			protected.DELETE("/tasks/:id/permanent", taskHandler.PermanentDeleteTask)
+			protected.POST("/tasks/:id/abandon", taskHandler.AbandonTask)
+			protected.POST("/tasks/:id/reactivate", taskHandler.ReactivateTask)
+			protected.PATCH("/tasks/:id/flag", taskHandler.ToggleFlag)
+
+			// 聚合查询
+			protected.GET("/trash", taskHandler.GetTrashTasks)
+			protected.GET("/flagged", taskHandler.GetFlaggedTasks)
+
+			// 标签
+			protected.GET("/tags", tagHandler.GetTags)
+			protected.POST("/tags", tagHandler.CreateTag)
+			protected.PUT("/tags/:id", tagHandler.UpdateTag)
+			protected.DELETE("/tags/:id", tagHandler.DeleteTag)
+			protected.GET("/tasks/:id/tags", tagHandler.GetTaskTags)
+			protected.POST("/tasks/:id/tags/:tagId", tagHandler.AttachTag)
+			protected.DELETE("/tasks/:id/tags/:tagId", tagHandler.DetachTag)
+
+			// 任务活动记录
+			protected.GET("/tasks/:id/activities", taskActivityHandler.GetTaskActivities)
+
+			// 番茄钟
+			protected.POST("/pomodoro/sessions", pomodoroHandler.StartSession)
+			protected.GET("/pomodoro/sessions", pomodoroHandler.GetSessions)
+			protected.GET("/pomodoro/sessions/active", pomodoroHandler.GetActiveSession)
+			protected.PATCH("/pomodoro/sessions/:id/complete", pomodoroHandler.CompleteSession)
+			protected.PATCH("/pomodoro/sessions/:id/cancel", pomodoroHandler.CancelSession)
+			protected.DELETE("/pomodoro/sessions/:id", pomodoroHandler.DeleteSession)
+			protected.GET("/pomodoro/stats/today", pomodoroHandler.GetTodayStats)
 
 			// 搜索
 			protected.GET("/search", taskHandler.SearchTasks)

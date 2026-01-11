@@ -4,6 +4,22 @@
 
 ---
 
+## ⚠️ 重要声明
+
+**本项目将完全移除 Supabase 依赖，使用自定义后端服务取代。**
+
+- ❌ 不兼容 Supabase
+- ❌ 不保留 Supabase 模式
+- ✅ 使用自定义后端（Go + PostgreSQL）
+- ✅ 保留离线模式（IndexedDB）
+
+前端存储模式简化为两种：
+```typescript
+type StorageMode = 'online' | 'offline';
+```
+
+---
+
 ## 功能覆盖分析
 
 ### ✅ 已实现功能
@@ -53,354 +69,197 @@
 
 ---
 
-## M2 - 前端适配与数据迁移（新增）
+## M2 - 架构重构（参考《重构》第二版）
 
-### Phase 23: 前端 API 适配层
+> **重构目标**：将业务逻辑从前端迁移到后端，前端只负责 UI 展示和用户交互。
+> 
+> **现有问题**：
+> - 前端直接操作 Supabase，承担过多业务逻辑
+> - 单表查询架构，前端需要多次请求并在内存中组装数据
+> - 权限检查、数据校验等逻辑散落在前端各处
+> - 难以维护和扩展
+>
+> **重构原则**（《重构》第二版）：
+> - 小步前进，每步可验证
+> - 保持系统随时可运行
+> - 先写测试，再重构
+> - 提取函数、移动函数、内联函数
 
-- [ ] **T23.1 创建 API 客户端基础设施**
-  - 验收标准：统一的 HTTP 客户端，支持 token 管理和错误处理
+---
+
+### Phase 23: 前端架构重构（移除 Supabase）
+
+> **目标**：完全移除 Supabase，前端只保留 online 和 offline 两种模式
+
+- [ ] **T23.1 创建轻量 API 客户端**
+  - 验收标准：统一的 HTTP 客户端，仅负责请求/响应
   - 落点：`src/lib/apiClient.ts`
   - 功能：
-    - 基于 fetch 的请求封装
-    - 自动附加 Authorization header
-    - 统一错误处理和 toast 提示
-    - 请求/响应拦截器
+    - fetch 封装，自动附加 Authorization header
+    - 统一错误处理（网络错误、业务错误）
+    - Token 管理（存储、刷新）
+  - **不包含**：业务逻辑、数据转换、缓存
 
-- [ ] **T23.2 创建后端模式配置**
-  - 验收标准：支持切换 Supabase / 自定义后端 / 离线模式
-  - 落点：`src/lib/backendConfig.ts`
-  - 配置项：
+- [ ] **T23.2 简化存储模式配置**
+  - 验收标准：只支持 online 和 offline 两种模式
+  - 落点：`src/config/storage.ts`
+  - 变更：
     ```typescript
-    type BackendMode = 'supabase' | 'custom' | 'offline';
-    interface BackendConfig {
-      mode: BackendMode;
-      customApiUrl?: string;
-    }
+    // 移除 supabase，只保留两种模式
+    type StorageMode = 'online' | 'offline';
     ```
 
-- [ ] **T23.3 创建数据适配器接口**
-  - 验收标准：定义统一的数据访问接口
-  - 落点：`src/adapters/DataAdapter.ts`
-  - 接口定义：
+- [ ] **T23.3 创建 OnlineStorageAdapter**
+  - 验收标准：实现 StorageAdapter 接口，调用后端 API
+  - 落点：`src/storage/online/OnlineStorageAdapter.ts`
+  - 要求：
+    - 直接调用后端聚合接口
+    - 不在前端做数据组装
+    - 错误处理委托给 apiClient
+
+- [ ] **T23.4 更新存储工厂**
+  - 验收标准：根据配置返回对应适配器（无 Supabase）
+  - 落点：`src/storage/index.ts`
+  - 逻辑：
     ```typescript
-    interface DataAdapter {
-      // Auth
-      login(email: string, password: string): Promise<AuthResult>;
-      register(email: string, password: string, name: string): Promise<AuthResult>;
-      logout(): Promise<void>;
-      getCurrentUser(): Promise<User | null>;
-      
-      // Tasks
-      getTasks(listId?: string): Promise<Task[]>;
-      createTask(task: CreateTaskInput): Promise<Task>;
-      updateTask(id: string, updates: UpdateTaskInput): Promise<Task>;
-      deleteTask(id: string): Promise<void>;
-      // ... 其他方法
-    }
+    // 只有两种模式，online 为默认
+    if (mode === 'offline') return new IndexedDBAdapter();
+    return new OnlineStorageAdapter();
     ```
 
-- [ ] **T23.4 实现 Supabase 适配器**
-  - 验收标准：现有 Supabase 逻辑封装为适配器
-  - 落点：`src/adapters/SupabaseAdapter.ts`
-  - 要求：保持现有功能不变
+- [ ] **T23.5 移除 Supabase 相关代码**
+  - 验收标准：完全删除 Supabase 依赖
+  - 删除文件：
+    - `src/lib/supabase.ts`
+    - `src/storage/supabase/*`
+  - 删除依赖：
+    - `@supabase/supabase-js`
+  - 清理引用：移除所有 import supabase 的代码
 
-- [ ] **T23.5 实现自定义后端适配器**
-  - 验收标准：调用自定义后端 API
-  - 落点：`src/adapters/CustomBackendAdapter.ts`
-  - 要求：实现 DataAdapter 接口的所有方法
-
-- [ ] **T23.6 实现离线适配器**
-  - 验收标准：使用 IndexedDB 本地存储
-  - 落点：`src/adapters/OfflineAdapter.ts`
-  - 要求：复用现有离线存储逻辑
-
-- [ ] **T23.7 创建适配器工厂**
-  - 验收标准：根据配置返回对应适配器
-  - 落点：`src/adapters/index.ts`
-  - 功能：
-    ```typescript
-    function getAdapter(): DataAdapter {
-      switch (config.mode) {
-        case 'supabase': return new SupabaseAdapter();
-        case 'custom': return new CustomBackendAdapter();
-        case 'offline': return new OfflineAdapter();
-      }
-    }
-    ```
-
-- [ ] **T23.8 更新 Services 使用适配器**
-  - 验收标准：所有 service 通过适配器访问数据
+- [ ] **T23.6 简化前端服务层**
+  - 验收标准：移除前端业务逻辑，保留 UI 相关代码
   - 落点：`src/services/*.ts`
-  - 要求：渐进式迁移，保持向后兼容
+  - 重构：
+    - 删除权限检查逻辑（后端负责）
+    - 删除数据组装逻辑（后端负责）
+    - 保留 toast 提示、UI 状态管理
 
 ---
 
-### Phase 24: 数据迁移工具
+### Phase 24: 后端聚合接口
 
-- [ ] **T24.1 创建数据导出接口（后端）**
-  - 验收标准：支持导出用户全部数据
+- [ ] **T24.1 实现任务聚合查询**
+  - 验收标准：单次请求返回任务及关联数据
+  - 落点：`server/internal/handler/task.go`
+  - 接口：`GET /api/v1/lists/:id/tasks`
+  - 返回：任务列表 + 每个任务的标签 + 活动记录摘要
+  - **替代**：前端多次查询 tasks + task_tags + tags
+
+- [ ] **T24.2 实现仪表盘聚合接口**
+  - 验收标准：单次请求返回仪表盘所有数据
+  - 落点：`server/internal/handler/overview.go`
+  - 接口：`GET /api/v1/overview`
+  - 返回：
+    - 统计数据（总任务数、完成数、逾期数）
+    - 清单列表（含任务计数）
+    - 今日任务
+    - 即将到期任务
+  - **替代**：前端 5+ 次查询
+
+- [ ] **T24.3 实现任务详情聚合接口**
+  - 验收标准：单次请求返回任务完整信息
+  - 落点：`server/internal/handler/task.go`
+  - 接口：`GET /api/v1/tasks/:id`
+  - 返回：任务详情 + 标签 + 附件 + 活动记录
+  - **替代**：前端 4 次查询
+
+---
+
+### Phase 25: 数据迁移工具（Supabase → 自定义后端）
+
+> **目标**：帮助现有 Supabase 用户一次性迁移数据到自定义后端
+
+- [ ] **T25.1 创建数据导出接口（后端）**
+  - 验收标准：导出用户全部数据为 JSON
   - 落点：`server/internal/handler/migration.go`
-  - 接口：
-    - `GET /api/v1/export` - 导出用户数据（JSON 格式）
-  - 数据包含：lists, tasks, tags, task_tags, pomodoro_sessions, task_activities
+  - 接口：`GET /api/v1/export`
+  - 数据：lists, tasks, tags, task_tags, pomodoro_sessions, task_activities
 
-- [ ] **T24.2 创建数据导入接口（后端）**
-  - 验收标准：支持导入完整数据集
+- [ ] **T25.2 创建数据导入接口（后端）**
+  - 验收标准：导入完整数据集，事务保证
   - 落点：`server/internal/handler/migration.go`
-  - 接口：
-    - `POST /api/v1/import` - 导入用户数据
-  - 要求：事务保证、ID 映射、冲突处理
+  - 接口：`POST /api/v1/import`
+  - 要求：ID 映射、冲突处理、回滚支持
 
-- [ ] **T24.3 实现 Supabase 数据导出（前端）**
-  - 验收标准：从 Supabase 导出用户数据
-  - 落点：`src/services/migrationService.ts`
-  - 功能：
-    ```typescript
-    async function exportFromSupabase(): Promise<ExportData> {
-      // 导出 lists, tasks, tags 等
-    }
-    ```
+- [ ] **T25.3 创建 Supabase 数据导出脚本（一次性工具）**
+  - 验收标准：从 Supabase 导出用户数据为 JSON 文件
+  - 落点：`scripts/export-from-supabase.ts`（独立脚本，不打包到前端）
+  - 说明：这是一次性迁移工具，迁移完成后可删除
 
-- [ ] **T24.4 实现数据导入到自定义后端（前端）**
-  - 验收标准：将导出数据导入自定义后端
-  - 落点：`src/services/migrationService.ts`
-  - 功能：
-    ```typescript
-    async function importToCustomBackend(data: ExportData): Promise<void> {
-      // 调用后端导入接口
-    }
-    ```
-
-- [ ] **T24.5 创建迁移向导 UI**
+- [ ] **T25.4 创建迁移向导 UI**
   - 验收标准：引导用户完成数据迁移
   - 落点：`src/components/settings/MigrationWizard.tsx`
-  - 步骤：
-    1. 选择数据源（Supabase）
-    2. 配置目标后端 URL
-    3. 预览数据
-    4. 执行迁移
-    5. 验证结果
-
-- [ ] **T24.6 实现迁移进度追踪**
-  - 验收标准：显示迁移进度和错误信息
-  - 落点：`src/hooks/useMigration.ts`
-  - 功能：进度百分比、当前步骤、错误列表
+  - 步骤：上传导出文件 → 配置后端 URL → 执行导入 → 验证
 
 ---
 
-### Phase 25: 后端设置 UI
+### Phase 26: 后端配置 UI
 
-- [ ] **T25.1 创建后端配置页面**
-  - 验收标准：用户可配置后端模式
+- [ ] **T26.1 创建后端配置页面**
+  - 验收标准：用户可配置后端 URL 和切换离线模式
   - 落点：`src/pages/Settings/BackendSettings.tsx`
   - 功能：
-    - 选择模式：Supabase / 自定义后端 / 离线
-    - 输入自定义后端 URL
-    - 测试连接
-    - 保存配置
+    - 后端 URL 配置
+    - 连接测试
+    - 切换离线模式
 
-- [ ] **T25.2 实现后端连接测试**
-  - 验收标准：验证后端可用性
-  - 落点：`src/services/backendService.ts`
-  - 功能：调用 /healthz 检查连接
-
-- [ ] **T25.3 实现配置持久化**
-  - 验收标准：配置保存到 localStorage
-  - 落点：`src/lib/backendConfig.ts`
-  - 要求：应用启动时自动加载配置
+- [ ] **T26.2 实现配置持久化**
+  - 验收标准：配置保存到 localStorage，启动时加载
+  - 落点：`src/config/storage.ts`
 
 ---
 
 ## M3 - 功能补全（后端）
 
-### Phase 16: 任务模型扩展
+### Phase 16: 任务模型扩展 ✅
 
-- [ ] **T16.1 扩展 Task 模型字段**
-  - 验收标准：Task 模型包含前端所需全部字段
-  - 落点：`server/internal/model/task.go`
-  - 新增字段：
-    ```go
-    Completed    bool           `gorm:"default:false" json:"completed"`
-    CompletedAt  *time.Time     `json:"completed_at"`
-    Deleted      bool           `gorm:"default:false;index" json:"deleted"`
-    DeletedAt    *time.Time     `json:"deleted_at"`
-    Abandoned    bool           `gorm:"default:false" json:"abandoned"`
-    AbandonedAt  *time.Time     `json:"abandoned_at"`
-    Flagged      bool           `gorm:"default:false" json:"flagged"`
-    Icon         string         `gorm:"size:50" json:"icon"`
-    Attachments  datatypes.JSON `gorm:"type:jsonb;default:'[]'" json:"attachments"`
-    ```
-
-- [ ] **T16.2 更新任务状态映射**
-  - 验收标准：completed 字段与 status 字段正确同步
-  - 落点：`server/internal/service/task_service.go`
-  - 逻辑：status=done 时自动设置 completed=true, completed_at=now()
-
-- [ ] **T16.3 实现软删除接口**
-  - 验收标准：任务移入回收站而非物理删除
-  - 落点：`server/internal/handler/task.go`
-  - 接口：
-    - `DELETE /api/v1/tasks/:id` - 软删除（设置 deleted=true）
-    - `POST /api/v1/tasks/:id/restore` - 恢复任务
-    - `DELETE /api/v1/tasks/:id/permanent` - 永久删除
-    - `GET /api/v1/trash` - 获取回收站任务
-
-- [ ] **T16.4 实现任务放弃功能**
-  - 验收标准：任务可标记为放弃状态
-  - 落点：`server/internal/handler/task.go`
-  - 接口：
-    - `POST /api/v1/tasks/:id/abandon` - 放弃任务
-    - `POST /api/v1/tasks/:id/reactivate` - 重新激活
-
-- [ ] **T16.5 实现任务标记功能**
-  - 验收标准：任务可标记/取消标记
-  - 落点：`server/internal/handler/task.go`
-  - 接口：
-    - `PATCH /api/v1/tasks/:id/flag` - 切换标记状态
-    - `GET /api/v1/flagged` - 获取所有标记任务
+- [x] **T16.1 扩展 Task 模型字段**
+- [x] **T16.2 更新任务状态映射**
+- [x] **T16.3 实现软删除接口**
+- [x] **T16.4 实现任务放弃功能**
+- [x] **T16.5 实现任务标记功能**
 
 ---
 
-### Phase 17: 标签系统
+### Phase 17: 标签系统 ✅
 
-- [ ] **T17.1 创建 Tag 模型**
-  - 验收标准：Tag 模型定义完整
-  - 落点：`server/internal/model/tag.go`
-  - 结构：
-    ```go
-    type Tag struct {
-        ID        uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-        Name      string     `gorm:"size:100;not null" json:"name"`
-        UserID    uuid.UUID  `gorm:"type:uuid;index;not null" json:"user_id"`
-        ProjectID *uuid.UUID `gorm:"type:uuid;index" json:"project_id"`
-        CreatedAt time.Time  `json:"created_at"`
-    }
-    ```
-
-- [ ] **T17.2 创建 TaskTag 关联模型**
-  - 验收标准：多对多关联表定义完整
-  - 落点：`server/internal/model/task_tag.go`
-  - 结构：
-    ```go
-    type TaskTag struct {
-        TaskID    uuid.UUID `gorm:"type:uuid;primaryKey" json:"task_id"`
-        TagID     uuid.UUID `gorm:"type:uuid;primaryKey" json:"tag_id"`
-        CreatedAt time.Time `json:"created_at"`
-    }
-    ```
-
-- [ ] **T17.3 实现 Tag Repository**
-  - 验收标准：标签 CRUD 操作封装完整
-  - 落点：`server/internal/repository/tag_repo.go`
-  - 方法：Create, FindByID, FindByUser, FindByProject, Update, Delete
-
-- [ ] **T17.4 实现 Tag Service**
-  - 验收标准：标签业务逻辑完整
-  - 落点：`server/internal/service/tag_service.go`
-  - 方法：CreateTag, GetTags, UpdateTag, DeleteTag, AttachToTask, DetachFromTask
-
-- [ ] **T17.5 实现 Tag Handler**
-  - 验收标准：标签 API 接口可用
-  - 落点：`server/internal/handler/tag.go`
-  - 接口：
-    - `GET /api/v1/tags` - 获取用户标签（可选 project_id 过滤）
-    - `POST /api/v1/tags` - 创建标签
-    - `PUT /api/v1/tags/:id` - 更新标签
-    - `DELETE /api/v1/tags/:id` - 删除标签
-    - `POST /api/v1/tasks/:id/tags/:tagId` - 给任务添加标签
-    - `DELETE /api/v1/tasks/:id/tags/:tagId` - 移除任务标签
-    - `GET /api/v1/tasks/:id/tags` - 获取任务的标签
+- [x] **T17.1 创建 Tag 模型**
+- [x] **T17.2 创建 TaskTag 关联模型**
+- [x] **T17.3 实现 Tag Repository**
+- [x] **T17.4 实现 Tag Service**
+- [x] **T17.5 实现 Tag Handler**
 
 ---
 
-### Phase 18: 任务活动记录
+### Phase 18: 任务活动记录 ✅
 
-- [ ] **T18.1 创建 TaskActivity 模型**
-  - 验收标准：活动记录模型定义完整
-  - 落点：`server/internal/model/task_activity.go`
-  - 结构：
-    ```go
-    type TaskActivity struct {
-        ID          uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
-        TaskID      uuid.UUID      `gorm:"type:uuid;index;not null" json:"task_id"`
-        UserID      *uuid.UUID     `gorm:"type:uuid;index" json:"user_id"`
-        AnonymousID *uuid.UUID     `gorm:"type:uuid;index" json:"anonymous_id"`
-        Action      string         `gorm:"size:50;not null" json:"action"`
-        Metadata    datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"metadata"`
-        CreatedAt   time.Time      `json:"created_at"`
-    }
-    ```
-  - Action 枚举：task_created, title_updated, description_updated, status_updated, due_date_updated, project_changed, attachments_updated, tag_added, tag_removed, task_moved_to_trash, task_restored, task_abandoned, task_reactivated
-
-- [ ] **T18.2 实现 TaskActivity Repository**
-  - 验收标准：活动记录数据访问层完整
-  - 落点：`server/internal/repository/task_activity_repo.go`
-  - 方法：Create, FindByTask (分页), FindByUser
-
-- [ ] **T18.3 实现 TaskActivity Service**
-  - 验收标准：活动记录自动创建
-  - 落点：`server/internal/service/task_activity_service.go`
-  - 要求：在任务变更时自动记录活动
-
-- [ ] **T18.4 实现 TaskActivity Handler**
-  - 验收标准：活动记录 API 可用
-  - 落点：`server/internal/handler/task_activity.go`
-  - 接口：
-    - `GET /api/v1/tasks/:id/activities` - 获取任务活动记录（分页）
+- [x] **T18.1 创建 TaskActivity 模型**
+- [x] **T18.2 实现 TaskActivity Repository**
+- [x] **T18.3 实现 TaskActivity Service**
+- [x] **T18.4 实现 TaskActivity Handler**
 
 ---
 
-### Phase 19: 番茄钟功能
+### Phase 19: 番茄钟功能 ✅
 
-- [ ] **T19.1 创建 PomodoroSession 模型**
-  - 验收标准：番茄钟会话模型定义完整
-  - 落点：`server/internal/model/pomodoro.go`
-  - 结构：
-    ```go
-    type PomodoroSessionType string
-    const (
-        PomodoroFocus      PomodoroSessionType = "focus"
-        PomodoroShortBreak PomodoroSessionType = "short_break"
-        PomodoroLongBreak  PomodoroSessionType = "long_break"
-    )
-    
-    type PomodoroSession struct {
-        ID        uuid.UUID           `gorm:"type:uuid;primaryKey" json:"id"`
-        UserID    uuid.UUID           `gorm:"type:uuid;index;not null" json:"user_id"`
-        StartTime time.Time           `gorm:"not null" json:"start_time"`
-        EndTime   *time.Time          `json:"end_time"`
-        Duration  int                 `gorm:"not null" json:"duration"` // 分钟
-        Type      PomodoroSessionType `gorm:"size:20;not null" json:"type"`
-        Completed bool                `gorm:"default:false" json:"completed"`
-        CreatedAt time.Time           `json:"created_at"`
-    }
-    ```
-
-- [ ] **T19.2 实现 Pomodoro Repository**
-  - 验收标准：番茄钟数据访问层完整
-  - 落点：`server/internal/repository/pomodoro_repo.go`
-  - 方法：Create, FindByID, FindByUser, FindActive, Update, Delete, GetTodayStats
-
-- [ ] **T19.3 实现 Pomodoro Service**
-  - 验收标准：番茄钟业务逻辑完整
-  - 落点：`server/internal/service/pomodoro_service.go`
-  - 方法：StartSession, CompleteSession, CancelSession, GetActive, GetSessions, GetTodayStats
-
-- [ ] **T19.4 实现 Pomodoro Handler**
-  - 验收标准：番茄钟 API 接口可用
-  - 落点：`server/internal/handler/pomodoro.go`
-  - 接口：
-    - `POST /api/v1/pomodoro/sessions` - 开始会话
-    - `GET /api/v1/pomodoro/sessions` - 获取会话列表（支持时间范围过滤）
-    - `GET /api/v1/pomodoro/sessions/active` - 获取当前活跃会话
-    - `PATCH /api/v1/pomodoro/sessions/:id/complete` - 完成会话
-    - `PATCH /api/v1/pomodoro/sessions/:id/cancel` - 取消会话
-    - `DELETE /api/v1/pomodoro/sessions/:id` - 删除会话
-    - `GET /api/v1/pomodoro/stats/today` - 获取今日统计
+- [x] **T19.1 创建 PomodoroSession 模型**
+- [x] **T19.2 实现 Pomodoro Repository**
+- [x] **T19.3 实现 Pomodoro Service**
+- [x] **T19.4 实现 Pomodoro Handler**
 
 ---
 
-### Phase 20: 项目分享功能
+### Phase 20: 项目分享功能（待实现）
 
 - [ ] **T20.1 创建 ProjectShare 模型**
   - 验收标准：项目分享模型定义完整
@@ -570,14 +429,14 @@
 | POST | /api/v1/lists/:id/tasks | 创建任务 | ✅ |
 | GET | /api/v1/tasks/:id | 获取任务详情 | ✅ |
 | PUT | /api/v1/tasks/:id | 更新任务 | ✅ |
-| DELETE | /api/v1/tasks/:id | 软删除任务 | ⚠️ 需改为软删除 |
+| DELETE | /api/v1/tasks/:id | 软删除任务 | ✅ |
 | PATCH | /api/v1/tasks/:id/status | 更新状态 | ✅ |
 | PATCH | /api/v1/tasks/:id/sort | 更新排序 | ✅ |
-| POST | /api/v1/tasks/:id/restore | 恢复任务 | ❌ |
-| DELETE | /api/v1/tasks/:id/permanent | 永久删除 | ❌ |
-| POST | /api/v1/tasks/:id/abandon | 放弃任务 | ❌ |
-| POST | /api/v1/tasks/:id/reactivate | 重新激活 | ❌ |
-| PATCH | /api/v1/tasks/:id/flag | 切换标记 | ❌ |
+| POST | /api/v1/tasks/:id/restore | 恢复任务 | ✅ |
+| DELETE | /api/v1/tasks/:id/permanent | 永久删除 | ✅ |
+| POST | /api/v1/tasks/:id/abandon | 放弃任务 | ✅ |
+| POST | /api/v1/tasks/:id/reactivate | 重新激活 | ✅ |
+| PATCH | /api/v1/tasks/:id/flag | 切换标记 | ✅ |
 
 #### 任务附件
 | 方法 | 路径 | 描述 | 状态 |
@@ -589,29 +448,29 @@
 #### 标签
 | 方法 | 路径 | 描述 | 状态 |
 |------|------|------|------|
-| GET | /api/v1/tags | 获取标签列表 | ❌ |
-| POST | /api/v1/tags | 创建标签 | ❌ |
-| PUT | /api/v1/tags/:id | 更新标签 | ❌ |
-| DELETE | /api/v1/tags/:id | 删除标签 | ❌ |
-| GET | /api/v1/tasks/:id/tags | 获取任务标签 | ❌ |
-| POST | /api/v1/tasks/:id/tags/:tagId | 添加标签 | ❌ |
-| DELETE | /api/v1/tasks/:id/tags/:tagId | 移除标签 | ❌ |
+| GET | /api/v1/tags | 获取标签列表 | ✅ |
+| POST | /api/v1/tags | 创建标签 | ✅ |
+| PUT | /api/v1/tags/:id | 更新标签 | ✅ |
+| DELETE | /api/v1/tags/:id | 删除标签 | ✅ |
+| GET | /api/v1/tasks/:id/tags | 获取任务标签 | ✅ |
+| POST | /api/v1/tasks/:id/tags/:tagId | 添加标签 | ✅ |
+| DELETE | /api/v1/tasks/:id/tags/:tagId | 移除标签 | ✅ |
 
 #### 任务活动
 | 方法 | 路径 | 描述 | 状态 |
 |------|------|------|------|
-| GET | /api/v1/tasks/:id/activities | 获取活动记录 | ❌ |
+| GET | /api/v1/tasks/:id/activities | 获取活动记录 | ✅ |
 
 #### 番茄钟
 | 方法 | 路径 | 描述 | 状态 |
 |------|------|------|------|
-| POST | /api/v1/pomodoro/sessions | 开始会话 | ❌ |
-| GET | /api/v1/pomodoro/sessions | 获取会话列表 | ❌ |
-| GET | /api/v1/pomodoro/sessions/active | 获取活跃会话 | ❌ |
-| PATCH | /api/v1/pomodoro/sessions/:id/complete | 完成会话 | ❌ |
-| PATCH | /api/v1/pomodoro/sessions/:id/cancel | 取消会话 | ❌ |
-| DELETE | /api/v1/pomodoro/sessions/:id | 删除会话 | ❌ |
-| GET | /api/v1/pomodoro/stats/today | 今日统计 | ❌ |
+| POST | /api/v1/pomodoro/sessions | 开始会话 | ✅ |
+| GET | /api/v1/pomodoro/sessions | 获取会话列表 | ✅ |
+| GET | /api/v1/pomodoro/sessions/active | 获取活跃会话 | ✅ |
+| PATCH | /api/v1/pomodoro/sessions/:id/complete | 完成会话 | ✅ |
+| PATCH | /api/v1/pomodoro/sessions/:id/cancel | 取消会话 | ✅ |
+| DELETE | /api/v1/pomodoro/sessions/:id | 删除会话 | ✅ |
+| GET | /api/v1/pomodoro/stats/today | 今日统计 | ✅ |
 
 #### 聚合查询
 | 方法 | 路径 | 描述 | 状态 |
@@ -620,8 +479,8 @@
 | GET | /api/v1/today | 今日任务 | ✅ |
 | GET | /api/v1/upcoming | 即将到期 | ✅ |
 | GET | /api/v1/search | 搜索任务 | ✅ |
-| GET | /api/v1/trash | 回收站 | ❌ |
-| GET | /api/v1/flagged | 标记任务 | ❌ |
+| GET | /api/v1/trash | 回收站 | ✅ |
+| GET | /api/v1/flagged | 标记任务 | ✅ |
 
 #### 批量操作
 | 方法 | 路径 | 描述 | 状态 |
