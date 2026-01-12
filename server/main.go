@@ -73,7 +73,7 @@ func main() {
 	taskService := service.NewTaskService(taskRepo, listRepo, taskTagRepo, taskActivityRepo)
 	overviewService := service.NewOverviewService(listRepo, taskRepo)
 	listMemberService := service.NewListMemberService(listMemberRepo, listRepo, userRepo)
-	tagService := service.NewTagService(tagRepo, taskTagRepo, taskRepo)
+	tagService := service.NewTagService(tagRepo, taskTagRepo, taskRepo, taskActivityRepo)
 	taskActivityService := service.NewTaskActivityService(taskActivityRepo, taskRepo)
 	pomodoroService := service.NewPomodoroService(pomodoroRepo)
 	projectShareService := service.NewProjectShareService(projectShareRepo, listRepo, listMemberRepo)

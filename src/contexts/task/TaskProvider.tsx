@@ -16,9 +16,6 @@ import { isOfflineMode } from "@/storage";
 import * as storageOps from "@/storage/operations";
 import { canPerformOperation, requiresAuth } from "@/storage/operations";
 
-const hasProp = <K extends keyof Partial<Task>>(obj: Partial<Task>, key: K): boolean =>
-  Object.prototype.hasOwnProperty.call(obj, key);
-
 interface TaskProviderProps {
   children: ReactNode;
 }
