@@ -78,6 +78,11 @@ interface ApiTag {
   created_at: string;
 }
 
+// 带标签的任务响应
+interface ApiTaskWithTags extends ApiTask {
+  tags?: ApiTag[];
+}
+
 interface ApiPomodoroSession {
   id: string;
   task_id?: string;
@@ -174,6 +179,7 @@ function mapApiTagToTag(api: ApiTag): Tag {
 
 export class OnlineStorageAdapter implements StorageAdapter {
   private ready = false;
+  private taskTagsCache: Map<string, Tag[]> = new Map();
 
   async initialize(): Promise<void> {
     this.ready = apiClient.isAuthenticated();
@@ -207,7 +213,19 @@ export class OnlineStorageAdapter implements StorageAdapter {
       return tasks;
     }
 
-    const data = await apiClient.get<ApiTask[]>('/tasks');
+    // 获取所有活跃任务（带标签）
+    const data = await apiClient.get<ApiTaskWithTags[]>('/tasks');
+    
+    // 缓存标签映射
+    this.taskTagsCache.clear();
+    for (const item of data) {
+      if (item.tags) {
+        this.taskTagsCache.set(item.id, item.tags.map(mapApiTagToTag));
+      } else {
+        this.taskTagsCache.set(item.id, []);
+      }
+    }
+    
     return data.map(mapApiTaskToTask);
   }
 
@@ -328,23 +346,41 @@ export class OnlineStorageAdapter implements StorageAdapter {
 
   async getTagsByTaskIds(taskIds: string[]): Promise<Record<string, Tag[]>> {
     const result: Record<string, Tag[]> = {};
+    const uncachedIds: string[] = [];
+    
+    // 先从缓存获取
     for (const taskId of taskIds) {
+      const cached = this.taskTagsCache.get(taskId);
+      if (cached !== undefined) {
+        result[taskId] = cached;
+      } else {
+        uncachedIds.push(taskId);
+      }
+    }
+    
+    // 对于未缓存的，从 API 获取
+    for (const taskId of uncachedIds) {
       try {
         const data = await apiClient.get<ApiTag[]>(`/tasks/${taskId}/tags`);
-        result[taskId] = data.map(mapApiTagToTag);
+        const tags = data.map(mapApiTagToTag);
+        result[taskId] = tags;
+        this.taskTagsCache.set(taskId, tags);
       } catch {
         result[taskId] = [];
       }
     }
+    
     return result;
   }
 
   async attachTagToTask(taskId: string, tagId: string): Promise<void> {
     await apiClient.post(`/tasks/${taskId}/tags/${tagId}`);
+    this.taskTagsCache.delete(taskId);
   }
 
   async detachTagFromTask(taskId: string, tagId: string): Promise<void> {
     await apiClient.delete(`/tasks/${taskId}/tags/${tagId}`);
+    this.taskTagsCache.delete(taskId);
   }
 
   // ============================================

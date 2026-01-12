@@ -290,7 +290,7 @@ func (h *TaskHandler) GetFlaggedTasks(c *gin.Context) {
 	model.Success(c, tasks)
 }
 
-// GetAllActiveTasks 获取用户所有活跃任务
+// GetAllActiveTasks 获取用户所有活跃任务（带标签）
 func (h *TaskHandler) GetAllActiveTasks(c *gin.Context) {
 	userID := c.MustGet("userID").(uuid.UUID)
 

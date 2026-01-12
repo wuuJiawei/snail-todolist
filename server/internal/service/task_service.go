@@ -405,9 +405,42 @@ func (s *TaskService) GetFlaggedTasks(userID uuid.UUID) ([]model.Task, error) {
 	return s.taskRepo.GetFlaggedTasks(userID)
 }
 
-// GetAllActiveTasks 获取用户所有活跃任务
-func (s *TaskService) GetAllActiveTasks(userID uuid.UUID) ([]model.Task, error) {
-	return s.taskRepo.GetAllActiveTasks(userID)
+// GetAllActiveTasks 获取用户所有活跃任务（带标签）
+func (s *TaskService) GetAllActiveTasks(userID uuid.UUID) ([]TaskWithTags, error) {
+	tasks, err := s.taskRepo.GetAllActiveTasks(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(tasks) == 0 {
+		return []TaskWithTags{}, nil
+	}
+
+	// 批量获取任务标签
+	taskIDs := make([]uuid.UUID, len(tasks))
+	for i, t := range tasks {
+		taskIDs[i] = t.ID
+	}
+
+	tagMap, err := s.taskTagRepo.GetTagsByTaskIDs(taskIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// 组装结果
+	result := make([]TaskWithTags, len(tasks))
+	for i, t := range tasks {
+		tags := tagMap[t.ID]
+		if tags == nil {
+			tags = []model.Tag{}
+		}
+		result[i] = TaskWithTags{
+			Task: t,
+			Tags: tags,
+		}
+	}
+
+	return result, nil
 }
 
 func (s *TaskService) GetTodayTasks(userID uuid.UUID) ([]model.Task, error) {
