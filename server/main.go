@@ -119,6 +119,9 @@ func main() {
 	// API 路由
 	api := r.Group("/api/v1")
 	{
+		// 健康检查
+		api.GET("/health", handler.Health)
+
 		// 公开路由
 		auth := api.Group("/auth")
 		{
