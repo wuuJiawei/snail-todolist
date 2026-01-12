@@ -491,11 +491,12 @@ export class OnlineStorageAdapter implements StorageAdapter {
   }
 
   async uploadAvatar(file: File): Promise<FileUploadResult> {
+    const data = await apiClient.upload<{ url: string }>('/user/avatar', file);
     return {
       id: crypto.randomUUID(),
       filename: file.name,
       original_name: file.name,
-      url: URL.createObjectURL(file),
+      url: data.url,
       size: file.size,
       type: file.type,
       uploaded_at: new Date().toISOString(),

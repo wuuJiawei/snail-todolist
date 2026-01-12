@@ -136,6 +136,7 @@ func main() {
 			protected.GET("/user/profile", userHandler.GetProfile)
 			protected.PUT("/user/profile", userHandler.UpdateProfile)
 			protected.PUT("/user/password", userHandler.UpdatePassword)
+			protected.POST("/user/avatar", userHandler.UploadAvatar)
 
 			// 聚合查询（核心）
 			protected.GET("/overview", overviewHandler.GetOverview)

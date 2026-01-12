@@ -18,8 +18,10 @@ func NewUserService(userRepo *repository.UserRepository) *UserService {
 }
 
 type UpdateUserInput struct {
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
+	Nickname  string `json:"nickname"`
+	Username  string `json:"username"`
+	Avatar    string `json:"avatar"`
+	AvatarURL string `json:"avatar_url"`
 }
 
 type UpdatePasswordInput struct {
@@ -40,8 +42,14 @@ func (s *UserService) UpdateUser(id uuid.UUID, input *UpdateUserInput) (*model.U
 	if input.Nickname != "" {
 		user.Nickname = input.Nickname
 	}
+	if input.Username != "" {
+		user.Nickname = input.Username
+	}
 	if input.Avatar != "" {
 		user.Avatar = input.Avatar
+	}
+	if input.AvatarURL != "" {
+		user.Avatar = input.AvatarURL
 	}
 
 	if err := s.userRepo.Update(user); err != nil {
@@ -69,5 +77,15 @@ func (s *UserService) UpdatePassword(id uuid.UUID, input *UpdatePasswordInput) e
 	}
 
 	user.Password = string(hashedPassword)
+	return s.userRepo.Update(user)
+}
+
+func (s *UserService) UpdateAvatarURL(id uuid.UUID, avatarURL string) error {
+	user, err := s.userRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	user.Avatar = avatarURL
 	return s.userRepo.Update(user)
 }

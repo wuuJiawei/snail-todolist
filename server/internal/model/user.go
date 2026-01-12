@@ -12,8 +12,10 @@ type User struct {
 	Email     string         `gorm:"uniqueIndex;not null" json:"email"`
 	Password  string         `gorm:"" json:"-"`
 	Name      string         `gorm:"size:100" json:"name"`
-	Nickname  string         `gorm:"size:100" json:"nickname"`
-	Avatar    string         `gorm:"size:500" json:"avatar"`
+	Nickname  string         `gorm:"size:100" json:"nickname,omitempty"`
+	Username  string         `gorm:"-" json:"username,omitempty"`
+	Avatar    string         `gorm:"size:500" json:"avatar,omitempty"`
+	AvatarURL string         `gorm:"-" json:"avatar_url,omitempty"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -22,6 +24,16 @@ type User struct {
 func (u *User) BeforeCreate(tx *gorm.DB) error {
 	if u.ID == uuid.Nil {
 		u.ID = uuid.New()
+	}
+	return nil
+}
+
+func (u *User) AfterFind(tx *gorm.DB) error {
+	u.AvatarURL = u.Avatar
+	if u.Nickname != "" {
+		u.Username = u.Nickname
+	} else {
+		u.Username = u.Email
 	}
 	return nil
 }
