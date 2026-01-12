@@ -63,9 +63,6 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
           console.error("Failed to ensure tags for filters:", error);
         }
       }
-
-      const current = getCachedTags(projectId);
-      setAllTags(current.map((t) => ({ id: t.id, name: t.name })));
     } finally {
       setLoadingTags(false);
     }
@@ -76,8 +73,15 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
   }, [syncTags, selectedProject]);
 
   useEffect(() => {
-    syncTags();
-  }, [syncTags, tagsVersion]);
+    const projectId = selectedProject === "all" ? null : selectedProject;
+    const isSystemList = selectedProject === "today" || selectedProject === "recent" || selectedProject === "flagged";
+    if (isSystemList) {
+      setAllTags([]);
+      return;
+    }
+    const current = getCachedTags(projectId);
+    setAllTags(current.map((t) => ({ id: t.id, name: t.name })));
+  }, [tagsVersion, selectedProject, getCachedTags]);
 
   const handleDeadlineChange = (deadline: string, checked: boolean) => {
     const newDeadline = checked

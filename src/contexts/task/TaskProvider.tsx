@@ -11,7 +11,6 @@ import { useDeadlineNotifications } from "@/hooks/useDeadlineNotifications";
 import { Tag } from "@/types/tag";
 import { useTaskStore } from "@/store/taskStore";
 import { taskKeys, taskQueries } from "@/queries/taskQueries";
-import { tagKeys, tagQueries } from "@/queries/tagQueries";
 import type { TaskActivityAction, TaskActivityInput } from "@/types/taskActivity";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { isOfflineMode } from "@/storage";
@@ -524,97 +523,60 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     return (projectId ?? null) === null ? "global" : (projectId as string);
   };
 
-  const mergeTagLists = (incoming: Tag[], existing: Tag[] = []) => {
-    const map = new Map<string, Tag>();
-    incoming.forEach((tag) => {
-      if (!map.has(tag.id)) {
-        map.set(tag.id, tag);
-      }
-    });
-    existing.forEach((tag) => {
-      if (!map.has(tag.id)) {
-        map.set(tag.id, tag);
-      }
-    });
-    return Array.from(map.values());
-  };
-
+  /**
+   * 从 API 获取标签（后端已合并项目标签和全局标签）
+   */
   const listAllTags = useCallback(async (projectId?: string | null) => {
-    if (projectId === undefined) {
-      return await storageOps.fetchAllTags(undefined);
-    }
+    const data = await storageOps.fetchAllTags(projectId ?? null);
     
-    const scope = projectId ?? null;
-    const data = await queryClient.ensureQueryData(tagQueries.forScope(scope));
     const store = useTaskStore.getState();
-    const nextCache: Record<string, Tag[]> = {
+    store.setTagsCache({
       ...store.tagsCache,
-      [keyForProject(scope)]: mergeTagLists(data, store.tagsCache[keyForProject(scope)]),
-    };
-
-    let result: Tag[] = data;
-    if (projectId !== null && projectId !== undefined) {
-      const globalData = await queryClient.ensureQueryData(tagQueries.forScope(null));
-      nextCache[keyForProject(null)] = mergeTagLists(globalData, nextCache[keyForProject(null)]);
-      result = [...nextCache[keyForProject(scope)], ...nextCache[keyForProject(null)]];
-    }
-    
-    store.setTagsCache(nextCache);
+      [keyForProject(projectId)]: data,
+    });
     store.incrementTagsVersion();
 
-    return result;
-  }, [queryClient]);
+    return data;
+  }, []);
 
-  // 刷新所有标签缓存
+  /**
+   * 刷新标签缓存
+   */
   const refreshAllTags = useCallback(async () => {
     try {
-      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
-      const cacheKeys = Object.keys(useTaskStore.getState().tagsCache);
-      const scopes = cacheKeys.length > 0 ? cacheKeys : ["global"];
-      const results = await Promise.all(
-      scopes.map((scope) => {
-          const projectScope = scope === "global" ? null : scope;
-          return queryClient.ensureQueryData(tagQueries.forScope(projectScope));
-        })
-      );
-
-      const nextCache: Record<string, Tag[]> = {};
-      scopes.forEach((scope, index) => {
-        const prev = useTaskStore.getState().tagsCache[scope] || [];
-        nextCache[scope] = mergeTagLists(results[index], prev);
-      });
-
       const store = useTaskStore.getState();
-      store.setTagsCache(nextCache);
+      store.setTagsCache({});
       store.incrementTagsVersion();
       return true;
     } catch (error) {
       console.error("Failed to refresh tags:", error);
       return false;
     }
-  }, [queryClient]);
+  }, []);
 
+  /**
+   * 确保指定范围的标签已加载
+   */
   const ensureTagsLoaded = useCallback(async (projectId?: string | null) => {
     const store = useTaskStore.getState();
-    const nextCache: Record<string, Tag[]> = { ...store.tagsCache };
-
-    const loadScope = async (scope: string | null) => {
-      const data = await queryClient.ensureQueryData(tagQueries.forScope(scope));
-      const key = keyForProject(scope);
-      nextCache[key] = mergeTagLists(data, nextCache[key]);
-    };
-
-    if (projectId !== null && projectId !== undefined) {
-      await loadScope(null);
+    const key = keyForProject(projectId);
+    
+    if (store.tagsCache[key] && store.tagsCache[key].length > 0) {
+      return;
     }
-
-    await loadScope(projectId ?? null);
-
-    store.setTagsCache(nextCache);
+    
+    const data = await storageOps.fetchAllTags(projectId ?? null);
+    
+    store.setTagsCache({
+      ...store.tagsCache,
+      [key]: data,
+    });
     store.incrementTagsVersion();
-  }, [queryClient]);
+  }, []);
 
-  // 修改createTag函数，更新后刷新缓存
+  /**
+   * 创建标签并更新缓存
+   */
   const createTag = useCallback(async (name: string, projectId?: string | null) => {
     const tag = await storageOps.createTag(name, projectId);
     if (tag) {
@@ -623,61 +585,67 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       const nextCache: Record<string, Tag[]> = { ...cache };
       const targetKey = keyForProject(projectId);
       const targetList = nextCache[targetKey] || [];
+      // 添加新标签，确保不重复
       nextCache[targetKey] = [tag, ...targetList.filter((t) => t.id !== tag.id)];
       store.setTagsCache(nextCache);
       store.incrementTagsVersion();
-
-      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
-      if (projectId !== null && projectId !== undefined) {
-        await ensureTagsLoaded(projectId);
-      }
-      await ensureTagsLoaded(null);
     }
     return tag;
-  }, [queryClient, ensureTagsLoaded]);
+  }, []);
 
-  // 修改deleteTagPermanently函数
+  /**
+   * 永久删除标签
+   */
   const deleteTagPermanently = useCallback(async (tagId: string): Promise<boolean> => {
     const ok = await storageOps.deleteTagById(tagId);
     if (ok) {
-      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
-      const cache = useTaskStore.getState().tagsCache;
+      const store = useTaskStore.getState();
+      const cache = store.tagsCache;
+      
+      // 从所有缓存中移除该标签
       const nextCache: Record<string, Tag[]> = {};
       Object.keys(cache).forEach((k) => {
         nextCache[k] = (cache[k] || []).filter((t) => t.id !== tagId);
-        });
-      const store = useTaskStore.getState();
+      });
       store.setTagsCache(nextCache);
-      const mapping = useTaskStore.getState().taskIdToTags;
+      
+      // 从任务-标签映射中移除
+      const mapping = store.taskIdToTags;
       const mappingNext: Record<string, Tag[]> = {};
       Object.keys(mapping).forEach((taskId) => {
         mappingNext[taskId] = (mapping[taskId] || []).filter((t) => t.id !== tagId);
-        });
+      });
       store.setTaskIdToTags(mappingNext);
       store.incrementTagsVersion();
     }
     return ok;
-  }, [queryClient]);
+  }, []);
 
-  // 修改updateTagProject函数
+  /**
+   * 更新标签所属项目
+   */
   const updateTagProject = useCallback(async (tagId: string, projectId: string | null): Promise<Tag | null> => {
     const updatedTag = await storageOps.updateTagProject(tagId, projectId);
     if (updatedTag) {
-      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
-      const cache = useTaskStore.getState().tagsCache;
-      const next = { ...cache };
+      const store = useTaskStore.getState();
+      const cache = store.tagsCache;
+      const next: Record<string, Tag[]> = { ...cache };
+      
+      // 从所有缓存中移除该标签
       Object.keys(next).forEach((key) => {
         next[key] = (next[key] || []).filter((t) => t.id !== tagId);
-        });
-      const targetKey = projectId === null ? "global" : projectId;
+      });
+      
+      // 添加到目标缓存
+      const targetKey = keyForProject(projectId);
       const targetList = next[targetKey] || [];
       next[targetKey] = [updatedTag, ...targetList];
-      const store = useTaskStore.getState();
+      
       store.setTagsCache(next);
       store.incrementTagsVersion();
     }
     return updatedTag;
-  }, [queryClient]);
+  }, []);
 
   const getAllTagUsageCounts = useCallback(() => {
     const counts: Record<string, number> = {};
@@ -693,24 +661,12 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     return counts;
   }, [taskIdToTags]);
 
-  // 全局标签：不再区分 projectId，统一使用 'global' 作为缓存键
+  /**
+   * 获取缓存的标签（后端已合并项目标签和全局标签）
+   */
   const getCachedTags = useCallback((projectId?: string | null): Tag[] => {
-    const key = keyForProject(projectId);
-    let projectSpecificTags = tagsCache[key];
-    if (!projectSpecificTags) {
-      projectSpecificTags = queryClient.getQueryData<Tag[]>(tagKeys.forScope(projectId ?? null)) || [];
-    }
-    
-    if (projectId !== null && projectId !== undefined) {
-      let globalTags = tagsCache["global"];
-      if (!globalTags) {
-        globalTags = queryClient.getQueryData<Tag[]>(tagKeys.forScope(null)) || [];
-      }
-      return [...projectSpecificTags, ...globalTags];
-    }
-    
-    return projectSpecificTags;
-  }, [tagsCache, queryClient]);
+    return tagsCache[keyForProject(projectId)] || [];
+  }, [tagsCache]);
 
   // Move task to trash (soft delete)
   const moveToTrash = useCallback(async (id: string) => {

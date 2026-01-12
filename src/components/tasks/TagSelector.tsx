@@ -74,9 +74,6 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
           throw error;
         }
       }
-
-      const tags = getCachedTags(scope);
-      setAvailableTags(tags);
     } catch (error) {
       console.error("Error loading tags:", error);
       loadedScopesRef.current.set(scopeKey, false);
@@ -101,8 +98,10 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
 
   // 监听缓存版本变化，保持本地列表同步
   useEffect(() => {
-    refreshAvailableTags();
-  }, [tagsVersion, refreshAvailableTags]);
+    const scope = normalizedProjectId ?? null;
+    const tags = getCachedTags(scope);
+    setAvailableTags(tags);
+  }, [tagsVersion, normalizedProjectId, getCachedTags]);
 
   const handleToggle = (tag: Tag) => {
     if (readOnly) return;

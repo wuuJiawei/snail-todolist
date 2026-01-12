@@ -314,8 +314,9 @@ export class OnlineStorageAdapter implements StorageAdapter {
   // Tag Operations
   // ============================================
 
-  async getTags(_projectId?: string | null): Promise<Tag[]> {
-    const data = await apiClient.get<ApiTag[]>('/tags');
+  async getTags(projectId?: string | null): Promise<Tag[]> {
+    const url = projectId ? `/tags?project_id=${projectId}` : '/tags';
+    const data = await apiClient.get<ApiTag[]>(url);
     return data.map(mapApiTagToTag);
   }
 
