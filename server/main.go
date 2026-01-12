@@ -142,6 +142,7 @@ func main() {
 			protected.GET("/overview", overviewHandler.GetOverview)
 			protected.GET("/today", overviewHandler.GetTodayTasks)
 			protected.GET("/upcoming", overviewHandler.GetUpcomingTasks)
+			protected.GET("/tasks", taskHandler.GetAllActiveTasks)
 
 			// 清单（项目）
 			protected.GET("/lists", listHandler.GetLists)

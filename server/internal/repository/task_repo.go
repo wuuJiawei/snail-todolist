@@ -114,6 +114,18 @@ func (r *TaskRepository) UpdateStatus(id uuid.UUID, status model.TaskStatus) err
 	return r.db.Model(&model.Task{}).Where("id = ?", id).Update("status", status).Error
 }
 
+// GetAllActiveTasks 获取用户所有活跃任务（未删除、未放弃）
+func (r *TaskRepository) GetAllActiveTasks(userID uuid.UUID) ([]model.Task, error) {
+	var tasks []model.Task
+
+	err := r.db.Preload("List").
+		Where("user_id = ? AND deleted = false AND abandoned = false", userID).
+		Order("sort_order ASC, created_at DESC").
+		Find(&tasks).Error
+
+	return tasks, err
+}
+
 // GetTodayTasks 获取今日任务
 func (r *TaskRepository) GetTodayTasks(userID uuid.UUID) ([]model.Task, error) {
 	var tasks []model.Task

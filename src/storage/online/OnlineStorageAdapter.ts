@@ -207,7 +207,7 @@ export class OnlineStorageAdapter implements StorageAdapter {
       return tasks;
     }
 
-    const data = await apiClient.get<ApiTask[]>('/today');
+    const data = await apiClient.get<ApiTask[]>('/tasks');
     return data.map(mapApiTaskToTask);
   }
 

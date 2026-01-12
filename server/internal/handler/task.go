@@ -290,6 +290,19 @@ func (h *TaskHandler) GetFlaggedTasks(c *gin.Context) {
 	model.Success(c, tasks)
 }
 
+// GetAllActiveTasks 获取用户所有活跃任务
+func (h *TaskHandler) GetAllActiveTasks(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+
+	tasks, err := h.taskService.GetAllActiveTasks(userID)
+	if err != nil {
+		model.Error(c, model.CodeInternalError, err.Error())
+		return
+	}
+
+	model.Success(c, tasks)
+}
+
 // GetTodayTasks 获取今日任务
 func (h *TaskHandler) GetTodayTasks(c *gin.Context) {
 	userID := c.MustGet("userID").(uuid.UUID)

@@ -405,6 +405,11 @@ func (s *TaskService) GetFlaggedTasks(userID uuid.UUID) ([]model.Task, error) {
 	return s.taskRepo.GetFlaggedTasks(userID)
 }
 
+// GetAllActiveTasks 获取用户所有活跃任务
+func (s *TaskService) GetAllActiveTasks(userID uuid.UUID) ([]model.Task, error) {
+	return s.taskRepo.GetAllActiveTasks(userID)
+}
+
 func (s *TaskService) GetTodayTasks(userID uuid.UUID) ([]model.Task, error) {
 	return s.taskRepo.GetTodayTasks(userID)
 }

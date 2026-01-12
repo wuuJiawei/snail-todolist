@@ -44,3 +44,7 @@ supabase/.branches
 supabase/.temp
 supabase/logs
 supabase/config.toml
+
+# Server build artifacts
+server/tmp/
+server/uploads/

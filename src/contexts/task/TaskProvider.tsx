@@ -190,27 +190,31 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     data: activeTasks = [],
     isPending: isActivePending,
     isSuccess: isActiveSuccess,
+    refetch: refetchActiveTasks,
   } = useQuery({
     ...taskQueries.active(),
     enabled: canPerformOperation(user),
   });
 
   useEffect(() => {
-    if (canPerformOperation(user)) return;
-        setTasks([]);
-        setTrashedTasks([]);
-        setAbandonedTasks([]);
-        setTaskIdToTags({});
-    setTagsCache({});
-    setTrashedLoaded(false);
-    setAbandonedLoaded(false);
-    setTrashedLoading(false);
-    setAbandonedLoading(false);
-        setLoading(false);
-        setHasLoaded(false);
-    setSelectedTaskId(null);
-    queryClient.removeQueries({ queryKey: taskKeys.all });
-  }, [user, setTasks, setTrashedTasks, setAbandonedTasks, setTaskIdToTags, setTagsCache, setTrashedLoaded, setAbandonedLoaded, setTrashedLoading, setAbandonedLoading, setLoading, setHasLoaded, setSelectedTaskId, queryClient]);
+    if (!canPerformOperation(user)) {
+      setTasks([]);
+      setTrashedTasks([]);
+      setAbandonedTasks([]);
+      setTaskIdToTags({});
+      setTagsCache({});
+      setTrashedLoaded(false);
+      setAbandonedLoaded(false);
+      setTrashedLoading(false);
+      setAbandonedLoading(false);
+      setLoading(false);
+      setHasLoaded(false);
+      setSelectedTaskId(null);
+      queryClient.removeQueries({ queryKey: taskKeys.all });
+    } else {
+      refetchActiveTasks();
+    }
+  }, [user, setTasks, setTrashedTasks, setAbandonedTasks, setTaskIdToTags, setTagsCache, setTrashedLoaded, setAbandonedLoaded, setTrashedLoading, setAbandonedLoading, setLoading, setHasLoaded, setSelectedTaskId, queryClient, refetchActiveTasks]);
 
   useEffect(() => {
     setLoading(isActivePending);
