@@ -10,18 +10,20 @@ import (
 )
 
 type TaskService struct {
-	taskRepo    *repository.TaskRepository
-	listRepo    *repository.ListRepository
-	taskTagRepo *repository.TaskTagRepository
+	taskRepo     *repository.TaskRepository
+	listRepo     *repository.ListRepository
+	taskTagRepo  *repository.TaskTagRepository
 	activityRepo *repository.TaskActivityRepository
+	activitySvc  *TaskActivityService
 }
 
 func NewTaskService(taskRepo *repository.TaskRepository, listRepo *repository.ListRepository, taskTagRepo *repository.TaskTagRepository, activityRepo *repository.TaskActivityRepository) *TaskService {
 	return &TaskService{
-		taskRepo:    taskRepo,
-		listRepo:    listRepo,
-		taskTagRepo: taskTagRepo,
+		taskRepo:     taskRepo,
+		listRepo:     listRepo,
+		taskTagRepo:  taskTagRepo,
 		activityRepo: activityRepo,
+		activitySvc:  NewTaskActivityService(activityRepo, taskRepo),
 	}
 }
 
@@ -98,6 +100,10 @@ func (s *TaskService) CreateTask(userID, listID uuid.UUID, input *CreateTaskInpu
 	if err := s.taskRepo.Create(task); err != nil {
 		return nil, err
 	}
+
+	s.activitySvc.RecordActivity(task.ID, &userID, model.ActionTaskCreated, map[string]interface{}{
+		"title": task.Title,
+	})
 
 	return task, nil
 }
@@ -232,6 +238,11 @@ func (s *TaskService) UpdateTask(userID, taskID uuid.UUID, input *UpdateTaskInpu
 		return nil, errors.New("无权操作此任务")
 	}
 
+	oldTitle := task.Title
+	oldDescription := task.Description
+	oldDueDate := task.DueDate
+	oldFlagged := task.Flagged
+
 	if input.Title != nil {
 		task.Title = *input.Title
 	}
@@ -258,6 +269,39 @@ func (s *TaskService) UpdateTask(userID, taskID uuid.UUID, input *UpdateTaskInpu
 		return nil, err
 	}
 
+	if input.Title != nil && *input.Title != oldTitle {
+		s.activitySvc.RecordActivity(taskID, &userID, model.ActionTitleUpdated, map[string]interface{}{
+			"from": oldTitle,
+			"to":   *input.Title,
+		})
+	}
+	if input.Description != nil && *input.Description != oldDescription {
+		s.activitySvc.RecordActivity(taskID, &userID, model.ActionDescriptionUpdated, map[string]interface{}{
+			"previousLength": len(oldDescription),
+			"nextLength":     len(*input.Description),
+		})
+	}
+	if input.DueDate != nil {
+		var oldDateStr, newDateStr interface{}
+		if oldDueDate != nil {
+			oldDateStr = oldDueDate.Format(time.RFC3339)
+		}
+		newDateStr = input.DueDate.Format(time.RFC3339)
+		s.activitySvc.RecordActivity(taskID, &userID, model.ActionDueDateUpdated, map[string]interface{}{
+			"from": oldDateStr,
+			"to":   newDateStr,
+		})
+	}
+	if input.Flagged != nil && *input.Flagged != oldFlagged {
+		action := "task_flagged"
+		if !*input.Flagged {
+			action = "task_unflagged"
+		}
+		s.activitySvc.RecordActivity(taskID, &userID, model.TaskActivityAction(action), map[string]interface{}{
+			"flagged": *input.Flagged,
+		})
+	}
+
 	return task, nil
 }
 
@@ -270,9 +314,9 @@ func (s *TaskService) UpdateStatus(userID, taskID uuid.UUID, status model.TaskSt
 		return nil, errors.New("无权操作此任务")
 	}
 
+	oldCompleted := task.Completed
 	task.Status = status
 
-	// 同步 completed 状态
 	if status == model.TaskStatusDone {
 		task.Completed = true
 		now := time.Now()
@@ -284,6 +328,19 @@ func (s *TaskService) UpdateStatus(userID, taskID uuid.UUID, status model.TaskSt
 
 	if err := s.taskRepo.Update(task); err != nil {
 		return nil, err
+	}
+
+	if task.Completed != oldCompleted {
+		fromStatus := "active"
+		toStatus := "completed"
+		if !task.Completed {
+			fromStatus = "completed"
+			toStatus = "active"
+		}
+		s.activitySvc.RecordActivity(taskID, &userID, model.ActionStatusUpdated, map[string]interface{}{
+			"from": fromStatus,
+			"to":   toStatus,
+		})
 	}
 
 	return task, nil
@@ -298,11 +355,14 @@ func (s *TaskService) DeleteTask(userID, taskID uuid.UUID) error {
 		return errors.New("无权操作此任务")
 	}
 
-	// 软删除
-	return s.taskRepo.SoftDelete(taskID)
+	if err := s.taskRepo.SoftDelete(taskID); err != nil {
+		return err
+	}
+
+	s.activitySvc.RecordActivity(taskID, &userID, model.ActionMovedToTrash, nil)
+	return nil
 }
 
-// RestoreTask 恢复任务（从回收站）
 func (s *TaskService) RestoreTask(userID, taskID uuid.UUID) (*model.Task, error) {
 	task, err := s.taskRepo.FindByIDIncludeDeleted(taskID)
 	if err != nil {
@@ -318,6 +378,8 @@ func (s *TaskService) RestoreTask(userID, taskID uuid.UUID) (*model.Task, error)
 	if err := s.taskRepo.Restore(taskID); err != nil {
 		return nil, err
 	}
+
+	s.activitySvc.RecordActivity(taskID, &userID, model.ActionRestored, nil)
 
 	task.Deleted = false
 	task.DeletedAt = nil
@@ -342,7 +404,6 @@ func (s *TaskService) GetTrashTasks(userID uuid.UUID) ([]model.Task, error) {
 	return s.taskRepo.GetTrashTasks(userID)
 }
 
-// AbandonTask 放弃任务
 func (s *TaskService) AbandonTask(userID, taskID uuid.UUID) (*model.Task, error) {
 	task, err := s.taskRepo.FindByID(taskID)
 	if err != nil {
@@ -356,13 +417,14 @@ func (s *TaskService) AbandonTask(userID, taskID uuid.UUID) (*model.Task, error)
 		return nil, err
 	}
 
+	s.activitySvc.RecordActivity(taskID, &userID, model.ActionAbandoned, nil)
+
 	task.Abandoned = true
 	now := time.Now()
 	task.AbandonedAt = &now
 	return task, nil
 }
 
-// ReactivateTask 重新激活任务
 func (s *TaskService) ReactivateTask(userID, taskID uuid.UUID) (*model.Task, error) {
 	task, err := s.taskRepo.FindByID(taskID)
 	if err != nil {
@@ -375,6 +437,8 @@ func (s *TaskService) ReactivateTask(userID, taskID uuid.UUID) (*model.Task, err
 	if err := s.taskRepo.SetAbandoned(taskID, false); err != nil {
 		return nil, err
 	}
+
+	s.activitySvc.RecordActivity(taskID, &userID, model.ActionReactivated, nil)
 
 	task.Abandoned = false
 	task.AbandonedAt = nil

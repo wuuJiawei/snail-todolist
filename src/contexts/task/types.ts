@@ -1,7 +1,6 @@
 
 import { Task } from "@/types/task";
 import { Tag } from "@/types/tag";
-import type { TaskActivityAction } from "@/types/taskActivity";
 
 export const SELECTED_PROJECT_KEY = 'selected-project';
 
@@ -28,7 +27,7 @@ export interface TaskContextType {
   updateTask: (id: string, task: Partial<Task>) => Promise<void>;
   moveToTrash: (id: string) => Promise<void>;
   restoreFromTrash: (id: string) => Promise<void>;
-  deleteTask: (id: string) => Promise<void>; // Permanent deletion
+  deleteTask: (id: string) => Promise<void>;
   abandonTask: (id: string) => Promise<void>;
   restoreAbandonedTask: (id: string) => Promise<void>;
   loadTrashedTasks: () => Promise<void>;
@@ -48,11 +47,9 @@ export interface TaskContextType {
   createTag: (name: string, projectId?: string | null) => Promise<Tag | null>;
   deleteTagPermanently: (tagId: string) => Promise<boolean>;
   updateTagProject: (tagId: string, projectId: string | null) => Promise<Tag | null>;
-  refreshAllTags: () => Promise<boolean>; // 新增：刷新所有标签
+  refreshAllTags: () => Promise<boolean>;
   getAllTagUsageCounts: () => Record<string, number>;
-  // tags cache & lifecycle
   getCachedTags: (projectId?: string | null) => Tag[];
   ensureTagsLoaded: (projectId?: string | null) => Promise<void>;
-  tagsVersion: number; // bump when tags cache changes to trigger subscribers
-  logTaskActivity?: (taskId: string, action: TaskActivityAction, metadata?: Record<string, unknown>) => Promise<void>;
+  tagsVersion: number;
 }

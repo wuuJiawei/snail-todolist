@@ -11,7 +11,6 @@ import { useDeadlineNotifications } from "@/hooks/useDeadlineNotifications";
 import { Tag } from "@/types/tag";
 import { useTaskStore } from "@/store/taskStore";
 import { taskKeys, taskQueries } from "@/queries/taskQueries";
-import type { TaskActivityAction, TaskActivityInput } from "@/types/taskActivity";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { isOfflineMode } from "@/storage";
 import * as storageOps from "@/storage/operations";
@@ -19,90 +18,6 @@ import { canPerformOperation, requiresAuth } from "@/storage/operations";
 
 const hasProp = <K extends keyof Partial<Task>>(obj: Partial<Task>, key: K): boolean =>
   Object.prototype.hasOwnProperty.call(obj, key);
-
-const attachmentsSignature = (list: Task["attachments"] = []) =>
-  JSON.stringify((list ?? []).map((att) => ({ id: att.id, url: att.url, filename: att.filename })));
-
-const attachmentsEqual = (a?: Task["attachments"], b?: Task["attachments"]) =>
-  attachmentsSignature(a) === attachmentsSignature(b);
-
-const statusLabel = (completed?: boolean) => (completed ? "completed" : "active");
-
-const buildTaskActivityDrafts = (
-  previous: Task | undefined,
-  updates: Partial<Task>
-): TaskActivityInput[] => {
-  if (!previous) return [];
-  const drafts: TaskActivityInput[] = [];
-
-  if (hasProp(updates, "title") && updates.title !== previous.title) {
-    drafts.push({
-      action: "title_updated",
-      metadata: { from: previous.title ?? "", to: updates.title ?? "" },
-    });
-  }
-
-  if (hasProp(updates, "description") && updates.description !== previous.description) {
-    drafts.push({
-      action: "description_updated",
-      metadata: {
-        previousLength: previous.description?.length ?? 0,
-        nextLength: updates.description?.length ?? 0,
-      },
-    });
-  }
-
-  if (hasProp(updates, "completed") && updates.completed !== previous.completed) {
-    drafts.push({
-      action: "status_updated",
-      metadata: {
-        from: statusLabel(previous.completed),
-        to: statusLabel(updates.completed),
-      },
-    });
-  }
-
-  if (hasProp(updates, "flagged") && updates.flagged !== previous.flagged) {
-    drafts.push({
-      action: updates.flagged ? "task_flagged" : "task_unflagged",
-      metadata: {
-        flagged: updates.flagged ?? false,
-      },
-    });
-  }
-
-  if (hasProp(updates, "date") && updates.date !== previous.date) {
-    drafts.push({
-      action: "due_date_updated",
-      metadata: {
-        from: previous.date ?? null,
-        to: updates.date ?? null,
-      },
-    });
-  }
-
-  if (hasProp(updates, "project") && updates.project !== previous.project) {
-    drafts.push({
-      action: "project_changed",
-      metadata: {
-        from: previous.project ?? null,
-        to: updates.project ?? null,
-      },
-    });
-  }
-
-  if (hasProp(updates, "attachments") && !attachmentsEqual(previous.attachments, updates.attachments)) {
-    drafts.push({
-      action: "attachments_updated",
-      metadata: {
-        previousCount: previous.attachments?.length ?? 0,
-        nextCount: updates.attachments?.length ?? 0,
-      },
-    });
-  }
-
-  return drafts;
-};
 
 interface TaskProviderProps {
   children: ReactNode;
@@ -176,14 +91,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   });
 
   const queryClient = useQueryClient();
-
-  const recordTaskActivity = useCallback(async (taskId: string, action: TaskActivityAction, metadata?: Record<string, unknown>) => {
-    try {
-      await storageOps.createTaskActivity({ task_id: taskId, action, metadata });
-    } catch (error) {
-      console.error("Failed to record task activity:", error);
-    }
-  }, []);
 
   const {
     data: activeTasks = [],
@@ -305,8 +212,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
           t.id === tempId ? { ...newTask, _isPending: false } : t
         )
       );
-
-      await recordTaskActivity(newTask.id, "task_created", { title: newTask.title });
     } catch (error) {
       // 回滚：移除乐观任务
       setTasks((current) => current.filter((t) => t.id !== tempId));
@@ -318,7 +223,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       });
       throw error;
     }
-  }, [user, toast, setTasks, queryClient, recordTaskActivity]);
+  }, [user, toast, setTasks, queryClient]);
 
   // Update task
   const updateTask = useCallback(async (id: string, updatedTask: Partial<Task>) => {
@@ -332,11 +237,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
 
     const previousTasks = useTaskStore.getState().tasks;
-    const previousTask = previousTasks.find((task) => task.id === id);
-    const drafts = buildTaskActivityDrafts(previousTask, updatedTask);
     const isCompletionToggle = Object.prototype.hasOwnProperty.call(updatedTask, "completed");
 
-    // Helper function to perform the actual update
     const performUpdate = async (): Promise<Task | null> => {
       return storageOps.updateTask(id, updatedTask);
     };
@@ -350,11 +252,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         setTasks((current) =>
           current.map((task) => (task.id === id ? { ...task, ...updated } : task))
         );
-        if (drafts.length && previousTask) {
-          await Promise.all(
-            drafts.map((draft) => recordTaskActivity(id, draft.action, draft.metadata))
-          );
-        }
         queryClient.invalidateQueries({ queryKey: taskKeys.active() });
       } catch (error) {
         console.error("Failed to update task:", error);
@@ -392,18 +289,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       setTasks((current) =>
         current.map((task) => (task.id === id ? { ...task, ...updated } : task))
         );
-      if (drafts.length && previousTask) {
-        await Promise.all(
-          drafts.map((draft) => recordTaskActivity(id, draft.action, draft.metadata))
-        );
-      }
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
       setTasks(previousTasks);
       console.error("Failed to update task:", error);
       throw error;
     }
-  }, [toast, user, setTasks, queryClient, recordTaskActivity]);
+  }, [toast, user, setTasks, queryClient]);
 
   const loadTrashedTasks = useCallback(async () => {
     if (!canPerformOperation(user)) return;
@@ -482,16 +374,12 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
     try {
       await storageOps.attachTagToTask(taskId, tagId);
-      await recordTaskActivity(taskId, "tag_added", {
-        tagId,
-        tagName: optimisticTag?.name ?? "",
-      });
     } catch (error) {
       store.setTaskIdToTags(previousMapping);
       store.incrementTagsVersion();
       throw error;
     }
-  }, [recordTaskActivity]);
+  }, []);
 
   const detachTagFromTask = useCallback(async (taskId: string, tagId: string) => {
     const store = useTaskStore.getState();
@@ -508,16 +396,12 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
     try {
       await storageOps.detachTagFromTask(taskId, tagId);
-      await recordTaskActivity(taskId, "tag_removed", {
-        tagId,
-        tagName: removedTag?.name ?? "",
-      });
     } catch (error) {
       store.setTaskIdToTags(previousMapping);
       store.incrementTagsVersion();
       throw error;
     }
-  }, [recordTaskActivity]);
+  }, []);
 
   const keyForProject = (projectId?: string | null): string => {
     return (projectId ?? null) === null ? "global" : (projectId as string);
@@ -705,14 +589,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         setSelectedTaskId(null);
       }
 
-      await recordTaskActivity(id, "task_moved_to_trash");
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
       queryClient.invalidateQueries({ queryKey: taskKeys.trashed() });
     } catch (error) {
       console.error("Failed to move task to trash:", error);
       throw error;
     }
-  }, [user, toast, selectedTaskId, setTasks, setTrashedTasks, setSelectedTaskId, queryClient, recordTaskActivity]);
+  }, [user, toast, selectedTaskId, setTasks, setTrashedTasks, setSelectedTaskId, queryClient]);
 
   // Restore task from trash
   const restoreFromTrash = useCallback(async (id: string) => {
@@ -749,14 +632,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         setTasks([restoredTask, ...currentTasks]);
       }
 
-      await recordTaskActivity(id, "task_restored");
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
       queryClient.invalidateQueries({ queryKey: taskKeys.trashed() });
     } catch (error) {
       console.error("Failed to restore task from trash:", error);
       throw error;
     }
-  }, [user, toast, setTrashedTasks, setTasks, queryClient, recordTaskActivity]);
+  }, [user, toast, setTrashedTasks, setTasks, queryClient]);
 
   // Permanently delete task
   const deleteTask = useCallback(async (id: string) => {
@@ -1068,14 +950,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         setSelectedTaskId(null);
       }
 
-      await recordTaskActivity(id, "task_abandoned");
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
       queryClient.invalidateQueries({ queryKey: taskKeys.abandoned() });
     } catch (error) {
       console.error("Failed to abandon task:", error);
       throw error;
     }
-  }, [user, toast, selectedTaskId, setTasks, setAbandonedTasks, setSelectedTaskId, queryClient, recordTaskActivity]);
+  }, [user, toast, selectedTaskId, setTasks, setAbandonedTasks, setSelectedTaskId, queryClient]);
 
   // Restore task from abandoned
   const restoreAbandonedTask = useCallback(async (id: string) => {
@@ -1111,14 +992,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         setTasks([restoredTask, ...currentTasks]);
       }
 
-      await recordTaskActivity(id, "task_reactivated");
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
       queryClient.invalidateQueries({ queryKey: taskKeys.abandoned() });
     } catch (error) {
       console.error("Failed to restore abandoned task:", error);
       throw error;
     }
-  }, [user, toast, setAbandonedTasks, setTasks, queryClient, recordTaskActivity]);
+  }, [user, toast, setAbandonedTasks, setTasks, queryClient]);
 
   // Get the count of tasks in trash
   const getTrashCount = useCallback(() => {
@@ -1172,7 +1052,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     getCachedTags,
     ensureTagsLoaded,
     tagsVersion,
-    logTaskActivity: recordTaskActivity,
   }), [
         tasks,
         trashedTasks,
@@ -1211,7 +1090,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         getCachedTags,
         ensureTagsLoaded,
         tagsVersion,
-        recordTaskActivity,
   ]);
 
   return (

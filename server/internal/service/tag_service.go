@@ -9,16 +9,18 @@ import (
 )
 
 type TagService struct {
-	tagRepo     *repository.TagRepository
-	taskTagRepo *repository.TaskTagRepository
-	taskRepo    *repository.TaskRepository
+	tagRepo      *repository.TagRepository
+	taskTagRepo  *repository.TaskTagRepository
+	taskRepo     *repository.TaskRepository
+	activityRepo *repository.TaskActivityRepository
 }
 
-func NewTagService(tagRepo *repository.TagRepository, taskTagRepo *repository.TaskTagRepository, taskRepo *repository.TaskRepository) *TagService {
+func NewTagService(tagRepo *repository.TagRepository, taskTagRepo *repository.TaskTagRepository, taskRepo *repository.TaskRepository, activityRepo *repository.TaskActivityRepository) *TagService {
 	return &TagService{
-		tagRepo:     tagRepo,
-		taskTagRepo: taskTagRepo,
-		taskRepo:    taskRepo,
+		tagRepo:      tagRepo,
+		taskTagRepo:  taskTagRepo,
+		taskRepo:     taskRepo,
+		activityRepo: activityRepo,
 	}
 }
 
@@ -126,7 +128,17 @@ func (s *TagService) AttachTagToTask(userID, taskID, tagID uuid.UUID) error {
 		return nil
 	}
 
-	return s.taskTagRepo.Attach(taskID, tagID)
+	if err := s.taskTagRepo.Attach(taskID, tagID); err != nil {
+		return err
+	}
+
+	activitySvc := NewTaskActivityService(s.activityRepo, s.taskRepo)
+	activitySvc.RecordActivity(taskID, &userID, model.ActionTagAdded, map[string]interface{}{
+		"tagId":   tagID.String(),
+		"tagName": tag.Name,
+	})
+
+	return nil
 }
 
 func (s *TagService) DetachTagFromTask(userID, taskID, tagID uuid.UUID) error {
@@ -138,7 +150,23 @@ func (s *TagService) DetachTagFromTask(userID, taskID, tagID uuid.UUID) error {
 		return errors.New("无权操作此任务")
 	}
 
-	return s.taskTagRepo.Detach(taskID, tagID)
+	tag, _ := s.tagRepo.FindByID(tagID)
+	tagName := ""
+	if tag != nil {
+		tagName = tag.Name
+	}
+
+	if err := s.taskTagRepo.Detach(taskID, tagID); err != nil {
+		return err
+	}
+
+	activitySvc := NewTaskActivityService(s.activityRepo, s.taskRepo)
+	activitySvc.RecordActivity(taskID, &userID, model.ActionTagRemoved, map[string]interface{}{
+		"tagId":   tagID.String(),
+		"tagName": tagName,
+	})
+
+	return nil
 }
 
 func (s *TagService) GetTaskTags(userID, taskID uuid.UUID) ([]model.Tag, error) {
