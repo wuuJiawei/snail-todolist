@@ -296,6 +296,11 @@ export interface StorageAdapter {
   getPomodoroSessionById(id: string): Promise<PomodoroSession | null>;
 
   /**
+   * Get the active pomodoro session for the current user
+   */
+  getActivePomodoroSession(): Promise<PomodoroSession | null>;
+
+  /**
    * Create a new pomodoro session
    */
   createPomodoroSession(session: CreatePomodoroInput): Promise<PomodoroSession>;
@@ -309,6 +314,16 @@ export interface StorageAdapter {
    * Delete a pomodoro session
    */
   deletePomodoroSession(id: string): Promise<boolean>;
+
+  /**
+   * Get today's pomodoro statistics (online mode only)
+   */
+  getPomodoroTodayStats?(): Promise<{
+    totalSessions: number;
+    completedSessions: number;
+    totalMinutes: number;
+    focusMinutes: number;
+  } | null>;
 
   // ============================================
   // Activity Operations

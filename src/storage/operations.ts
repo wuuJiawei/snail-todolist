@@ -581,11 +581,8 @@ export async function cancelPomodoroSession(id: string): Promise<boolean> {
 export async function getActivePomodoroSession(): Promise<PomodoroSessionPublic | null> {
   try {
     const storage = await ensureStorage();
-    const sessions = await storage.getPomodoroSessions();
-    const active = sessions
-      .filter(s => !s.completed_at)
-      .sort((a, b) => b.started_at.localeCompare(a.started_at))[0];
-    return active ? mapSessionToPublic(active) : null;
+    const session = await storage.getActivePomodoroSession();
+    return session ? mapSessionToPublic(session) : null;
   } catch (error) {
     console.error('Failed to get active pomodoro session:', error);
     return null;
@@ -635,14 +632,85 @@ export async function fetchPomodoroSessions(
 }
 
 export async function getPomodoroTodayStats(): Promise<PomodoroTodayStats | null> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const sessions = await fetchPomodoroSessions({
-    from: startOfDay.toISOString(),
-    order: 'asc',
-  });
+  try {
+    const storage = await ensureStorage();
+    
+    // 获取今日所有会话用于前端展示和统计
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const sessions = await fetchPomodoroSessions({
+      from: startOfDay.toISOString(),
+      order: 'asc',
+    });
+    
+    // 如果 adapter 支持直接获取统计数据（在线模式），使用后端接口
+    if (storage.getPomodoroTodayStats) {
+      const stats = await storage.getPomodoroTodayStats();
+      if (stats) {
+        // 从会话列表中计算详细统计
+        let focusCount = 0;
+        let breakCount = 0;
+        
+        sessions.forEach((session) => {
+          if (session.completed) {
+            if (session.type === 'focus') {
+              focusCount += 1;
+            } else {
+              breakCount += 1;
+            }
+          }
+        });
+        
+        const breakMinutes = stats.totalMinutes - stats.focusMinutes;
+        
+        return {
+          focusCount,
+          focusMinutes: stats.focusMinutes,
+          breakCount,
+          breakMinutes,
+          sessions,
+        };
+      }
+    }
+    
+    // 降级到前端计算（离线模式或后端接口失败）
+    if (!sessions.length) {
+      return {
+        focusCount: 0,
+        focusMinutes: 0,
+        breakCount: 0,
+        breakMinutes: 0,
+        sessions: [],
+      };
+    }
 
-  if (!sessions.length) {
+    let focusCount = 0;
+    let focusMinutes = 0;
+    let breakCount = 0;
+    let breakMinutes = 0;
+
+    sessions.forEach((session) => {
+      if (!session.completed) return;
+      const actualMinutes = calculateActualMinutes(session);
+
+      if (session.type === 'focus') {
+        focusCount += 1;
+        focusMinutes += actualMinutes;
+      } else {
+        breakCount += 1;
+        breakMinutes += actualMinutes;
+      }
+    });
+
+    return {
+      focusCount,
+      focusMinutes,
+      breakCount,
+      breakMinutes,
+      sessions,
+    };
+  } catch (error) {
+    console.error('Failed to get today stats:', error);
     return {
       focusCount: 0,
       focusMinutes: 0,
@@ -651,32 +719,6 @@ export async function getPomodoroTodayStats(): Promise<PomodoroTodayStats | null
       sessions: [],
     };
   }
-
-  let focusCount = 0;
-  let focusMinutes = 0;
-  let breakCount = 0;
-  let breakMinutes = 0;
-
-  sessions.forEach((session) => {
-    if (!session.completed) return;
-    const actualMinutes = calculateActualMinutes(session);
-
-    if (session.type === 'focus') {
-      focusCount += 1;
-      focusMinutes += actualMinutes;
-    } else {
-      breakCount += 1;
-      breakMinutes += actualMinutes;
-    }
-  });
-
-  return {
-    focusCount,
-    focusMinutes,
-    breakCount,
-    breakMinutes,
-    sessions,
-  };
 }
 
 export async function createPomodoroSession(session: CreatePomodoroInput): Promise<PomodoroSession | null> {

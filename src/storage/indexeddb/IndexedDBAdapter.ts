@@ -627,6 +627,14 @@ export class IndexedDBAdapter implements StorageAdapter {
     return this.getByKey<PomodoroSession>(DB_STORES.POMODORO_SESSIONS, id);
   }
 
+  async getActivePomodoroSession(): Promise<PomodoroSession | null> {
+    const sessions = await this.getPomodoroSessions();
+    const active = sessions
+      .filter(s => !s.completed_at)
+      .sort((a, b) => b.started_at.localeCompare(a.started_at))[0];
+    return active || null;
+  }
+
   async createPomodoroSession(session: CreatePomodoroInput): Promise<PomodoroSession> {
     const now = new Date().toISOString();
     const newSession: PomodoroSession = {

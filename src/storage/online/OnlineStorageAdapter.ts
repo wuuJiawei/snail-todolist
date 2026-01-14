@@ -89,12 +89,24 @@ interface ApiPomodoroSession {
   user_id: string;
   duration: number;
   type: string;
-  status: string;
-  started_at: string;
-  completed_at?: string;
-  cancelled_at?: string;
-  notes?: string;
+  start_time: string;
+  end_time?: string;
+  completed: boolean;
   created_at: string;
+}
+
+interface ApiPomodoroSessionListResponse {
+  sessions: ApiPomodoroSession[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+interface ApiPomodoroTodayStats {
+  total_sessions: number;
+  completed_sessions: number;
+  total_minutes: number;
+  focus_minutes: number;
 }
 
 interface ApiTaskActivity {
@@ -388,26 +400,72 @@ export class OnlineStorageAdapter implements StorageAdapter {
   // Pomodoro Operations
   // ============================================
 
-  async getPomodoroSessions(_taskId?: string): Promise<PomodoroSession[]> {
-    const data = await apiClient.get<ApiPomodoroSession[]>('/pomodoro/sessions');
-    return data.map(s => ({
+  async getPomodoroSessions(
+    _taskId?: string,
+    options?: {
+      startDate?: string;
+      endDate?: string;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<PomodoroSession[]> {
+    const params = new URLSearchParams();
+    
+    if (options?.startDate) {
+      params.set('start_date', options.startDate.slice(0, 10)); // YYYY-MM-DD
+    }
+    if (options?.endDate) {
+      params.set('end_date', options.endDate.slice(0, 10)); // YYYY-MM-DD
+    }
+    if (options?.page) {
+      params.set('page', String(options.page));
+    }
+    if (options?.limit) {
+      params.set('limit', String(options.limit));
+    }
+    
+    const queryString = params.toString();
+    const url = queryString ? `/pomodoro/sessions?${queryString}` : '/pomodoro/sessions';
+    
+    const data = await apiClient.get<ApiPomodoroSessionListResponse>(url);
+    
+    // 如果返回的是列表响应格式，提取 sessions 数组
+    const sessions = Array.isArray(data) ? data : data.sessions;
+    
+    return sessions.map(s => ({
       id: s.id,
       task_id: s.task_id || null,
       user_id: s.user_id,
       duration: s.duration,
       type: this.mapPomodoroType(s.type),
-      started_at: s.started_at,
-      completed_at: s.completed_at || null,
+      started_at: s.start_time,
+      completed_at: s.end_time || null,
       created_at: s.created_at,
-      notes: s.notes || null,
+      notes: null,
     }));
   }
 
+  /**
+   * 映射后端类型到内部类型
+   * 后端使用: focus, short_break, long_break
+   * 内部使用: work, short_break, long_break (为了兼容 IndexedDB)
+   */
   private mapPomodoroType(type: string): 'work' | 'short_break' | 'long_break' {
-    if (type === 'focus' || type === 'work') return 'work';
+    if (type === 'focus') return 'work';
     if (type === 'short_break') return 'short_break';
     if (type === 'long_break') return 'long_break';
+    // 默认返回 work（兼容旧数据）
     return 'work';
+  }
+
+  /**
+   * 映射内部类型到后端类型
+   * 内部使用: work, short_break, long_break
+   * 后端使用: focus, short_break, long_break
+   */
+  private mapPomodoroTypeToBackend(type: 'work' | 'short_break' | 'long_break'): string {
+    if (type === 'work') return 'focus';
+    return type;
   }
 
   async getPomodoroSessionById(id: string): Promise<PomodoroSession | null> {
@@ -415,11 +473,38 @@ export class OnlineStorageAdapter implements StorageAdapter {
     return sessions.find(s => s.id === id) || null;
   }
 
+  /**
+   * 获取当前用户的活跃会话
+   * 直接调用后端 /pomodoro/sessions/active 接口
+   */
+  async getActivePomodoroSession(): Promise<PomodoroSession | null> {
+    try {
+      const data = await apiClient.get<ApiPomodoroSession>('/pomodoro/sessions/active');
+      if (!data) {
+        return null;
+      }
+      return {
+        id: data.id,
+        task_id: data.task_id || null,
+        user_id: data.user_id,
+        duration: data.duration,
+        type: this.mapPomodoroType(data.type),
+        started_at: data.start_time,
+        completed_at: data.end_time || null,
+        created_at: data.created_at,
+        notes: null,
+      };
+    } catch (error) {
+      // 如果没有活跃会话，后端返回 null，这不是错误
+      return null;
+    }
+  }
+
   async createPomodoroSession(session: CreatePomodoroInput): Promise<PomodoroSession> {
     const body = {
       task_id: session.task_id,
       duration: session.duration,
-      type: session.type === 'work' ? 'focus' : session.type,
+      type: this.mapPomodoroTypeToBackend(session.type),
     };
     const data = await apiClient.post<ApiPomodoroSession>('/pomodoro/sessions', body);
     return {
@@ -428,23 +513,61 @@ export class OnlineStorageAdapter implements StorageAdapter {
       user_id: data.user_id,
       duration: data.duration,
       type: this.mapPomodoroType(data.type),
-      started_at: data.started_at,
-      completed_at: data.completed_at || null,
+      started_at: data.start_time,
+      completed_at: data.end_time || null,
       created_at: data.created_at,
-      notes: data.notes || null,
+      notes: null,
     };
   }
 
   async updatePomodoroSession(id: string, updates: Partial<PomodoroSession>): Promise<PomodoroSession | null> {
-    if (updates.completed_at) {
-      await apiClient.patch(`/pomodoro/sessions/${id}/complete`);
+    try {
+      // 判断是完成还是取消操作
+      if (updates.completed_at !== undefined) {
+        if (updates.completed_at) {
+          // 完成会话
+          await apiClient.patch(`/pomodoro/sessions/${id}/complete`);
+        } else {
+          // 取消会话
+          await apiClient.patch(`/pomodoro/sessions/${id}/cancel`);
+        }
+      }
+      
+      // 重新获取会话数据以返回最新状态
+      return this.getPomodoroSessionById(id);
+    } catch (error) {
+      console.error('Failed to update pomodoro session:', error);
+      return null;
     }
-    return this.getPomodoroSessionById(id);
   }
 
   async deletePomodoroSession(id: string): Promise<boolean> {
     await apiClient.delete(`/pomodoro/sessions/${id}`);
     return true;
+  }
+
+  /**
+   * 获取今日番茄钟统计数据
+   * 直接调用后端 /pomodoro/stats/today 接口
+   */
+  async getPomodoroTodayStats(): Promise<{
+    totalSessions: number;
+    completedSessions: number;
+    totalMinutes: number;
+    focusMinutes: number;
+  } | null> {
+    try {
+      const data = await apiClient.get<ApiPomodoroTodayStats>('/pomodoro/stats/today');
+      return {
+        totalSessions: data.total_sessions,
+        completedSessions: data.completed_sessions,
+        totalMinutes: data.total_minutes,
+        focusMinutes: data.focus_minutes,
+      };
+    } catch (error) {
+      console.error('Failed to get today stats:', error);
+      return null;
+    }
   }
 
   // ============================================
