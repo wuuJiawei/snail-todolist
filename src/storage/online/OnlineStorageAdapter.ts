@@ -598,28 +598,29 @@ export class OnlineStorageAdapter implements StorageAdapter {
   }
 
   // ============================================
-  // Check-In Operations (not implemented in backend yet)
+  // Check-In Operations
   // ============================================
 
   async hasCheckedInToday(): Promise<boolean> {
-    return false;
+    const response = await apiClient.get<{ checked_in: boolean }>('/checkin/today');
+    return response.checked_in;
   }
 
-  async createCheckIn(_note?: string): Promise<CheckInRecord> {
-    return {
-      id: crypto.randomUUID(),
-      check_in_time: new Date().toISOString(),
-      note: _note || null,
-      created_at: new Date().toISOString(),
-    };
+  async createCheckIn(note?: string): Promise<CheckInRecord> {
+    const response = await apiClient.post<CheckInRecord>('/checkin', { note });
+    return response;
   }
 
-  async getCheckInHistory(_page?: number, _pageSize?: number): Promise<{ records: CheckInRecord[]; total: number }> {
-    return { records: [], total: 0 };
+  async getCheckInHistory(page = 1, pageSize = 365): Promise<{ records: CheckInRecord[]; total: number }> {
+    const response = await apiClient.get<{ records: CheckInRecord[]; total: number }>(
+      `/checkin/history?page=${page}&page_size=${pageSize}`
+    );
+    return response;
   }
 
   async getCheckInStreak(): Promise<number> {
-    return 0;
+    const response = await apiClient.get<{ streak: number }>('/checkin/streak');
+    return response.streak;
   }
 
   // ============================================

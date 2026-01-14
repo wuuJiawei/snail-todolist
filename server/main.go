@@ -65,6 +65,7 @@ func main() {
 	taskActivityRepo := repository.NewTaskActivityRepository(database.DB)
 	pomodoroRepo := repository.NewPomodoroRepository(database.DB)
 	projectShareRepo := repository.NewProjectShareRepository(database.DB)
+	checkInRepo := repository.NewCheckInRepository(database.DB)
 
 	// 初始化 services
 	authService := service.NewAuthService(userRepo, emailCodeRepo)
@@ -78,6 +79,7 @@ func main() {
 	pomodoroService := service.NewPomodoroService(pomodoroRepo)
 	projectShareService := service.NewProjectShareService(projectShareRepo, listRepo, listMemberRepo)
 	migrationService := service.NewMigrationService(database.DB, listRepo, taskRepo, tagRepo, taskTagRepo, pomodoroRepo, taskActivityRepo)
+	checkInService := service.NewCheckInService(checkInRepo)
 
 	// 初始化 handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -92,6 +94,7 @@ func main() {
 	projectShareHandler := handler.NewProjectShareHandler(projectShareService)
 	attachmentHandler := handler.NewAttachmentHandler(taskRepo, config.AppConfig.StoragePath, config.AppConfig.BaseURL)
 	migrationHandler := handler.NewMigrationHandler(migrationService)
+	checkInHandler := handler.NewCheckInHandler(checkInService)
 
 	// 设置 Gin 模式
 	if config.IsProduction() {
@@ -209,6 +212,12 @@ func main() {
 			protected.PATCH("/pomodoro/sessions/:id/cancel", pomodoroHandler.CancelSession)
 			protected.DELETE("/pomodoro/sessions/:id", pomodoroHandler.DeleteSession)
 			protected.GET("/pomodoro/stats/today", pomodoroHandler.GetTodayStats)
+
+			// 打卡
+			protected.POST("/checkin", checkInHandler.CreateCheckIn)
+			protected.GET("/checkin/history", checkInHandler.GetCheckInHistory)
+			protected.GET("/checkin/streak", checkInHandler.GetCheckInStreak)
+			protected.GET("/checkin/today", checkInHandler.HasCheckedInToday)
 
 			// 搜索
 			protected.GET("/search", taskHandler.SearchTasks)
