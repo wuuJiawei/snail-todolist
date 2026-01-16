@@ -156,11 +156,16 @@ function mapTaskToApiTask(task: Partial<Task>): Record<string, unknown> {
   if (task.title !== undefined) result.title = task.title;
   if (task.description !== undefined) result.description = task.description;
   if (task.completed !== undefined) result.completed = task.completed;
+  if (task.completed_at !== undefined) result.completed_at = task.completed_at;
   if (task.date !== undefined) result.due_date = task.date;
   if (task.project !== undefined) result.list_id = task.project;
   if (task.icon !== undefined) result.icon = task.icon;
   if (task.sort_order !== undefined) result.sort_order = task.sort_order;
   if (task.flagged !== undefined) result.flagged = task.flagged;
+  if (task.abandoned !== undefined) result.abandoned = task.abandoned;
+  if (task.abandoned_at !== undefined) result.abandoned_at = task.abandoned_at;
+  if (task.deleted !== undefined) result.deleted = task.deleted;
+  if (task.deleted_at !== undefined) result.deleted_at = task.deleted_at;
   return result;
 }
 
@@ -208,6 +213,11 @@ export class OnlineStorageAdapter implements StorageAdapter {
   async getTasks(filter?: TaskFilter, _sort?: SortOptions[]): Promise<Task[]> {
     if (filter?.deleted === true) {
       const data = await apiClient.get<ApiTask[]>('/trash');
+      return data.map(mapApiTaskToTask);
+    }
+
+    if (filter?.abandoned === true) {
+      const data = await apiClient.get<ApiTask[]>('/abandoned');
       return data.map(mapApiTaskToTask);
     }
 
@@ -263,6 +273,49 @@ export class OnlineStorageAdapter implements StorageAdapter {
   }
 
   async updateTask(id: string, updates: Partial<Task>): Promise<Task | null> {
+    // Handle abandon/reactivate operations via dedicated endpoints
+    if (updates.abandoned !== undefined) {
+      if (updates.abandoned) {
+        const data = await apiClient.post<ApiTask>(`/tasks/${id}/abandon`);
+        return mapApiTaskToTask(data);
+      } else {
+        const data = await apiClient.post<ApiTask>(`/tasks/${id}/reactivate`);
+        return mapApiTaskToTask(data);
+      }
+    }
+
+    // Handle delete/restore operations via dedicated endpoints
+    if (updates.deleted !== undefined) {
+      if (updates.deleted) {
+        // Soft delete (move to trash) - use DELETE endpoint
+        await apiClient.delete(`/tasks/${id}`);
+        // Fetch the updated task to return
+        return this.getTaskById(id);
+      } else {
+        // Restore from trash
+        const data = await apiClient.post<ApiTask>(`/tasks/${id}/restore`);
+        return mapApiTaskToTask(data);
+      }
+    }
+
+    // Handle completion status via status endpoint
+    if (updates.completed !== undefined) {
+      const status = updates.completed ? 'done' : 'todo';
+      await apiClient.patch(`/tasks/${id}/status`, { status });
+      // Continue with other updates if any
+      const remainingUpdates = { ...updates };
+      delete remainingUpdates.completed;
+      delete remainingUpdates.completed_at;
+      
+      if (Object.keys(mapTaskToApiTask(remainingUpdates)).length > 0) {
+        const body = mapTaskToApiTask(remainingUpdates);
+        const data = await apiClient.put<ApiTask>(`/tasks/${id}`, body);
+        return mapApiTaskToTask(data);
+      }
+      return this.getTaskById(id);
+    }
+
+    // Regular update for other fields
     const body = mapTaskToApiTask(updates);
     const data = await apiClient.put<ApiTask>(`/tasks/${id}`, body);
     return mapApiTaskToTask(data);

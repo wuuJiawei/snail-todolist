@@ -223,6 +223,19 @@ func (h *TaskHandler) GetTrashTasks(c *gin.Context) {
 	model.Success(c, tasks)
 }
 
+// GetAbandonedTasks 获取已放弃任务
+func (h *TaskHandler) GetAbandonedTasks(c *gin.Context) {
+	userID := c.MustGet("userID").(uuid.UUID)
+
+	tasks, err := h.taskService.GetAbandonedTasks(userID)
+	if err != nil {
+		model.Error(c, model.CodeInternalError, err.Error())
+		return
+	}
+
+	model.Success(c, tasks)
+}
+
 // AbandonTask 放弃任务
 func (h *TaskHandler) AbandonTask(c *gin.Context) {
 	userID := c.MustGet("userID").(uuid.UUID)

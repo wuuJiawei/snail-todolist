@@ -404,6 +404,11 @@ func (s *TaskService) GetTrashTasks(userID uuid.UUID) ([]model.Task, error) {
 	return s.taskRepo.GetTrashTasks(userID)
 }
 
+// GetAbandonedTasks 获取已放弃任务
+func (s *TaskService) GetAbandonedTasks(userID uuid.UUID) ([]model.Task, error) {
+	return s.taskRepo.GetAbandonedTasks(userID)
+}
+
 func (s *TaskService) AbandonTask(userID, taskID uuid.UUID) (*model.Task, error) {
 	task, err := s.taskRepo.FindByID(taskID)
 	if err != nil {

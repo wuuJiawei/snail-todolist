@@ -110,6 +110,16 @@ func (r *TaskRepository) GetTrashTasks(userID uuid.UUID) ([]model.Task, error) {
 	return tasks, err
 }
 
+// GetAbandonedTasks 获取已放弃任务
+func (r *TaskRepository) GetAbandonedTasks(userID uuid.UUID) ([]model.Task, error) {
+	var tasks []model.Task
+	err := r.db.Preload("List").
+		Where("user_id = ? AND abandoned = true AND deleted = false", userID).
+		Order("abandoned_at DESC").
+		Find(&tasks).Error
+	return tasks, err
+}
+
 func (r *TaskRepository) UpdateStatus(id uuid.UUID, status model.TaskStatus) error {
 	return r.db.Model(&model.Task{}).Where("id = ?", id).Update("status", status).Error
 }

@@ -187,6 +187,7 @@ func main() {
 
 			// 聚合查询
 			protected.GET("/trash", taskHandler.GetTrashTasks)
+			protected.GET("/abandoned", taskHandler.GetAbandonedTasks)
 			protected.GET("/flagged", taskHandler.GetFlaggedTasks)
 
 			// 标签
