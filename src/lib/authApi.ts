@@ -7,7 +7,7 @@ import { apiClient, ApiClientError } from './apiClient';
 export interface AuthUser {
   id: string;
   email: string;
-  username?: string;
+  username: string;
   nickname?: string;
   name?: string;
   avatar_url?: string;
@@ -22,19 +22,38 @@ export interface LoginResponse {
 }
 
 export interface RegisterResponse {
+  token: string;
   user: AuthUser;
-  message: string;
+}
+
+export interface AuthConfig {
+  email_login_enabled: boolean;
+}
+
+export interface SMTPConfig {
+  smtp_host: string;
+  smtp_port: number;
+  smtp_user: string;
+  smtp_password: string;
+  smtp_from: string;
+  email_login_enabled: boolean;
 }
 
 export const authApi = {
-  async login(email: string, password: string): Promise<LoginResponse> {
-    const data = await apiClient.post<LoginResponse>('/auth/login', { email, password });
+  async getConfig(): Promise<AuthConfig> {
+    return apiClient.get<AuthConfig>('/auth/config');
+  },
+
+  async login(username: string, password: string): Promise<LoginResponse> {
+    const data = await apiClient.post<LoginResponse>('/auth/login', { username, password });
     apiClient.setToken(data.token);
     return data;
   },
 
-  async register(email: string, password: string): Promise<RegisterResponse> {
-    return apiClient.post<RegisterResponse>('/auth/register', { email, password });
+  async register(username: string, password: string, email?: string): Promise<RegisterResponse> {
+    const data = await apiClient.post<RegisterResponse>('/auth/register', { username, password, email });
+    apiClient.setToken(data.token);
+    return data;
   },
 
   async sendEmailCode(email: string): Promise<{ message: string }> {
@@ -72,6 +91,16 @@ export const authApi = {
 
   getToken(): string | null {
     return apiClient.getToken();
+  },
+};
+
+export const settingsApi = {
+  async getSMTPConfig(): Promise<SMTPConfig> {
+    return apiClient.get<SMTPConfig>('/settings/smtp');
+  },
+
+  async updateSMTPConfig(config: Partial<SMTPConfig>): Promise<{ message: string }> {
+    return apiClient.put<{ message: string }>('/settings/smtp', config);
   },
 };
 

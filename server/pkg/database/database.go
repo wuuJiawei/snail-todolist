@@ -37,6 +37,7 @@ func AutoMigrate() error {
 		&model.PomodoroSession{},
 		&model.ProjectShare{},
 		&model.CheckInRecord{},
+		&model.SystemSetting{},
 	); err != nil {
 		return err
 	}

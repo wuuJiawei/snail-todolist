@@ -7,23 +7,24 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { isOfflineMode, isOnlineMode } from "@/config/storage";
-import { authApi, ApiClientError } from "@/lib/authApi";
+import { authApi, ApiClientError, AuthConfig } from "@/lib/authApi";
 import { AppUser, AppSession, createOfflineUser, createGuestUser, createOnlineUser } from "@/types/auth";
 
 const GUEST_ID_KEY = "snail_guest_id";
 
 const getGuestId = (): string | null => localStorage.getItem(GUEST_ID_KEY);
 const setGuestId = (id: string): void => localStorage.setItem(GUEST_ID_KEY, id);
-const clearGuestId = (): void => localStorage.removeItem(GUEST_ID_KEY);
 
 interface AuthContextType {
   session: AppSession | null;
   user: AppUser | null;
   loading: boolean;
   isGuest: boolean;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string) => Promise<void>;
-  signInWithOAuth: (provider: 'github' | 'google') => Promise<void>;
+  authConfig: AuthConfig | null;
+  signInWithCredentials: (username: string, password: string) => Promise<void>;
+  signUpWithCredentials: (username: string, password: string, email?: string) => Promise<void>;
+  sendEmailCode: (email: string) => Promise<boolean>;
+  signInWithEmailCode: (email: string, code: string) => Promise<void>;
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -36,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
+  const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
   const navigate = useNavigate();
 
   const initializeAuth = useCallback(async () => {
@@ -48,6 +50,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (isOnlineMode) {
+      // 获取认证配置
+      try {
+        const config = await authApi.getConfig();
+        setAuthConfig(config);
+      } catch {
+        setAuthConfig({ email_login_enabled: false });
+      }
+
       if (authApi.isAuthenticated()) {
         try {
           const profile = await authApi.getProfile();
@@ -76,9 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
   }, [initializeAuth]);
 
-  const signInWithEmail = async (email: string, password: string) => {
+  const signInWithCredentials = async (username: string, password: string) => {
     try {
-      const response = await authApi.login(email, password);
+      const response = await authApi.login(username, password);
       const appUser = createOnlineUser(response.user);
       
       setUser(appUser);
@@ -97,20 +107,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       toast({
         title: "登录失败",
-        description: error instanceof Error ? error.message : "请检查您的邮箱和密码",
+        description: error instanceof Error ? error.message : "请检查您的用户名和密码",
         variant: "destructive",
       });
     }
   };
 
-  const signUpWithEmail = async (email: string, password: string) => {
+  const signUpWithCredentials = async (username: string, password: string, email?: string) => {
     try {
-      await authApi.register(email, password);
+      const response = await authApi.register(username, password, email);
+      const appUser = createOnlineUser(response.user);
+      
+      setUser(appUser);
+      setSession({
+        access_token: response.token,
+        user: appUser,
+      });
+      setIsGuest(false);
       
       toast({
         title: "注册成功",
-        description: "请使用您的邮箱和密码登录",
+        description: "欢迎使用蜗牛待办！",
       });
+
+      navigate('/');
     } catch (error) {
       toast({
         title: "注册失败",
@@ -120,12 +140,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithOAuth = async (_provider: 'github' | 'google') => {
-    toast({
-      title: "暂不支持",
-      description: "OAuth 登录功能正在开发中",
-      variant: "destructive",
-    });
+  const sendEmailCode = async (email: string): Promise<boolean> => {
+    try {
+      await authApi.sendEmailCode(email);
+      toast({
+        title: "验证码已发送",
+        description: "请查收您的邮箱",
+      });
+      return true;
+    } catch (error) {
+      toast({
+        title: "发送失败",
+        description: error instanceof Error ? error.message : "请稍后再试",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const signInWithEmailCode = async (email: string, code: string) => {
+    try {
+      const response = await authApi.emailLogin(email, code);
+      const appUser = createOnlineUser(response.user);
+      
+      setUser(appUser);
+      setSession({
+        access_token: response.token,
+        user: appUser,
+      });
+      setIsGuest(false);
+
+      toast({
+        title: "登录成功",
+        description: "欢迎使用蜗牛待办！",
+      });
+
+      navigate('/');
+    } catch (error) {
+      toast({
+        title: "登录失败",
+        description: error instanceof Error ? error.message : "验证码无效或已过期",
+        variant: "destructive",
+      });
+    }
   };
 
   const signInAsGuest = async () => {
@@ -195,9 +252,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         loading,
         isGuest,
-        signInWithEmail,
-        signUpWithEmail,
-        signInWithOAuth,
+        authConfig,
+        signInWithCredentials,
+        signUpWithCredentials,
+        sendEmailCode,
+        signInWithEmailCode,
         signInAsGuest,
         signOut,
         refreshUser,

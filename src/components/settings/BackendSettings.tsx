@@ -6,7 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon-park';
 import { toast } from 'sonner';
-import { StorageMode, setStorageMode, STORAGE_MODE_KEY } from '@/config/storage';
+import { StorageMode, setStorageMode, STORAGE_MODE_KEY, isOnlineMode } from '@/config/storage';
+import { settingsApi, SMTPConfig } from '@/lib/authApi';
 
 const API_BASE_URL_KEY = 'snail_api_base_url';
 
@@ -43,11 +44,53 @@ export default function BackendSettings() {
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // SMTP 配置
+  const [smtpConfig, setSmtpConfig] = useState<SMTPConfig>({
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_user: '',
+    smtp_password: '',
+    smtp_from: '',
+    email_login_enabled: false,
+  });
+  const [smtpLoading, setSmtpLoading] = useState(false);
+  const [smtpSaving, setSmtpSaving] = useState(false);
+
   useEffect(() => {
     const savedUrl = getApiBaseUrl();
     const savedMode = getCurrentMode();
     setHasChanges(apiUrl !== savedUrl || isOffline !== (savedMode === 'offline'));
   }, [apiUrl, isOffline]);
+
+  useEffect(() => {
+    if (isOnlineMode) {
+      loadSMTPConfig();
+    }
+  }, []);
+
+  const loadSMTPConfig = async () => {
+    setSmtpLoading(true);
+    try {
+      const config = await settingsApi.getSMTPConfig();
+      setSmtpConfig(config);
+    } catch {
+      // 忽略错误，使用默认值
+    } finally {
+      setSmtpLoading(false);
+    }
+  };
+
+  const handleSaveSMTP = async () => {
+    setSmtpSaving(true);
+    try {
+      await settingsApi.updateSMTPConfig(smtpConfig);
+      toast.success('SMTP 配置已保存');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存失败');
+    } finally {
+      setSmtpSaving(false);
+    }
+  };
 
   const handleTestConnection = async () => {
     setTesting(true);
@@ -159,6 +202,107 @@ export default function BackendSettings() {
             刷新页面应用更改
           </Button>
         </div>
+      )}
+
+      {!isOffline && isOnlineMode && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">邮件服务 (SMTP)</CardTitle>
+            <CardDescription>配置邮箱验证码登录功能</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {smtpLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Icon icon="loading-one" className="h-5 w-5 animate-spin" />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>启用邮箱登录</Label>
+                    <p className="text-sm text-muted-foreground">允许用户使用邮箱验证码登录</p>
+                  </div>
+                  <Switch
+                    checked={smtpConfig.email_login_enabled}
+                    onCheckedChange={(checked) =>
+                      setSmtpConfig((prev) => ({ ...prev, email_login_enabled: checked }))
+                    }
+                  />
+                </div>
+
+                <div className="grid gap-4 pt-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="smtp-host">SMTP 服务器</Label>
+                      <Input
+                        id="smtp-host"
+                        value={smtpConfig.smtp_host}
+                        onChange={(e) =>
+                          setSmtpConfig((prev) => ({ ...prev, smtp_host: e.target.value }))
+                        }
+                        placeholder="smtp.example.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="smtp-port">端口</Label>
+                      <Input
+                        id="smtp-port"
+                        type="number"
+                        value={smtpConfig.smtp_port}
+                        onChange={(e) =>
+                          setSmtpConfig((prev) => ({ ...prev, smtp_port: parseInt(e.target.value) || 587 }))
+                        }
+                        placeholder="587"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp-user">用户名</Label>
+                    <Input
+                      id="smtp-user"
+                      value={smtpConfig.smtp_user}
+                      onChange={(e) =>
+                        setSmtpConfig((prev) => ({ ...prev, smtp_user: e.target.value }))
+                      }
+                      placeholder="your-email@example.com"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp-password">密码</Label>
+                    <Input
+                      id="smtp-password"
+                      type="password"
+                      value={smtpConfig.smtp_password}
+                      onChange={(e) =>
+                        setSmtpConfig((prev) => ({ ...prev, smtp_password: e.target.value }))
+                      }
+                      placeholder="留空则不修改"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp-from">发件人地址</Label>
+                    <Input
+                      id="smtp-from"
+                      value={smtpConfig.smtp_from}
+                      onChange={(e) =>
+                        setSmtpConfig((prev) => ({ ...prev, smtp_from: e.target.value }))
+                      }
+                      placeholder="noreply@example.com"
+                    />
+                  </div>
+
+                  <Button onClick={handleSaveSMTP} disabled={smtpSaving}>
+                    {smtpSaving && <Icon icon="loading-one" className="mr-2 h-4 w-4 animate-spin" />}
+                    保存 SMTP 配置
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

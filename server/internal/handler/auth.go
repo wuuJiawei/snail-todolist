@@ -76,3 +76,8 @@ func (h *AuthHandler) EmailLogin(c *gin.Context) {
 
 	model.Success(c, resp)
 }
+
+func (h *AuthHandler) GetAuthConfig(c *gin.Context) {
+	resp := h.authService.GetAuthConfig()
+	model.Success(c, resp)
+}

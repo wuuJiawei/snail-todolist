@@ -9,11 +9,11 @@ import (
 
 type User struct {
 	ID        uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
-	Email     string         `gorm:"uniqueIndex;not null" json:"email"`
+	Email     string         `gorm:"uniqueIndex" json:"email"`
+	Username  string         `gorm:"uniqueIndex;size:50" json:"username"`
 	Password  string         `gorm:"" json:"-"`
 	Name      string         `gorm:"size:100" json:"name"`
 	Nickname  string         `gorm:"size:100" json:"nickname,omitempty"`
-	Username  string         `gorm:"-" json:"username,omitempty"`
 	Avatar    string         `gorm:"size:500" json:"avatar,omitempty"`
 	AvatarURL string         `gorm:"-" json:"avatar_url,omitempty"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -30,11 +30,6 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 
 func (u *User) AfterFind(tx *gorm.DB) error {
 	u.AvatarURL = u.Avatar
-	if u.Nickname != "" {
-		u.Username = u.Nickname
-	} else {
-		u.Username = u.Email
-	}
 	return nil
 }
 

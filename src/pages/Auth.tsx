@@ -4,29 +4,41 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GoogleIcon, GitHubIcon } from "@/components/ui/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { Label } from "@/components/ui/label";
-import { WifiOff } from "lucide-react";
+import { WifiOff, Mail, Loader2 } from "lucide-react";
 import { setStorageMode } from "@/config/storage";
 import { navigateWithReload } from "@/utils/runtime";
+import { Separator } from "@/components/ui/separator";
 
 const Auth = () => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [emailForLogin, setEmailForLogin] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { signInWithEmail, signUpWithEmail, signInWithOAuth, user } = useAuth();
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  
+  const { 
+    signInWithCredentials, 
+    signUpWithCredentials, 
+    sendEmailCode,
+    signInWithEmailCode,
+    user,
+    authConfig 
+  } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    // capture redirect param
     const params = new URLSearchParams(location.search);
     const redirect = params.get('redirect');
     if (redirect) {
       try { localStorage.setItem('post_login_redirect', redirect); } catch {}
     }
-    // If user is already logged in, redirect to home or pending redirect
     if (user) {
       let target: string | null = null;
       try { target = localStorage.getItem('post_login_redirect'); } catch {}
@@ -39,10 +51,18 @@ const Auth = () => {
     }
   }, [user, navigate, location.search]);
 
+  // 倒计时
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    await signInWithEmail(email, password);
+    await signInWithCredentials(username, password);
     setIsLoading(false);
     let target: string | null = null;
     try { target = localStorage.getItem('post_login_redirect'); } catch {}
@@ -55,19 +75,30 @@ const Auth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    await signUpWithEmail(email, password);
+    await signUpWithCredentials(username, password, email || undefined);
     setIsLoading(false);
   };
 
-  const handleOAuthSignIn = async (provider: 'github' | 'google') => {
+  const handleSendCode = async () => {
+    if (!emailForLogin || countdown > 0) return;
+    setIsSendingCode(true);
+    const success = await sendEmailCode(emailForLogin);
+    setIsSendingCode(false);
+    if (success) {
+      setCodeSent(true);
+      setCountdown(60);
+    }
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
-    await signInWithOAuth(provider);
+    await signInWithEmailCode(emailForLogin, verificationCode);
     setIsLoading(false);
   };
 
   const handleOfflineMode = () => {
     setStorageMode("offline");
-    // Reload the page to reinitialize all contexts with new storage mode
     navigateWithReload("/");
   };
 
@@ -86,107 +117,184 @@ const Auth = () => {
               <TabsTrigger value="login">登录</TabsTrigger>
               <TabsTrigger value="register">注册</TabsTrigger>
             </TabsList>
+            
             <TabsContent value="login">
               <form onSubmit={handleSignIn}>
                 <div className="grid gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="email">电子邮箱</Label>
+                    <Label htmlFor="login-username">用户名或邮箱</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="name@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      id="login-username"
+                      type="text"
+                      placeholder="请输入用户名或邮箱"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       required
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="password">密码</Label>
+                    <Label htmlFor="login-password">密码</Label>
                     <Input
-                      id="password"
+                      id="login-password"
                       type="password"
+                      placeholder="请输入密码"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
                     />
                   </div>
                   <Button type="submit" disabled={isLoading} className="w-full">
-                    {isLoading ? "登录中..." : "登录"}
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        登录中...
+                      </>
+                    ) : "登录"}
                   </Button>
                 </div>
               </form>
             </TabsContent>
+            
             <TabsContent value="register">
               <form onSubmit={handleSignUp}>
                 <div className="grid gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="email">电子邮箱</Label>
+                    <Label htmlFor="reg-username">用户名 *</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="name@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      id="reg-username"
+                      type="text"
+                      placeholder="3-50个字符，字母数字下划线"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       required
+                      minLength={3}
+                      maxLength={50}
+                      pattern="[a-zA-Z0-9_]+"
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="password">密码</Label>
+                    <Label htmlFor="reg-password">密码 *</Label>
                     <Input
-                      id="password"
+                      id="reg-password"
                       type="password"
+                      placeholder="至少6个字符"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
+                      minLength={6}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="reg-email">邮箱（可选）</Label>
+                    <Input
+                      id="reg-email"
+                      type="email"
+                      placeholder="用于找回密码"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
                   <Button type="submit" disabled={isLoading} className="w-full">
-                    {isLoading ? "注册中..." : "注册"}
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        注册中...
+                      </>
+                    ) : "注册"}
                   </Button>
                 </div>
               </form>
             </TabsContent>
           </Tabs>
 
+          {/* 邮箱一键登录 */}
+          {authConfig?.email_login_enabled && (
+            <>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-gray-500">或者</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="email-login">邮箱一键登录</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="email-login"
+                      type="email"
+                      placeholder="请输入邮箱"
+                      value={emailForLogin}
+                      onChange={(e) => setEmailForLogin(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleSendCode}
+                      disabled={isSendingCode || countdown > 0 || !emailForLogin}
+                      className="shrink-0"
+                    >
+                      {isSendingCode ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : countdown > 0 ? (
+                        `${countdown}s`
+                      ) : (
+                        "发送验证码"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                
+                {codeSent && (
+                  <form onSubmit={handleEmailLogin} className="space-y-3">
+                    <div className="grid gap-2">
+                      <Input
+                        type="text"
+                        placeholder="请输入6位验证码"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
+                        maxLength={6}
+                        required
+                      />
+                    </div>
+                    <Button type="submit" disabled={isLoading} className="w-full" variant="secondary">
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          登录中...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="mr-2 h-4 w-4" />
+                          验证并登录
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                )}
+                
+                <p className="text-xs text-gray-500 text-center">
+                  首次使用邮箱登录将自动创建账号
+                </p>
+              </div>
+            </>
+          )}
+
+          <Separator className="my-4" />
+
           <Button
             variant="outline"
-            className="w-full mt-4"
+            className="w-full"
             onClick={handleOfflineMode}
             disabled={isLoading}
           >
             <WifiOff className="mr-2 h-4 w-4" />
             离线模式
           </Button>
-
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">或者使用</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => handleOAuthSignIn('github')}
-              disabled={isLoading}
-            >
-              <GitHubIcon className="mr-2 h-4 w-4" />
-              GitHub
-            </Button>
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => handleOAuthSignIn('google')}
-              disabled={isLoading}
-            >
-              <GoogleIcon className="mr-2 h-4 w-4" />
-              Google
-            </Button>
-          </div>
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-xs text-gray-500">

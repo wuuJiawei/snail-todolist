@@ -17,7 +17,6 @@ import (
 	"snail-server/internal/repository"
 	"snail-server/internal/service"
 	"snail-server/pkg/database"
-	"snail-server/pkg/email"
 	"snail-server/pkg/jwt"
 	"snail-server/pkg/logger"
 )
@@ -34,15 +33,6 @@ func main() {
 
 	// 初始化 JWT
 	jwt.Init(config.AppConfig.JWTSecret, config.AppConfig.JWTExpireHours)
-
-	// 初始化邮件
-	email.Init(&email.SMTPConfig{
-		Host:     config.AppConfig.SMTPHost,
-		Port:     config.AppConfig.SMTPPort,
-		User:     config.AppConfig.SMTPUser,
-		Password: config.AppConfig.SMTPPassword,
-		From:     config.AppConfig.SMTPFrom,
-	})
 
 	// 连接数据库
 	if err := database.Connect(config.AppConfig.DatabaseURL); err != nil {
@@ -66,9 +56,11 @@ func main() {
 	pomodoroRepo := repository.NewPomodoroRepository(database.DB)
 	projectShareRepo := repository.NewProjectShareRepository(database.DB)
 	checkInRepo := repository.NewCheckInRepository(database.DB)
+	systemSettingRepo := repository.NewSystemSettingRepository(database.DB)
 
 	// 初始化 services
-	authService := service.NewAuthService(userRepo, emailCodeRepo)
+	systemSettingService := service.NewSystemSettingService(systemSettingRepo)
+	authService := service.NewAuthService(userRepo, emailCodeRepo, systemSettingService)
 	userService := service.NewUserService(userRepo)
 	listService := service.NewListService(listRepo)
 	taskService := service.NewTaskService(taskRepo, listRepo, taskTagRepo, taskActivityRepo)
@@ -95,6 +87,7 @@ func main() {
 	attachmentHandler := handler.NewAttachmentHandler(taskRepo, config.AppConfig.StoragePath, config.AppConfig.BaseURL)
 	migrationHandler := handler.NewMigrationHandler(migrationService)
 	checkInHandler := handler.NewCheckInHandler(checkInService)
+	systemSettingHandler := handler.NewSystemSettingHandler(systemSettingService)
 
 	// 设置 Gin 模式
 	if config.IsProduction() {
@@ -132,6 +125,7 @@ func main() {
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/email/code", authHandler.SendEmailCode)
 			auth.POST("/email/login", authHandler.EmailLogin)
+			auth.GET("/config", authHandler.GetAuthConfig)
 		}
 
 		// 需要认证的路由
@@ -229,6 +223,10 @@ func main() {
 			// 数据迁移
 			protected.GET("/export", migrationHandler.Export)
 			protected.POST("/import", migrationHandler.Import)
+
+			// 系统设置
+			protected.GET("/settings/smtp", systemSettingHandler.GetSMTPConfig)
+			protected.PUT("/settings/smtp", systemSettingHandler.UpdateSMTPConfig)
 		}
 	}
 
