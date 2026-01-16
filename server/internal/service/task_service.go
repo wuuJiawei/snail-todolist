@@ -43,6 +43,7 @@ type UpdateTaskInput struct {
 	SortOrder   *int       `json:"sort_order"`
 	Icon        *string    `json:"icon"`
 	Flagged     *bool      `json:"flagged"`
+	ListID      *string    `json:"list_id"`
 }
 
 type UpdateStatusInput struct {
@@ -263,6 +264,13 @@ func (s *TaskService) UpdateTask(userID, taskID uuid.UUID, input *UpdateTaskInpu
 	}
 	if input.Flagged != nil {
 		task.Flagged = *input.Flagged
+	}
+	if input.ListID != nil {
+		listID, err := uuid.Parse(*input.ListID)
+		if err != nil {
+			return nil, errors.New("无效的清单ID")
+		}
+		task.ListID = listID
 	}
 
 	if err := s.taskRepo.Update(task); err != nil {
