@@ -145,7 +145,7 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
     }
   }, [open, project?.id, user?.id]);
 
-  // Polling-based refresh for members (replaces Supabase realtime)
+  // Polling-based refresh for members
   useEffect(() => {
     if (!open || !project) return;
     

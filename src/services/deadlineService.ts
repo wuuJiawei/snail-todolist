@@ -176,7 +176,7 @@ export const checkAndNotify = async (tasks: Task[]): Promise<void> => {
     // TODO: 如果启用了 Webhook，这里可以调用云函数发送通知
     if (config.webhookEnabled) {
       console.log("Webhook notifications would be sent for:", upcomingTasks);
-      // 未来可以通过 Supabase Functions 实现 Webhook 通知
+      // 未来可以通过后端 Webhook 功能实现通知
     }
 
   } catch (error) {

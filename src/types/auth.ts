@@ -1,5 +1,5 @@
 /**
- * Authentication types (Supabase-compatible interface)
+ * Authentication types (Backend-compatible interface)
  */
 
 export interface AppUser {

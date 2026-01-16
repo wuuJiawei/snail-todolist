@@ -27,7 +27,7 @@ const DataManagementSettings = () => {
   // Storage mode state
   const currentConfig = getStorageConfig();
   const [showModeSwitchDialog, setShowModeSwitchDialog] = useState(false);
-  const [targetMode, setTargetMode] = useState<StorageMode>("supabase");
+  const [targetMode, setTargetMode] = useState<StorageMode>("online");
 
   // Export state
   const [exportProgress, setExportProgress] = useState(0);
@@ -154,7 +154,7 @@ const DataManagementSettings = () => {
     setShowModeSwitchDialog(false);
     
     // If switching from online to offline, sign out first
-    if (currentConfig.mode === "supabase" && targetMode === "offline") {
+    if (currentConfig.mode === "online" && targetMode === "offline") {
       await signOut();
     }
     
@@ -199,7 +199,7 @@ const DataManagementSettings = () => {
             className="space-y-3"
           >
             <div className="flex items-center space-x-3">
-              <RadioGroupItem value="supabase" id="mode-online" />
+              <RadioGroupItem value="online" id="mode-online" />
               <Label htmlFor="mode-online" className="flex items-center gap-2 cursor-pointer">
                 <Cloud className="h-4 w-4 text-blue-500" />
                 <div>

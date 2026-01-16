@@ -22,7 +22,7 @@ describe('Storage Configuration', () => {
 
   describe('Property 1: Mode Persistence Round Trip', () => {
     /**
-     * For any valid storage mode ('offline' or 'supabase'),
+     * For any valid storage mode ('offline' or 'online'),
      * setting the mode and then getting the config should return the same mode.
      */
     it('should persist and retrieve offline mode from localStorage', async () => {
@@ -39,24 +39,24 @@ describe('Storage Configuration', () => {
       expect(config.isOfflineMode).toBe(true);
     });
 
-    it('should persist and retrieve supabase mode from localStorage', async () => {
+    it('should persist and retrieve online mode from localStorage', async () => {
       const { setStorageMode, getStorageConfig, STORAGE_MODE_KEY } = await import('./storage');
       
-      setStorageMode('supabase');
-      expect(localStorage.getItem(STORAGE_MODE_KEY)).toBe('supabase');
+      setStorageMode('online');
+      expect(localStorage.getItem(STORAGE_MODE_KEY)).toBe('online');
       
       vi.resetModules();
       const { getStorageConfig: getConfig } = await import('./storage');
       const config = getConfig();
       
-      expect(config.mode).toBe('supabase');
+      expect(config.mode).toBe('online');
       expect(config.isOfflineMode).toBe(false);
     });
 
     it('should round-trip any valid storage mode', async () => {
       await fc.assert(
         fc.asyncProperty(
-          fc.constantFrom('offline', 'supabase') as fc.Arbitrary<'offline' | 'supabase'>,
+          fc.constantFrom('offline', 'online') as fc.Arbitrary<'offline' | 'online'>,
           async (mode) => {
             vi.resetModules();
             localStorage.clear();
@@ -79,7 +79,7 @@ describe('Storage Configuration', () => {
 
   describe('localStorage Priority over Environment Variable', () => {
     it('should prioritize localStorage over environment variable', async () => {
-      (import.meta.env as Record<string, string>).VITE_STORAGE_MODE = 'supabase';
+      (import.meta.env as Record<string, string>).VITE_STORAGE_MODE = 'online';
       localStorage.setItem('snail_storage_mode', 'offline');
       
       const { getStorageConfig } = await import('./storage');
@@ -101,13 +101,13 @@ describe('Storage Configuration', () => {
   });
 
   describe('Default Mode', () => {
-    it('should default to supabase when no preference is set', async () => {
+    it('should default to online when no preference is set', async () => {
       delete (import.meta.env as Record<string, string | undefined>).VITE_STORAGE_MODE;
       
       const { getStorageConfig } = await import('./storage');
       const config = getStorageConfig();
       
-      expect(config.mode).toBe('supabase');
+      expect(config.mode).toBe('online');
       expect(config.isOfflineMode).toBe(false);
     });
 
@@ -118,7 +118,7 @@ describe('Storage Configuration', () => {
       const { getStorageConfig } = await import('./storage');
       const config = getStorageConfig();
       
-      expect(config.mode).toBe('supabase');
+      expect(config.mode).toBe('online');
       expect(config.isOfflineMode).toBe(false);
     });
   });
@@ -139,7 +139,7 @@ describe('Storage Configuration', () => {
     it('should have consistent isOfflineMode flag with mode value', async () => {
       await fc.assert(
         fc.asyncProperty(
-          fc.constantFrom('offline', 'supabase', undefined) as fc.Arbitrary<'offline' | 'supabase' | undefined>,
+          fc.constantFrom('offline', 'online', undefined) as fc.Arbitrary<'offline' | 'online' | undefined>,
           async (modeValue) => {
             vi.resetModules();
             localStorage.clear();

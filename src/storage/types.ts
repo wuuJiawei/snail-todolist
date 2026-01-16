@@ -1,7 +1,7 @@
 /**
  * Storage Adapter Interface
  * Defines the common interface for all storage operations
- * Supports both Supabase (online) and IndexedDB (offline) implementations
+ * Supports both Online (custom backend) and IndexedDB (offline) implementations
  */
 
 import { Task } from '@/types/task';

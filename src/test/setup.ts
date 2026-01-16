@@ -8,8 +8,7 @@ import 'fake-indexeddb/auto';
 // Mock import.meta.env for tests
 const mockEnv: Record<string, string | undefined> = {
   VITE_STORAGE_MODE: undefined,
-  VITE_SUPABASE_URL: 'https://test.supabase.co',
-  VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+  VITE_API_BASE_URL: 'http://localhost:23333',
 };
 
 // Store original env
