@@ -16,6 +16,7 @@ type User struct {
 	Nickname  string         `gorm:"size:100" json:"nickname,omitempty"`
 	Avatar    string         `gorm:"size:500" json:"avatar,omitempty"`
 	AvatarURL string         `gorm:"-" json:"avatar_url,omitempty"`
+	IsAdmin   bool           `gorm:"default:false" json:"is_admin"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`

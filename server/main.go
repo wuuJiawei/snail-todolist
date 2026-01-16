@@ -223,10 +223,15 @@ func main() {
 			// 数据迁移
 			protected.GET("/export", migrationHandler.Export)
 			protected.POST("/import", migrationHandler.Import)
+		}
 
-			// 系统设置
-			protected.GET("/settings/smtp", systemSettingHandler.GetSMTPConfig)
-			protected.PUT("/settings/smtp", systemSettingHandler.UpdateSMTPConfig)
+		// 管理员路由
+		admin := api.Group("")
+		admin.Use(middleware.JWTAuth())
+		admin.Use(middleware.AdminRequired(userRepo))
+		{
+			admin.GET("/settings/smtp", systemSettingHandler.GetSMTPConfig)
+			admin.PUT("/settings/smtp", systemSettingHandler.UpdateSMTPConfig)
 		}
 	}
 

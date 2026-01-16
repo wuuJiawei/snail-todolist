@@ -60,3 +60,10 @@ func (r *UserRepository) ExistsByUsername(username string) bool {
 	r.db.Model(&model.User{}).Where("username = ?", username).Count(&count)
 	return count > 0
 }
+
+
+func (r *UserRepository) Count() int64 {
+	var count int64
+	r.db.Model(&model.User{}).Count(&count)
+	return count
+}

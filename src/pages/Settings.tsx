@@ -9,12 +9,14 @@ import TagSettings from "@/components/settings/TagSettings";
 import DataManagementSettings from "@/components/settings/DataManagementSettings";
 import BackendSettings from "@/components/settings/BackendSettings";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 type SettingsTab = "account" | "notifications" | "tags" | "data" | "backend" | "about";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
   const location = useLocation();
+  const { isAdmin } = useAuth();
 
   // Handle initial tab from location state
   useEffect(() => {
@@ -29,9 +31,11 @@ const Settings = () => {
     { id: "notifications", label: "通知", icon: "message-one" },
     { id: "tags", label: "标签", icon: "tag-one" },
     { id: "data", label: "数据管理", icon: "data" },
-    { id: "backend", label: "后端设置", icon: "server" },
+    { id: "backend", label: "系统设置", icon: "server", adminOnly: true },
     { id: "about", label: "关于", icon: "info" },
   ];
+
+  const visibleTabs = tabs.filter(tab => !tab.adminOnly || isAdmin);
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -40,7 +44,7 @@ const Settings = () => {
         <div className="p-4">
           <h2 className="text-lg font-medium mb-4">设置</h2>
           <div className="space-y-1">
-            {tabs.map((tab) => (
+            {visibleTabs.map((tab) => (
               <Button
                 key={tab.id}
                 variant={activeTab === tab.id ? "secondary" : "ghost"}

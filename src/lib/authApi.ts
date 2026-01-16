@@ -12,6 +12,7 @@ export interface AuthUser {
   name?: string;
   avatar_url?: string;
   avatar?: string;
+  is_admin?: boolean;
   created_at: string;
   updated_at: string;
 }

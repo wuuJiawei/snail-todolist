@@ -9,6 +9,7 @@ export interface AppUser {
   user_metadata: {
     name?: string;
     avatar_url?: string;
+    is_admin?: boolean;
     [key: string]: unknown;
   };
   aud: string;
@@ -52,6 +53,7 @@ export function createOnlineUser(data: {
   name?: string;
   avatar_url?: string;
   avatar?: string;
+  is_admin?: boolean;
   created_at: string;
 }): AppUser {
   return {
@@ -61,6 +63,7 @@ export function createOnlineUser(data: {
     user_metadata: {
       name: data.username || data.nickname || data.name || data.email,
       avatar_url: data.avatar_url || data.avatar,
+      is_admin: data.is_admin,
     },
     aud: 'authenticated',
     created_at: data.created_at,

@@ -20,6 +20,7 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   isGuest: boolean;
+  isAdmin: boolean;
   authConfig: AuthConfig | null;
   signInWithCredentials: (username: string, password: string) => Promise<void>;
   signUpWithCredentials: (username: string, password: string, email?: string) => Promise<void>;
@@ -252,6 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         loading,
         isGuest,
+        isAdmin: user?.user_metadata?.is_admin === true,
         authConfig,
         signInWithCredentials,
         signUpWithCredentials,

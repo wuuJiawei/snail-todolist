@@ -88,6 +88,7 @@ func (s *AuthService) Register(input *RegisterInput) (*AuthResponse, error) {
 		Email:    input.Email,
 		Password: string(hashedPassword),
 		Nickname: input.Nickname,
+		IsAdmin:  s.userRepo.Count() == 0,
 	}
 
 	if user.Nickname == "" {
@@ -180,6 +181,7 @@ func (s *AuthService) EmailLogin(input *EmailLoginInput) (*AuthResponse, error) 
 			Email:    input.Email,
 			Username: username,
 			Nickname: input.Email,
+			IsAdmin:  s.userRepo.Count() == 0,
 		}
 		if err := s.userRepo.Create(user); err != nil {
 			return nil, err
