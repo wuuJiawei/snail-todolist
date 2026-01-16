@@ -3,11 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon-park';
 import { toast } from 'sonner';
 import { StorageMode, setStorageMode, STORAGE_MODE_KEY, isOnlineMode } from '@/config/storage';
-import { settingsApi, SMTPConfig } from '@/lib/authApi';
+import { settingsApi, SMTPConfig, AppInfoConfig } from '@/lib/authApi';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API_BASE_URL_KEY = 'snail_api_base_url';
 
@@ -43,6 +45,7 @@ export default function BackendSettings() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const { isAdmin } = useAuth();
 
   // SMTP 配置
   const [smtpConfig, setSmtpConfig] = useState<SMTPConfig>({
@@ -56,6 +59,20 @@ export default function BackendSettings() {
   const [smtpLoading, setSmtpLoading] = useState(false);
   const [smtpSaving, setSmtpSaving] = useState(false);
 
+  // 应用信息配置
+  const [appInfo, setAppInfo] = useState<AppInfoConfig>({
+    app_name: '',
+    app_description: '',
+    app_logo_url: '',
+    developer_name: '',
+    contact_email: '',
+    contact_website: '',
+    features: [],
+  });
+  const [appInfoLoading, setAppInfoLoading] = useState(false);
+  const [appInfoSaving, setAppInfoSaving] = useState(false);
+  const [featuresText, setFeaturesText] = useState('');
+
   useEffect(() => {
     const savedUrl = getApiBaseUrl();
     const savedMode = getCurrentMode();
@@ -63,10 +80,11 @@ export default function BackendSettings() {
   }, [apiUrl, isOffline]);
 
   useEffect(() => {
-    if (isOnlineMode) {
+    if (isOnlineMode && isAdmin) {
       loadSMTPConfig();
+      loadAppInfo();
     }
-  }, []);
+  }, [isAdmin]);
 
   const loadSMTPConfig = async () => {
     setSmtpLoading(true);
@@ -80,6 +98,19 @@ export default function BackendSettings() {
     }
   };
 
+  const loadAppInfo = async () => {
+    setAppInfoLoading(true);
+    try {
+      const info = await settingsApi.getAppInfo();
+      setAppInfo(info);
+      setFeaturesText(info.features.join('\n'));
+    } catch {
+      // 忽略错误
+    } finally {
+      setAppInfoLoading(false);
+    }
+  };
+
   const handleSaveSMTP = async () => {
     setSmtpSaving(true);
     try {
@@ -89,6 +120,19 @@ export default function BackendSettings() {
       toast.error(error instanceof Error ? error.message : '保存失败');
     } finally {
       setSmtpSaving(false);
+    }
+  };
+
+  const handleSaveAppInfo = async () => {
+    setAppInfoSaving(true);
+    try {
+      const features = featuresText.split('\n').map(f => f.trim()).filter(Boolean);
+      await settingsApi.updateAppInfo({ ...appInfo, features });
+      toast.success('应用信息已保存');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存失败');
+    } finally {
+      setAppInfoSaving(false);
     }
   };
 
@@ -300,6 +344,103 @@ export default function BackendSettings() {
                   </Button>
                 </div>
               </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {!isOffline && isOnlineMode && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">应用信息</CardTitle>
+            <CardDescription>配置关于页面显示的应用信息</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {appInfoLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Icon icon="loading-one" className="h-5 w-5 animate-spin" />
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="app-name">应用名称</Label>
+                    <Input
+                      id="app-name"
+                      value={appInfo.app_name}
+                      onChange={(e) => setAppInfo((prev) => ({ ...prev, app_name: e.target.value }))}
+                      placeholder="蜗牛清单"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="developer-name">开发者</Label>
+                    <Input
+                      id="developer-name"
+                      value={appInfo.developer_name}
+                      onChange={(e) => setAppInfo((prev) => ({ ...prev, developer_name: e.target.value }))}
+                      placeholder="SnailTodo Team"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="app-description">应用描述</Label>
+                  <Input
+                    id="app-description"
+                    value={appInfo.app_description}
+                    onChange={(e) => setAppInfo((prev) => ({ ...prev, app_description: e.target.value }))}
+                    placeholder="一款简洁高效的任务管理应用"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="app-logo">Logo URL</Label>
+                  <Input
+                    id="app-logo"
+                    value={appInfo.app_logo_url}
+                    onChange={(e) => setAppInfo((prev) => ({ ...prev, app_logo_url: e.target.value }))}
+                    placeholder="https://example.com/logo.png"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-email">联系邮箱</Label>
+                    <Input
+                      id="contact-email"
+                      type="email"
+                      value={appInfo.contact_email}
+                      onChange={(e) => setAppInfo((prev) => ({ ...prev, contact_email: e.target.value }))}
+                      placeholder="contact@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-website">官网地址</Label>
+                    <Input
+                      id="contact-website"
+                      value={appInfo.contact_website}
+                      onChange={(e) => setAppInfo((prev) => ({ ...prev, contact_website: e.target.value }))}
+                      placeholder="https://example.com"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="features">功能介绍（每行一条）</Label>
+                  <Textarea
+                    id="features"
+                    value={featuresText}
+                    onChange={(e) => setFeaturesText(e.target.value)}
+                    placeholder="创建和管理任务清单&#10;设置任务截止日期&#10;标记重要任务"
+                    rows={6}
+                  />
+                </div>
+
+                <Button onClick={handleSaveAppInfo} disabled={appInfoSaving}>
+                  {appInfoSaving && <Icon icon="loading-one" className="mr-2 h-4 w-4 animate-spin" />}
+                  保存应用信息
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>

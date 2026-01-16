@@ -988,10 +988,6 @@ export async function getAppInfo(): Promise<AppInfo> {
     return await storage.getAppInfo();
   } catch (error) {
     console.error('Failed to get app info:', error);
-    return {
-      version: '1.0.0',
-      announcement: undefined,
-      maintenance_mode: false,
-    };
+    return {};
   }
 }

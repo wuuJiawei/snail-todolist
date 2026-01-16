@@ -738,10 +738,11 @@ export class OnlineStorageAdapter implements StorageAdapter {
   // ============================================
 
   async getAppInfo(): Promise<AppInfo> {
-    return {
-      version: '1.0.0',
-      announcement: undefined,
-      maintenance_mode: false,
-    };
+    try {
+      const data = await apiClient.get<AppInfo>('/app-info');
+      return data;
+    } catch {
+      return {};
+    }
   }
 }

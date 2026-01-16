@@ -2,6 +2,7 @@ package service
 
 import (
 	"strconv"
+	"strings"
 
 	"snail-server/internal/model"
 	"snail-server/internal/repository"
@@ -94,4 +95,63 @@ func (s *SystemSettingService) reloadEmailConfig() {
 		Password: cfg.Password,
 		From:     cfg.From,
 	})
+}
+
+
+type AppInfoConfig struct {
+	AppName         string   `json:"app_name"`
+	AppDescription  string   `json:"app_description"`
+	AppLogoURL      string   `json:"app_logo_url"`
+	DeveloperName   string   `json:"developer_name"`
+	ContactEmail    string   `json:"contact_email"`
+	ContactWebsite  string   `json:"contact_website"`
+	Features        []string `json:"features"`
+}
+
+func (s *SystemSettingService) GetAppInfo() *AppInfoConfig {
+	keys := []string{
+		model.SettingAppName,
+		model.SettingAppDescription,
+		model.SettingAppLogoURL,
+		model.SettingDeveloperName,
+		model.SettingContactEmail,
+		model.SettingContactWebsite,
+		model.SettingAppFeatures,
+	}
+	data, err := s.repo.GetMultiple(keys)
+	if err != nil {
+		data = make(map[string]string)
+	}
+
+	features := []string{}
+	if data[model.SettingAppFeatures] != "" {
+		for _, f := range strings.Split(data[model.SettingAppFeatures], "\n") {
+			if f = strings.TrimSpace(f); f != "" {
+				features = append(features, f)
+			}
+		}
+	}
+
+	return &AppInfoConfig{
+		AppName:        data[model.SettingAppName],
+		AppDescription: data[model.SettingAppDescription],
+		AppLogoURL:     data[model.SettingAppLogoURL],
+		DeveloperName:  data[model.SettingDeveloperName],
+		ContactEmail:   data[model.SettingContactEmail],
+		ContactWebsite: data[model.SettingContactWebsite],
+		Features:       features,
+	}
+}
+
+func (s *SystemSettingService) UpdateAppInfo(cfg *AppInfoConfig) error {
+	data := map[string]string{
+		model.SettingAppName:        cfg.AppName,
+		model.SettingAppDescription: cfg.AppDescription,
+		model.SettingAppLogoURL:     cfg.AppLogoURL,
+		model.SettingDeveloperName:  cfg.DeveloperName,
+		model.SettingContactEmail:   cfg.ContactEmail,
+		model.SettingContactWebsite: cfg.ContactWebsite,
+		model.SettingAppFeatures:    strings.Join(cfg.Features, "\n"),
+	}
+	return s.repo.SetMultiple(data)
 }

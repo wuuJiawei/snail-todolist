@@ -103,6 +103,28 @@ export const settingsApi = {
   async updateSMTPConfig(config: Partial<SMTPConfig>): Promise<{ message: string }> {
     return apiClient.put<{ message: string }>('/settings/smtp', config);
   },
+
+  async getAppInfo(): Promise<AppInfoConfig> {
+    return apiClient.get<AppInfoConfig>('/settings/app-info');
+  },
+
+  async updateAppInfo(config: AppInfoConfig): Promise<{ message: string }> {
+    return apiClient.put<{ message: string }>('/settings/app-info', config);
+  },
 };
+
+export interface AppInfoConfig {
+  app_name: string;
+  app_description: string;
+  app_logo_url: string;
+  developer_name: string;
+  contact_email: string;
+  contact_website: string;
+  features: string[];
+}
+
+export async function getPublicAppInfo(): Promise<AppInfoConfig> {
+  return apiClient.get<AppInfoConfig>('/app-info');
+}
 
 export { ApiClientError };

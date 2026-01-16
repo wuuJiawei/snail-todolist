@@ -2,20 +2,19 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon-park";
 import { getAppVersion } from "@/utils/version";
-import { AppInfo, AppVersion } from "@/types/app";
+import { AppVersion } from "@/types/app";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isOfflineMode } from "@/storage";
 import * as storageOps from "@/storage/operations";
+import { AppInfo } from "@/storage/types";
 
-// Static app info for offline mode
-const OFFLINE_APP_INFO: AppInfo = {
-  id: 1,
+const DEFAULT_APP_INFO: AppInfo = {
   app_name: "蜗牛清单",
   app_description: "一款简洁高效的任务管理应用",
-  app_logo_url: null,
+  app_logo_url: "",
   developer_name: "SnailTodo Team",
-  contact_email: null,
-  contact_website: null,
+  contact_email: "",
+  contact_website: "",
   features: [
     "创建和管理任务清单",
     "设置任务截止日期",
@@ -24,35 +23,29 @@ const OFFLINE_APP_INFO: AppInfo = {
     "每日签到打卡",
     "离线模式支持",
   ],
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
 };
 
 const AboutSettings = () => {
-  const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
+  const [appInfo, setAppInfo] = useState<AppInfo>(DEFAULT_APP_INFO);
   const [version] = useState<AppVersion>(getAppVersion());
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAppInfo = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        
         const info = await storageOps.getAppInfo();
-        // Merge with default app info to ensure all fields are present
         setAppInfo({
-          ...OFFLINE_APP_INFO,
+          ...DEFAULT_APP_INFO,
           ...info,
+          features: info.features?.length ? info.features : DEFAULT_APP_INFO.features,
         });
-      } catch (err) {
-        console.error('获取应用信息时发生错误:', err);
-        setError('获取应用信息时发生错误');
+      } catch {
+        // 使用默认值
       } finally {
         setLoading(false);
       }
     };
-
     fetchAppInfo();
   }, []);
 
@@ -79,10 +72,6 @@ const AboutSettings = () => {
                 <Skeleton className="h-4 w-16 mb-1" />
                 <Skeleton className="h-3 w-24" />
               </div>
-              <div>
-                <Skeleton className="h-4 w-16 mb-1" />
-                <Skeleton className="h-3 w-40" />
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -103,24 +92,10 @@ const AboutSettings = () => {
     );
   }
 
-  if (error || !appInfo) {
-    return (
-      <div className="max-w-2xl">
-        <h1 className="text-2xl font-bold mb-6">关于</h1>
-        
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <Icon icon="warning" className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-              <p className="text-muted-foreground">
-                {error || '无法获取应用信息，请稍后重试'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const displayName = appInfo.app_name || DEFAULT_APP_INFO.app_name;
+  const displayDesc = appInfo.app_description || DEFAULT_APP_INFO.app_description;
+  const displayDev = appInfo.developer_name || DEFAULT_APP_INFO.developer_name;
+  const displayFeatures = appInfo.features?.length ? appInfo.features : DEFAULT_APP_INFO.features!;
 
   return (
     <div className="max-w-2xl">
@@ -144,8 +119,8 @@ const AboutSettings = () => {
             )}
           </div>
           <div>
-            <CardTitle className="text-2xl">{appInfo.app_name}</CardTitle>
-            <CardDescription>{appInfo.app_description}</CardDescription>
+            <CardTitle className="text-2xl">{displayName}</CardTitle>
+            <CardDescription>{displayDesc}</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -157,7 +132,7 @@ const AboutSettings = () => {
             
             <div>
               <h3 className="font-medium">开发者</h3>
-              <p className="text-sm text-gray-500">{appInfo.developer_name}</p>
+              <p className="text-sm text-gray-500">{displayDev}</p>
             </div>
             
             {!isOfflineMode && (appInfo.contact_email || appInfo.contact_website) && (
@@ -209,7 +184,7 @@ const AboutSettings = () => {
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm">
-            {appInfo.features.map((feature, index) => (
+            {displayFeatures.map((feature, index) => (
               <li key={index} className="flex items-start gap-2">
                 <Icon icon="check-one" className="text-green-500 mt-0.5 flex-shrink-0" />
                 <span>{feature}</span>

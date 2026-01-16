@@ -38,3 +38,24 @@ func (h *SystemSettingHandler) UpdateSMTPConfig(c *gin.Context) {
 
 	model.Success(c, gin.H{"message": "配置已保存"})
 }
+
+
+func (h *SystemSettingHandler) GetAppInfo(c *gin.Context) {
+	cfg := h.settingService.GetAppInfo()
+	model.Success(c, cfg)
+}
+
+func (h *SystemSettingHandler) UpdateAppInfo(c *gin.Context) {
+	var input service.AppInfoConfig
+	if err := c.ShouldBindJSON(&input); err != nil {
+		model.Error(c, model.CodeParamError, err.Error())
+		return
+	}
+
+	if err := h.settingService.UpdateAppInfo(&input); err != nil {
+		model.Error(c, model.CodeInternalError, err.Error())
+		return
+	}
+
+	model.Success(c, gin.H{"message": "配置已保存"})
+}

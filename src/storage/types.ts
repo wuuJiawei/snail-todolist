@@ -140,10 +140,16 @@ export interface UserSettings {
  * Application info
  */
 export interface AppInfo {
-  version: string;
+  app_name?: string;
+  app_description?: string;
+  app_logo_url?: string;
+  developer_name?: string;
+  contact_email?: string;
+  contact_website?: string;
+  features?: string[];
+  version?: string;
   announcement?: string;
   maintenance_mode?: boolean;
-  [key: string]: unknown;
 }
 
 /**

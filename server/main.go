@@ -128,6 +128,9 @@ func main() {
 			auth.GET("/config", authHandler.GetAuthConfig)
 		}
 
+		// 公开的应用信息
+		api.GET("/app-info", systemSettingHandler.GetAppInfo)
+
 		// 需要认证的路由
 		protected := api.Group("")
 		protected.Use(middleware.JWTAuth())
@@ -232,6 +235,8 @@ func main() {
 		{
 			admin.GET("/settings/smtp", systemSettingHandler.GetSMTPConfig)
 			admin.PUT("/settings/smtp", systemSettingHandler.UpdateSMTPConfig)
+			admin.GET("/settings/app-info", systemSettingHandler.GetAppInfo)
+			admin.PUT("/settings/app-info", systemSettingHandler.UpdateAppInfo)
 		}
 	}
 

@@ -19,4 +19,11 @@ const (
 	SettingSMTPPassword       = "smtp_password"
 	SettingSMTPFrom           = "smtp_from"
 	SettingEmailLoginEnabled  = "email_login_enabled"
+	SettingAppName            = "app_name"
+	SettingAppDescription     = "app_description"
+	SettingAppLogoURL         = "app_logo_url"
+	SettingDeveloperName      = "developer_name"
+	SettingContactEmail       = "contact_email"
+	SettingContactWebsite     = "contact_website"
+	SettingAppFeatures        = "app_features"
 )
