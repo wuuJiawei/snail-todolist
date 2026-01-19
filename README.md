@@ -167,7 +167,34 @@
 
   ## 部署
 
-  ### Vercel（推荐）
+  ### Docker 部署（推荐用于自托管）
+
+  #### 快速开始
+
+  ```bash
+  # 1. 克隆仓库
+  git clone https://github.com/wuuJiawei/snail-todolist.git
+  cd snail-todolist
+
+  # 2. 一键部署
+  ./scripts/quick-deploy.sh
+  ```
+
+  访问 http://localhost 即可使用！
+
+  #### 使用 Docker Hub 镜像
+
+  ```bash
+  # 使用 Docker Compose（推荐）
+  docker-compose up -d
+  ```
+
+  详细文档：
+  - [Docker 快速部署指南](./docs/DOCKER_DEPLOY_SIMPLE.md)
+  - [Docker 完整部署文档](./docs/DOCKER_DEPLOYMENT.md)
+  - [Docker 构建指南](./docs/DOCKER_BUILD_GUIDE.md)
+
+  ### Vercel 部署
   1. Fork 或 Clone 本仓库到你的 GitHub 账号。
   2. 登录 [Vercel](https://vercel.com) 并导入项目。
   3. 在 **Project → Settings → Environment Variables** 中添加：
