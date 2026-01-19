@@ -48,3 +48,8 @@ supabase/config.toml
 # Server build artifacts
 server/tmp/
 server/uploads/
+
+# Wails build artifacts
+build/
+*.syso
+wails_build.log

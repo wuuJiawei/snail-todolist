@@ -1,26 +1,148 @@
-## 桌面客户端（Tauri）开发与打包
+# 开发环境搭建指南
 
-前置：已安装 Rust（stable）与 Xcode CLT（macOS）。
+## 桌面客户端（Wails）开发与打包
 
-- 本地开发（桌面窗口 + Vite dev server）
+### 前置要求
+- **Go 1.21+**: [下载安装](https://go.dev/dl/)
+- **Node.js 18+**: [下载安装](https://nodejs.org/)
+- **Wails CLI**: 
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@latest
+  ```
+- **系统 WebView**:
+  - Windows: WebView2 Runtime（Windows 10/11 通常已预装）
+  - macOS: 系统自带 WebKit
+  - Linux: webkit2gtk
+    ```bash
+    # Debian/Ubuntu
+    sudo apt install webkit2gtk-4.0-dev
+    
+    # Fedora
+    sudo dnf install webkit2gtk3-devel
+    
+    # Arch
+    sudo pacman -S webkit2gtk
+    ```
 
+### 本地开发
+
+1. 克隆项目并安装依赖：
 ```bash
-npm run tauri:dev
+git clone https://github.com/wuuJiawei/snail-todolist.git
+cd snail-todolist
+npm install
 ```
 
-- 生产打包（生成未签名安装包）
-
+2. 启动桌面应用开发模式：
 ```bash
-npm run tauri:build
+npm run wails:dev
 ```
 
-产物目录：`src-tauri/target/release/bundle/`
+这将启动：
+- Vite 开发服务器（http://localhost:8080）
+- Wails 桌面窗口（自动连接到 Vite）
+- 前端热重载功能
 
-注意：
-- macOS 未签名首次运行需要在“系统设置 -> 安全性与隐私”允许。
-- Windows 可能提示来源不明，手动允许后可继续。
+### 生产打包
 
-CI：已配置 `.github/workflows/tauri-build.yml`，对 macOS/Windows/Linux 构建未签名包并上传为 artifacts。
+构建当前平台的可执行文件：
+
+```bash
+npm run wails:build
+```
+
+构建特定平台：
+
+```bash
+npm run build:macos    # macOS Universal Binary
+npm run build:windows  # Windows amd64
+npm run build:linux    # Linux amd64
+```
+
+产物目录：`build/bin/`
+
+### 平台特定注意事项
+
+#### macOS
+- **未签名应用**：首次运行需要解除隔离
+  ```bash
+  xattr -cr "/Applications/SnailTodoList.app"
+  ```
+- 或在"系统设置 → 隐私与安全性"中允许
+- **代码签名**（可选）：
+  ```bash
+  wails build -platform darwin/universal -codesign "Developer ID Application: Your Name"
+  ```
+
+#### Windows
+- 可能提示"Windows 已保护你的电脑"
+- 点击"更多信息" → "仍要运行"
+- **代码签名**（推荐）：使用 SignTool 和证书
+- **WebView2**：如果用户系统缺少，可以在安装包中包含 WebView2 Runtime
+
+#### Linux
+- 确保已安装 webkit2gtk 开发包
+- 某些发行版可能需要额外的依赖：
+  ```bash
+  sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev
+  ```
+
+### 开发工具
+
+#### 调试
+- 开发模式下可以打开 DevTools（右键 → 检查元素）
+- 查看控制台日志和网络请求
+- 使用 React DevTools 浏览器扩展
+
+#### 热重载
+- 修改前端代码会自动刷新应用窗口
+- 修改 Go 代码需要重启 `wails:dev`
+
+### CI/CD
+
+可配置 GitHub Actions 自动构建多平台版本：
+
+```yaml
+name: Build Desktop App
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Build
+        run: npm run wails:build
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.platform }}-build
+          path: build/bin/
+```
+
+---
 
 # Supabase 数据库设置指南
 
@@ -82,6 +204,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 npm run dev
 ```
 
+测试以下功能：
 - 用户注册/登录
 - 创建任务
 - 项目管理
@@ -115,3 +238,39 @@ npm run dev
 ### 其他平台
 
 任何支持 Node.js 的平台都可以部署，只需正确设置环境变量即可。
+
+---
+
+# 离线模式开发
+
+离线模式使用 IndexedDB 存储数据，无需任何后端配置。
+
+## 快速开始
+
+1. 启动开发服务器：
+```bash
+npm run dev
+```
+
+2. 打开 http://localhost:5173
+
+3. 在登录页点击"离线模式"按钮
+
+## 数据存储
+
+离线模式的数据存储在浏览器的 IndexedDB 中：
+- 数据库名称：`snail-todolist-offline`
+- 存储对象：tasks, projects, tags, checkin_records
+
+## 调试
+
+使用浏览器的开发者工具查看 IndexedDB：
+- Chrome/Edge: DevTools → Application → Storage → IndexedDB
+- Firefox: DevTools → Storage → IndexedDB
+
+## 数据迁移
+
+在线/离线模式的数据完全隔离，通过导入导出功能迁移：
+1. 在当前模式下导出数据（设置 → 数据管理 → 导出）
+2. 切换到目标模式
+3. 导入之前导出的数据包
