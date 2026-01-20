@@ -2,7 +2,7 @@
 # 包含 PostgreSQL + Go Server + React Web
 
 # 构建后端
-FROM golang:1.21-alpine AS server-builder
+FROM golang:1.24-alpine AS server-builder
 
 WORKDIR /app/server
 COPY server/go.mod server/go.sum ./
