@@ -4,6 +4,10 @@
 # 构建后端
 FROM golang:1.24-alpine AS server-builder
 
+# 配置 Go 代理（国内加速）
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GOSUMDB=sum.golang.google.cn
+
 WORKDIR /app/server
 COPY server/go.mod server/go.sum ./
 RUN go mod download
@@ -14,9 +18,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o snail-server main.go
 # 构建前端
 FROM node:20-alpine AS web-builder
 
+# 配置 npm/pnpm 镜像（国内加速）
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install -g pnpm && \
+    pnpm config set registry https://registry.npmmirror.com
+
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 # 设置生产环境变量

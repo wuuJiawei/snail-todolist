@@ -1,5 +1,16 @@
 version: '3.8'
 
+# 注意：Docker 镜像加速需要在服务器上配置 Docker daemon
+# 编辑 /etc/docker/daemon.json，添加：
+# {
+#   "registry-mirrors": [
+#     "https://docker.mirrors.ustc.edu.cn",
+#     "https://hub-mirror.c.163.com",
+#     "https://mirror.baidubce.com"
+#   ]
+# }
+# 然后重启 Docker: systemctl restart docker
+
 services:
   # PostgreSQL 数据库
   db:
