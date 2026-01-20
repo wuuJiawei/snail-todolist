@@ -45,8 +45,8 @@ COPY --from=server-builder /app/server/snail-server /app/server/snail-server
 COPY --from=web-builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/http.d/default.conf
 
-# 复制数据库迁移文件
-COPY sql_migrations /app/sql_migrations
+## NOTE: `sql_migrations/` contains legacy Supabase-oriented SQL (auth.users/RLS/realtime).
+## The Go server uses GORM AutoMigrate on startup, so we don't ship/apply these here.
 
 # 创建必要的目录
 RUN mkdir -p /var/log/supervisor /run/nginx /var/lib/nginx/tmp
@@ -139,15 +139,6 @@ su-exec postgres psql -v ON_ERROR_STOP=0 <<-EOSQL
     SELECT 'CREATE DATABASE snail' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'snail')\gexec
     ALTER USER postgres WITH PASSWORD '${POSTGRES_PASSWORD}';
 EOSQL
-
-# 运行数据库迁移
-echo "Running database migrations..."
-for migration in /app/sql_migrations/*.sql; do
-    if [ -f "$migration" ]; then
-        echo "Applying migration: $(basename $migration)"
-        su-exec postgres psql -d snail -f "$migration" 2>&1 | grep -v "already exists" || true
-    fi
-done
 
 # 停止临时 PostgreSQL
 echo "Stopping temporary PostgreSQL..."

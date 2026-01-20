@@ -67,13 +67,13 @@
   ├── config/              # 存储模式配置
   ├── contexts/            # Auth、Task、Project 等全局上下文
   ├── hooks/               # 自定义 Hooks
-  ├── integrations/        # Supabase client 等集成
+  ├── integrations/        # 第三方集成（已移除 Supabase 相关）
   ├── lib/                 # 公共工具与样式辅助
   ├── queries/             # TanStack Query 配置与 keys
   ├── services/            # API 调用与数据传输服务
   ├── storage/             # 存储抽象层
   │   ├── indexeddb/       # IndexedDB 适配器
-  │   ├── supabase/        # Supabase 适配器
+  │   ├── online/          # 在线模式适配器（Go Server）
   │   └── types.ts         # 存储接口定义
   ├── store/               # Zustand store 定义
   ├── utils/               # 辅助函数与常量

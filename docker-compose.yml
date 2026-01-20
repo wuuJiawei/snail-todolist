@@ -12,7 +12,6 @@ services:
       POSTGRES_DB: snail
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./sql_migrations:/docker-entrypoint-initdb.d
     ports:
       - "${DB_PORT:-5432}:5432"
     healthcheck:
