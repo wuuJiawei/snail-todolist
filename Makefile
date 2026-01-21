@@ -1,4 +1,4 @@
-.PHONY: help docker-build docker-push docker-test docker-all docker-clean
+.PHONY: help docker-build docker-push docker-test docker-all docker-clean dev dev-all build test compose-up compose-down compose-logs
 
 # 默认目标
 help:
@@ -10,6 +10,13 @@ help:
 	@echo "  make docker-push     - 推送到 Docker Hub"
 	@echo "  make docker-all      - 构建、测试并推送"
 	@echo "  make docker-clean    - 清理 Docker 镜像和容器"
+	@echo "  make dev             - 启动前端开发服务器"
+	@echo "  make dev-all         - 启动前端和后端开发服务器"
+	@echo "  make build           - 构建前端"
+	@echo "  make test            - 运行测试"
+	@echo "  make compose-up      - 启动 Docker Compose"
+	@echo "  make compose-down    - 停止 Docker Compose"
+	@echo "  make compose-logs    - 查看 Docker Compose 日志"
 	@echo ""
 	@echo "环境变量:"
 	@echo "  DOCKER_USERNAME      - Docker Hub 用户名"
@@ -43,9 +50,13 @@ docker-clean:
 	@docker images | grep snail-todolist | awk '{print $$3}' | xargs -r docker rmi -f || true
 	@echo "✓ 清理完成"
 
-# 本地开发
+# 本地开发 (仅前端)
 dev:
 	@cd web && pnpm dev
+
+# 本地开发 (前端 + 后端)
+dev-all:
+	@./scripts/dev.sh
 
 # 构建前端
 build:
