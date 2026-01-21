@@ -1,9 +1,11 @@
 package service
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"snail-server/internal/model"
 	"snail-server/internal/repository"
@@ -41,14 +43,14 @@ func NewMigrationService(
 
 // ExportData 导出数据结构
 type ExportData struct {
-	ExportedAt       time.Time              `json:"exported_at"`
-	Version          string                 `json:"version"`
-	Lists            []model.List           `json:"lists"`
-	Tasks            []model.Task           `json:"tasks"`
-	Tags             []model.Tag            `json:"tags"`
-	TaskTags         []model.TaskTag        `json:"task_tags"`
+	ExportedAt       time.Time               `json:"exported_at"`
+	Version          string                  `json:"version"`
+	Lists            []model.List            `json:"lists"`
+	Tasks            []model.Task            `json:"tasks"`
+	Tags             []model.Tag             `json:"tags"`
+	TaskTags         []model.TaskTag         `json:"task_tags"`
 	PomodoroSessions []model.PomodoroSession `json:"pomodoro_sessions"`
-	TaskActivities   []model.TaskActivity   `json:"task_activities"`
+	TaskActivities   []model.TaskActivity    `json:"task_activities"`
 }
 
 // ImportDataInput 导入数据输入
@@ -70,17 +72,22 @@ type ImportList struct {
 }
 
 type ImportTask struct {
-	ID          string  `json:"id"`
-	ListID      string  `json:"list_id"`
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Status      string  `json:"status"`
-	DueDate     *string `json:"due_date"`
-	Completed   bool    `json:"completed"`
-	CompletedAt *string `json:"completed_at"`
-	Flagged     bool    `json:"flagged"`
-	Icon        string  `json:"icon"`
-	SortOrder   int     `json:"sort_order"`
+	ID          string                 `json:"id"`
+	ListID      string                 `json:"list_id"`
+	Title       string                 `json:"title"`
+	Description string                 `json:"description"`
+	Status      string                 `json:"status"`
+	DueDate     *string                `json:"due_date"`
+	Completed   bool                   `json:"completed"`
+	CompletedAt *string                `json:"completed_at"`
+	Flagged     bool                   `json:"flagged"`
+	Icon        string                 `json:"icon"`
+	SortOrder   int                    `json:"sort_order"`
+	Deleted     bool                   `json:"deleted"`
+	DeletedAt   *string                `json:"deleted_at"`
+	Abandoned   bool                   `json:"abandoned"`
+	AbandonedAt *string                `json:"abandoned_at"`
+	Attachments []model.TaskAttachment `json:"attachments"`
 }
 
 type ImportTag struct {
@@ -107,12 +114,34 @@ type ImportPomodoroSession struct {
 
 // ImportResult 导入结果
 type ImportResult struct {
-	ListsImported    int            `json:"lists_imported"`
-	TasksImported    int            `json:"tasks_imported"`
-	TagsImported     int            `json:"tags_imported"`
-	TaskTagsImported int            `json:"task_tags_imported"`
-	PomodorosImported int           `json:"pomodoros_imported"`
-	IDMapping        map[string]string `json:"id_mapping"`
+	ListsImported     int               `json:"lists_imported"`
+	TasksImported     int               `json:"tasks_imported"`
+	TagsImported      int               `json:"tags_imported"`
+	TaskTagsImported  int               `json:"task_tags_imported"`
+	PomodorosImported int               `json:"pomodoros_imported"`
+	IDMapping         map[string]string `json:"id_mapping"`
+}
+
+// parseTimePtr tries multiple layouts commonly used by the web client/offline backup.
+// Returns nil when parsing fails to keep import best-effort.
+func parseTimePtr(value *string) *time.Time {
+	if value == nil {
+		return nil
+	}
+
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+	}
+
+	for _, layout := range layouts {
+		if parsed, err := time.Parse(layout, *value); err == nil {
+			return &parsed
+		}
+	}
+
+	return nil
 }
 
 // ExportUserData 导出用户全部数据
@@ -165,12 +194,20 @@ func (s *MigrationService) ExportUserData(userID uuid.UUID) (*ExportData, error)
 }
 
 // ImportUserData 导入用户数据
-func (s *MigrationService) ImportUserData(userID uuid.UUID, input *ImportDataInput) (*ImportResult, error) {
+// replaceExisting: true 时会在导入前清空用户的现有数据，用于离线/旧版本迁移
+func (s *MigrationService) ImportUserData(userID uuid.UUID, input *ImportDataInput, replaceExisting bool) (*ImportResult, error) {
 	result := &ImportResult{
 		IDMapping: make(map[string]string),
 	}
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// 清空现有数据（可选）
+		if replaceExisting {
+			if err := s.deleteUserData(tx, userID); err != nil {
+				return err
+			}
+		}
+
 		listIDMap := make(map[string]uuid.UUID)
 		for _, l := range input.Lists {
 			newID := uuid.New()
@@ -219,27 +256,39 @@ func (s *MigrationService) ImportUserData(userID uuid.UUID, input *ImportDataInp
 				continue
 			}
 
+			// 默认状态：兼容旧备份文件未显式提供 status
+			status := model.TaskStatus(t.Status)
+			if status == "" {
+				if t.Completed {
+					status = model.TaskStatusDone
+				} else {
+					status = model.TaskStatusTodo
+				}
+			}
+
 			task := &model.Task{
 				ID:          newID,
 				ListID:      listID,
 				UserID:      userID,
 				Title:       t.Title,
 				Description: t.Description,
-				Status:      model.TaskStatus(t.Status),
+				Status:      status,
 				Completed:   t.Completed,
 				Flagged:     t.Flagged,
 				Icon:        t.Icon,
 				SortOrder:   t.SortOrder,
+				Deleted:     t.Deleted,
+				Abandoned:   t.Abandoned,
 			}
 
-			if t.DueDate != nil {
-				if parsed, err := time.Parse(time.RFC3339, *t.DueDate); err == nil {
-					task.DueDate = &parsed
-				}
-			}
-			if t.CompletedAt != nil {
-				if parsed, err := time.Parse(time.RFC3339, *t.CompletedAt); err == nil {
-					task.CompletedAt = &parsed
+			task.DueDate = parseTimePtr(t.DueDate)
+			task.CompletedAt = parseTimePtr(t.CompletedAt)
+			task.DeletedAt = parseTimePtr(t.DeletedAt)
+			task.AbandonedAt = parseTimePtr(t.AbandonedAt)
+
+			if len(t.Attachments) > 0 {
+				if data, err := json.Marshal(t.Attachments); err == nil {
+					task.Attachments = datatypes.JSON(data)
 				}
 			}
 
@@ -278,14 +327,14 @@ func (s *MigrationService) ImportUserData(userID uuid.UUID, input *ImportDataInp
 				Type:     model.PomodoroSessionType(p.Type),
 			}
 
-			if parsed, err := time.Parse(time.RFC3339, p.StartedAt); err == nil {
-				session.StartTime = parsed
+			if parsed := parseTimePtr(&p.StartedAt); parsed != nil {
+				session.StartTime = *parsed
+			} else {
+				session.StartTime = time.Now()
 			}
-			if p.CompletedAt != nil {
-				if parsed, err := time.Parse(time.RFC3339, *p.CompletedAt); err == nil {
-					session.EndTime = &parsed
-					session.Completed = true
-				}
+			if parsed := parseTimePtr(p.CompletedAt); parsed != nil {
+				session.EndTime = parsed
+				session.Completed = true
 			}
 
 			if err := tx.Create(session).Error; err != nil {
@@ -303,4 +352,33 @@ func (s *MigrationService) ImportUserData(userID uuid.UUID, input *ImportDataInp
 	}
 
 	return result, nil
+}
+
+// deleteUserData 删除用户相关的任务/清单/标签/番茄钟/活动数据
+func (s *MigrationService) deleteUserData(tx *gorm.DB, userID uuid.UUID) error {
+	// 任务活动
+	if err := tx.Where("user_id = ?", userID).Delete(&model.TaskActivity{}).Error; err != nil {
+		return err
+	}
+	// 任务标签关联
+	if err := tx.Where("task_id in (select id from tasks where user_id = ?)", userID).Delete(&model.TaskTag{}).Error; err != nil {
+		return err
+	}
+	// 任务
+	if err := tx.Where("user_id = ?", userID).Delete(&model.Task{}).Error; err != nil {
+		return err
+	}
+	// 标签
+	if err := tx.Where("user_id = ?", userID).Delete(&model.Tag{}).Error; err != nil {
+		return err
+	}
+	// 清单
+	if err := tx.Where("user_id = ?", userID).Delete(&model.List{}).Error; err != nil {
+		return err
+	}
+	// 番茄钟
+	if err := tx.Where("user_id = ?", userID).Delete(&model.PomodoroSession{}).Error; err != nil {
+		return err
+	}
+	return nil
 }
