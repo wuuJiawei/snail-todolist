@@ -1,0 +1,94 @@
+/* 简化的emoji选择器滚动修复 */
+.emoji-picker-container {
+  /* 确保容器可以正常滚动 */
+  overflow: visible;
+}
+
+/* 强制所有内部元素允许滚轮事件 */
+.emoji-picker-container * {
+  pointer-events: auto !important;
+}
+
+/* 主要滚动区域修复 */
+.emoji-picker-container .epr-body,
+.emoji-picker-container .epr-emoji-list {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  pointer-events: auto !important;
+}
+
+/* 确保可以接收wheel事件 */
+.emoji-picker-container .EmojiPickerReact {
+  touch-action: auto !important;
+}
+
+/* 优化滚动条样式 */
+.emoji-picker-container .epr-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.emoji-picker-container .epr-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.emoji-picker-container .epr-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.emoji-picker-container .epr-body::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 修复emoji选择器的滚动问题 - 使用更准确的选择器 */
+.emoji-picker-container .EmojiPickerReact {
+  position: relative;
+  z-index: 1000;
+}
+
+/* 主要的emoji列表滚动区域 */
+.emoji-picker-container .EmojiPickerReact .epr-emoji-category-list,
+.emoji-picker-container .EmojiPickerReact .epr-body,
+.emoji-picker-container .EmojiPickerReact .epr-emoji-list {
+  scroll-behavior: smooth;
+  pointer-events: auto !important;
+  /* 强制启用滚轮事件 */
+  overscroll-behavior: contain;
+}
+
+/* 确保emoji网格容器可以滚动 */
+.emoji-picker-container .EmojiPickerReact .epr-emoji-category,
+.emoji-picker-container .EmojiPickerReact .epr-emoji-grid {
+  pointer-events: auto !important;
+  /* 重要：允许滚轮事件穿透 */
+  touch-action: pan-y;
+}
+
+/* 修复可能被Popover影响的事件 */
+.emoji-picker-container .EmojiPickerReact * {
+  touch-action: auto !important;
+}
+
+/* 修复Popover可能导致的滚动问题 */
+.emoji-picker-container {
+  /* 确保Popover内容可以接收滚轮事件 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* 强制覆盖可能的其他样式 */
+.emoji-picker-container .EmojiPickerReact .epr-body {
+  overflow: auto !important;
+  height: auto !important;
+  max-height: 350px !important;
+}
+
+/* Firefox的滚动修复 */
+@-moz-document url-prefix() {
+  .emoji-picker-container .EmojiPickerReact .epr-body,
+  .emoji-picker-container .EmojiPickerReact .epr-emoji-list {
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+  }
+} 

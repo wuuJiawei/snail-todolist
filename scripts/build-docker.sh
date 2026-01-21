@@ -53,13 +53,13 @@ read -p "请输入选项 (1-4): " BUILD_TYPE
 case $BUILD_TYPE in
     1)
         echo -e "${GREEN}构建 All-in-One 镜像...${NC}"
-        docker build -t "${FULL_IMAGE_NAME}:${VERSION}" -f Dockerfile .
+        docker build -t "${FULL_IMAGE_NAME}:${VERSION}" -f docker/Dockerfile .
         docker tag "${FULL_IMAGE_NAME}:${VERSION}" "${FULL_IMAGE_NAME}:latest"
         echo -e "${GREEN}✓ All-in-One 镜像构建完成${NC}"
         ;;
     2)
         echo -e "${GREEN}构建 Web 镜像...${NC}"
-        docker build -t "${FULL_IMAGE_NAME}-web:${VERSION}" -f Dockerfile.web .
+        docker build -t "${FULL_IMAGE_NAME}-web:${VERSION}" -f docker/Dockerfile.web .
         docker tag "${FULL_IMAGE_NAME}-web:${VERSION}" "${FULL_IMAGE_NAME}-web:latest"
         echo -e "${GREEN}✓ Web 镜像构建完成${NC}"
         ;;
@@ -73,11 +73,11 @@ case $BUILD_TYPE in
         echo -e "${GREEN}构建所有镜像...${NC}"
         
         echo -e "${YELLOW}[1/3] 构建 All-in-One 镜像...${NC}"
-        docker build -t "${FULL_IMAGE_NAME}:${VERSION}" -f Dockerfile .
+        docker build -t "${FULL_IMAGE_NAME}:${VERSION}" -f docker/Dockerfile .
         docker tag "${FULL_IMAGE_NAME}:${VERSION}" "${FULL_IMAGE_NAME}:latest"
         
         echo -e "${YELLOW}[2/3] 构建 Web 镜像...${NC}"
-        docker build -t "${FULL_IMAGE_NAME}-web:${VERSION}" -f Dockerfile.web .
+        docker build -t "${FULL_IMAGE_NAME}-web:${VERSION}" -f docker/Dockerfile.web .
         docker tag "${FULL_IMAGE_NAME}-web:${VERSION}" "${FULL_IMAGE_NAME}-web:latest"
         
         echo -e "${YELLOW}[3/3] 构建 Server 镜像...${NC}"

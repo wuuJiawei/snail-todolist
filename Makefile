@@ -45,24 +45,24 @@ docker-clean:
 
 # 本地开发
 dev:
-	@pnpm dev
+	@cd web && pnpm dev
 
 # 构建前端
 build:
-	@pnpm build
+	@cd web && pnpm build
 
 # 运行测试
 test:
-	@pnpm test
+	@cd web && pnpm test
 
 # 启动 Docker Compose
 compose-up:
-	@docker-compose up -d
+	@docker-compose -f docker/docker-compose.yml up -d
 
 # 停止 Docker Compose
 compose-down:
-	@docker-compose down
+	@docker-compose -f docker/docker-compose.yml down
 
 # 查看 Docker Compose 日志
 compose-logs:
-	@docker-compose logs -f
+	@docker-compose -f docker/docker-compose.yml logs -f

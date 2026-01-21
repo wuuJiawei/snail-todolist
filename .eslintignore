@@ -1,8 +1,0 @@
-node_modules/
-dist/
-.history/
-**/.history/
-build/
-*.min.js
-src-tauri/target/
-src-tauri/

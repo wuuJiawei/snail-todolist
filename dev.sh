@@ -52,9 +52,12 @@ sleep 1
 
 # 启动 Web (Vite)
 echo -e "${BLUE}[Web]${NC} 启动 Vite 开发服务器..."
-npm run dev 2>&1 | while IFS= read -r line; do
-    echo -e "${BLUE}[Web]${NC} $line"
-done &
+(
+    cd web
+    npm run dev 2>&1 | while IFS= read -r line; do
+        echo -e "${BLUE}[Web]${NC} $line"
+    done
+) &
 WEB_PID=$!
 
 echo -e "\n${CYAN}========================================${NC}"

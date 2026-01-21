@@ -83,10 +83,10 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# 启动服务
+# 启动 Docker Compose 服务
 echo ""
 echo -e "${GREEN}启动 Docker Compose 服务...${NC}"
-docker-compose up -d
+docker-compose -f docker/docker-compose.yml up -d
 
 # 等待服务启动
 echo ""
@@ -96,7 +96,7 @@ sleep 10
 # 检查服务状态
 echo ""
 echo -e "${GREEN}服务状态:${NC}"
-docker-compose ps
+docker-compose -f docker/docker-compose.yml ps
 
 echo ""
 echo -e "${GREEN}=== 部署完成 ===${NC}"
@@ -106,9 +106,9 @@ echo "  前端: http://localhost"
 echo "  后端: http://localhost:23333"
 echo ""
 echo -e "${YELLOW}常用命令:${NC}"
-echo "  查看日志: docker-compose logs -f"
-echo "  停止服务: docker-compose down"
-echo "  重启服务: docker-compose restart"
+echo "  查看日志: docker-compose -f docker/docker-compose.yml logs -f"
+echo "  停止服务: docker-compose -f docker/docker-compose.yml down"
+echo "  重启服务: docker-compose -f docker/docker-compose.yml restart"
 echo ""
 echo -e "${YELLOW}查看实时日志:${NC}"
-docker-compose logs -f
+docker-compose -f docker/docker-compose.yml logs -f

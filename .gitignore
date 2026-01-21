@@ -8,7 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+/web/dist
+/desktop/build
 dist-ssr
 *.local
 
@@ -50,6 +51,11 @@ server/tmp/
 server/uploads/
 
 # Wails build artifacts
-build/
 *.syso
 wails_build.log
+
+# Migration artifacts
+.migration-backup/
+migration-*.log
+rollback-*.log
+validation-report-*.md

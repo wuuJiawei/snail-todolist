@@ -1,0 +1,97 @@
+version: '3.8'
+
+# 注意：Docker 镜像加速需要在服务器上配置 Docker daemon
+# 编辑 /etc/docker/daemon.json，添加：
+# {
+#   "registry-mirrors": [
+#     "https://docker.mirrors.ustc.edu.cn",
+#     "https://hub-mirror.c.163.com",
+#     "https://mirror.baidubce.com"
+#   ]
+# }
+# 然后重启 Docker: systemctl restart docker
+
+services:
+  # PostgreSQL 数据库
+  db:
+    image: postgres:15-alpine
+    container_name: snail-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: snail
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - snail-network
+
+  # Go 后端服务
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: snail-server
+    restart: unless-stopped
+    environment:
+      PORT: 23333
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/snail?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
+      JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS:-72}
+      SERVER_MODE: ${SERVER_MODE:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    ports:
+      - "${SERVER_PORT:-23333}:23333"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - snail-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:23333/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # React 前端（生产构建）
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:23333}
+        VITE_STORAGE_MODE: online
+    container_name: snail-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+    depends_on:
+      - server
+    networks:
+      - snail-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  snail-network:
+    driver: bridge
