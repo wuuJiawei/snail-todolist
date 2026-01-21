@@ -1,250 +1,192 @@
-<div>
-  <img src="./public/logo.png" alt="Snail TodoList Logo" width="120" height="120" />
+# Snail TodoList
 
-  # 🐌 Snail TodoList
+<img align="right" height="96px" src="./public/logo.png" alt="Snail TodoList" />
 
-  Snail TodoList 是一款开源、可自部署的任务管理应用，面向个人与小团队。项目默认无广告、无订阅、无追踪，不做数据分析，不采集你的行为。你既可以使用云端（Supabase）协作，也可以启用纯本地离线（IndexedDB）模式，把数据完全掌控在自己手里。
+一个开源、可自部署的任务管理应用。你的任务，你的数据，你来掌控 — 无追踪、无广告、无订阅费用。
 
-  ## 我们的承诺
-  1. **隐私优先**：不做追踪、不上报统计、不采集任何行为数据。
-  2. **极速体验**：本地优先架构，任务再多也保持流畅。
-  3. **内容可携带**：Markdown 书写 + 导入导出，数据长期可用。
-  4. **部署自由**：从树莓派到云服务器，几分钟即可上线。
-  5. **真正开源**：MIT 许可，代码透明，可审计可贡献。
-  6. **永久免费**：没有订阅、没有增值墙、没有隐藏收费。
+[![主页](https://img.shields.io/badge/🏠-项目主页-blue?style=flat-square)](https://github.com/wuuJiawei/snail-todolist)
+[![在线演示](https://img.shields.io/badge/✨-在线体验-orange?style=flat-square)](https://snail-todolist.vercel.app)
+[![文档](https://img.shields.io/badge/📚-使用文档-green?style=flat-square)](./docs)
+[![Docker](https://img.shields.io/docker/pulls/wujiawei0926/snail-todolist?style=flat-square&logo=docker)](https://hub.docker.com/r/wujiawei0926/snail-todolist)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](./LICENSE)
 
-  ---
+<img src="./docs/screenshots/snailtodo-screenshot-1.png" alt="Snail TodoList 演示截图" width="100%" />
 
-  ## ✨ 功能概览
+## 概述
 
-  ### 核心功能
-  - 任务管理：新增、编辑、完成、放弃、恢复，支持项目分组与排序
-  - 日期视图：快速查看"今天""最近 7 天"，按需筛选逾期任务
-  - 标签体系：支持标签增删、过滤、跨项目复用
-  - 富文本详情：Milkdown 提供 Markdown 编辑、图片上传、代码块等能力
-  - 打卡与统计：内置打卡日历、连续天数统计、总次数概览
-  - 深浅色主题 + 响应式布局，桌面与移动端体验一致
+Snail TodoList 是一个注重隐私、可自托管的任务管理工具，适用于个人待办、团队协作和项目管理。采用 React + TypeScript 前端和 Go 后端构建，提供流畅的使用体验，同时保证数据完全由你掌控。
 
-  ### 🆕 离线模式
-  - **完全本地存储**：使用 IndexedDB 存储所有数据，无需网络连接
-  - **无需登录**：离线模式下可直接使用，无需注册账号
-  - **用户可控切换**：在登录页点击"离线模式"按钮，或在设置中随时切换
-  - **数据隔离**：在线/离线数据完全独立，通过导入导出进行迁移
-  - **桌面端支持**：Wails 桌面客户端完美支持离线模式
+**为什么选择 Snail TodoList 而不是云服务？**
 
-  ### 🆕 数据导入导出
-  - **一键导出**：将所有清单、任务、标签导出为 ZIP 压缩包
-  - **灵活导入**：支持"合并"或"替换"两种导入模式
-  - **跨模式迁移**：在线/离线模式间自由迁移数据
-  - **进度显示**：导入导出过程实时显示进度
+| 特性           | Snail TodoList              | 云服务                    |
+| -------------- | --------------------------- | ------------------------- |
+| **隐私保护**   | ✅ 自托管，零遥测           | ❌ 数据存储在第三方服务器 |
+| **成本**       | ✅ 永久免费，MIT 许可       | ❌ 订阅费用               |
+| **性能**       | ✅ 本地运行，即时响应       | ⚠️ 依赖网络连接           |
+| **数据所有权** | ✅ 完全控制与导出           | ❌ 供应商锁定             |
+| **离线使用**   | ✅ 完整的离线模式           | ❌ 需要网络连接           |
+| **定制化**     | ✅ 开源，可自由修改         | ❌ 封闭生态               |
 
-  ---
+## 核心特性
 
-  ## 🧱 技术栈
-  | 分类 | 使用技术 |
-  | --- | --- |
-  | 前端框架 | React 18 · TypeScript |
-  | 构建工具 | Vite |
-  | UI 体系 | shadcn/ui · Radix UI · Tailwind CSS |
-  | 状态与数据 | TanStack Query · Zustand · React Context |
-  | 后端服务 | Supabase（PostgreSQL · Auth · Storage · Realtime） |
-  | 本地存储 | IndexedDB（离线模式） |
-  | 富文本 & 日期 | Milkdown · react-day-picker · date-fns |
-  | 其它组件 | React Router 6 · React Hook Form · Recharts · JSZip |
-  | 桌面客户端 | Wails (Go) |
+### 🔒 隐私优先架构
+- 自托管在你的基础设施上，零遥测
+- 完整的数据所有权和导出能力
+- 无追踪、无广告、无供应商锁定
 
-  ---
+### 📝 Markdown 原生支持
+- 完整的 Markdown 编辑体验
+- 支持代码高亮、图片上传
+- 纯文本存储，数据随时可迁移
 
-  ## 📁 项目结构
-  ```text
-  src/
-  ├── components/
-  │   ├── checkin/         # 打卡模块
-  │   ├── settings/        # 设置页面组件
-  │   ├── sidebar/
-  │   ├── tasks/
-  │   └── ui/              # 基础 UI 封装
-  ├── config/              # 存储模式配置
-  ├── contexts/            # Auth、Task、Project 等全局上下文
-  ├── hooks/               # 自定义 Hooks
-  ├── integrations/        # 第三方集成（已移除 Supabase 相关）
-  ├── lib/                 # 公共工具与样式辅助
-  ├── queries/             # TanStack Query 配置与 keys
-  ├── services/            # API 调用与数据传输服务
-  ├── storage/             # 存储抽象层
-  │   ├── indexeddb/       # IndexedDB 适配器
-  │   ├── online/          # 在线模式适配器（Go Server）
-  │   └── types.ts         # 存储接口定义
-  ├── store/               # Zustand store 定义
-  ├── utils/               # 辅助函数与常量
-  └── pages/               # 路由页面
-  ```
+### 💾 双模式存储
+- **在线模式**：使用自建后端，支持多设备同步
+- **离线模式**：使用 IndexedDB 本地存储，无需网络
 
-  ---
+### ⚡ 极速体验
+- React 18 + TypeScript 构建的现代化前端
+- Go 语言后端，高性能低资源占用
+- 针对大量任务优化的性能表现
 
-  ## 🚀 快速开始
+### 🐳 简单部署
+- 一行命令 Docker 安装
+- 支持 PostgreSQL 数据库
+- 提供桌面客户端（Wails）
 
-  ### 方式一：离线模式（推荐新手）
+### 🎯 功能丰富
+- 项目分组与任务管理
+- 标签系统与智能过滤
+- 番茄钟计时器
+- 打卡日历与统计
+- 任务活动记录
+- 数据导入导出
 
-  无需配置后端，开箱即用：
+### 🎨 精美界面
+- 简洁现代的设计风格
+- 深色模式支持
+- 响应式布局，适配各种屏幕尺寸
 
-  ```bash
-  git clone https://github.com/wuuJiawei/snail-todolist.git
-  cd snail-todolist
-  npm install
-  npm run dev
-  ```
+## 快速开始
 
-  打开 <http://localhost:5173>，点击登录页的"离线模式"按钮即可开始使用。
+### Docker 部署（推荐）
 
-  ### 方式二：在线模式（Supabase）
+```bash
+# 克隆仓库
+git clone https://github.com/wuuJiawei/snail-todolist.git
+cd snail-todolist
 
-  #### 环境要求
-  - Node.js 18+
-  - npm / pnpm / yarn
-  - Supabase 项目（已启用数据库与 Storage）
+# 一键部署
+./scripts/quick-deploy.sh
+```
 
-  #### 初始化
-  ```bash
-  git clone https://github.com/wuuJiawei/snail-todolist.git
-  cd snail-todolist
-  npm install
-  cp .env.example .env
-  ```
+访问 `http://localhost` 即可开始使用！
 
-  在 `.env` 中设置：
-  ```dotenv
-  VITE_SUPABASE_URL=你的_supabase_url
-  VITE_SUPABASE_ANON_KEY=你的_supabase_anon_key
-  ```
+### 离线模式（无需后端）
 
-  #### 数据库设置
-  参考 `docs/SETUP.md`（如无，可在 Supabase 控制台创建下列数据表：`projects`、`tasks`、`tags`、`checkin_records` 等，并配置 RLS 规则与 Realtime）。
+```bash
+# 安装依赖
+npm install
 
-  #### 启动开发环境
-  ```bash
-  npm run dev
-  ```
-  默认运行在 <http://localhost:5173>。
+# 启动开发服务器
+npm run dev
+```
 
-  ---
+打开 `http://localhost:5173`，点击"离线模式"按钮即可使用。
 
-  ## 🔄 存储模式切换
+### 桌面客户端
 
-  ### 从登录页切换
-  - 点击"离线模式"按钮直接进入离线模式
-  - 使用账号登录则进入在线模式
+下载适用于你的操作系统的客户端：
 
-  ### 从设置页切换
-  1. 进入 设置 → 数据管理
-  2. 在"存储模式"区域切换开关
-  3. 确认切换（建议先导出数据）
-  4. 应用将自动重载
+- **macOS**: [下载 .dmg](https://github.com/wuuJiawei/snail-todolist/releases)
+- **Windows**: [下载 .exe](https://github.com/wuuJiawei/snail-todolist/releases)
+- **Linux**: [下载 .AppImage](https://github.com/wuuJiawei/snail-todolist/releases)
 
-  ### 数据迁移
-  在线/离线模式的数据完全隔离，需通过导入导出迁移：
-  1. 在当前模式下导出数据（设置 → 数据管理 → 导出）
-  2. 切换到目标模式
-  3. 导入之前导出的数据包
+### 其他部署方式
 
-  ---
+- **Docker Compose** - 适合生产环境部署
+- **Vercel** - 一键部署到 Vercel
+- **静态托管** - 部署到任何静态托管服务
+- **从源码构建** - 用于开发和定制
 
-  ## 📋 常用脚本
-  | 命令 | 说明 |
-  | --- | --- |
-  | `npm run dev` | 开发服务器 |
-  | `npm run build` | 生产构建 |
-  | `npm run preview` | 预览生产构建 |
-  | `npm run lint` | ESLint 检查 |
-  | `npm run test` | 运行测试 |
-  | `npm run wails:dev` | 桌面客户端调试 |
-  | `npm run wails:build` | 桌面客户端打包 |
-  | `npm run build:macos` | 构建 macOS 客户端 |
-  | `npm run build:windows` | 构建 Windows 客户端 |
-  | `npm run build:linux` | 构建 Linux 客户端 |
+查看我们的[部署文档](./docs/DOCKER_DEPLOY_SIMPLE.md)了解详细说明。
 
-  ---
+## 文档
 
-  ## 部署
+- 📖 [快速开始指南](./docs/DOCKER_DEPLOY_SIMPLE.md)
+- 🐳 [Docker 部署文档](./docs/DOCKER_DEPLOYMENT.md)
+- 🖥️ [桌面客户端指南](./docs/wails-guide.md)
+- 🔧 [开发环境搭建](./docs/SETUP.md)
+- 📦 [数据导入导出](./docs/DOCKER_DEPLOY_SIMPLE.md#数据备份)
 
-  ### Docker 部署（推荐用于自托管）
+## 技术栈
 
-  #### 快速开始
+**前端**
+- React 18 + TypeScript
+- Vite 构建工具
+- shadcn/ui + Radix UI 组件库
+- TailwindCSS 样式
+- Zustand 状态管理
+- TanStack Query 数据获取
 
-  ```bash
-  # 1. 克隆仓库
-  git clone https://github.com/wuuJiawei/snail-todolist.git
-  cd snail-todolist
+**后端**
+- Go 语言
+- PostgreSQL 数据库
+- RESTful API
 
-  # 2. 一键部署
-  ./scripts/quick-deploy.sh
-  ```
+**桌面客户端**
+- Wails (Go + WebView)
 
-  访问 http://localhost 即可使用！
+## 贡献
 
-  #### 使用 Docker Hub 镜像
+我们欢迎各种形式的贡献！无论是修复 bug、添加功能、改进文档还是帮助翻译 — 每一份贡献都很重要。
 
-  ```bash
-  # 使用 Docker Compose（推荐）
-  docker-compose up -d
-  ```
+**贡献方式：**
 
-  详细文档：
-  - [Docker 快速部署指南](./docs/DOCKER_DEPLOY_SIMPLE.md)
-  - [Docker 完整部署文档](./docs/DOCKER_DEPLOYMENT.md)
-  - [Docker 构建指南](./docs/DOCKER_BUILD_GUIDE.md)
+- 🐛 [报告 Bug](https://github.com/wuuJiawei/snail-todolist/issues/new)
+- 💡 [提出功能建议](https://github.com/wuuJiawei/snail-todolist/issues/new)
+- 🔧 [提交 Pull Request](https://github.com/wuuJiawei/snail-todolist/pulls)
+- 📖 [改进文档](https://github.com/wuuJiawei/snail-todolist/tree/main/docs)
+- 🌍 [帮助翻译](./src/locales)
 
-  ### Vercel 部署
-  1. Fork 或 Clone 本仓库到你的 GitHub 账号。
-  2. 登录 [Vercel](https://vercel.com) 并导入项目。
-  3. 在 **Project → Settings → Environment Variables** 中添加：
-     - `VITE_SUPABASE_URL`
-     - `VITE_SUPABASE_ANON_KEY`
-     分别填入 Supabase 项目的 URL 与 anon key，并确保在 Production / Preview / Development 环境都配置。
-  4. 点击 Deploy，稍待片刻即可访问线上版本。
+查看 [CONTRIBUTING.md](./CONTRIBUTING.md) 了解更多详情。
 
-  > 若部署后页面提示 "Missing VITE_SUPABASE_URL"，通常是环境变量未正确设置或未推送到所需环境。
-  >
-  > 💡 即使未配置 Supabase，用户仍可使用离线模式。
+## 路线图
 
-  ### 静态托管或自建服务器
-  - 运行 `npm run build` 生成 `dist/` 静态资源。
-  - 将 `dist/` 上传至 Netlify、Cloudflare Pages、GitHub Pages、S3/OSS 等平台，或自行托管于 Nginx/Apache。
+- [ ] 📱 移动端原生应用（iOS/Android）
+- [ ] 👥 团队协作功能
+- [ ] 📅 日历视图
+- [ ] 📋 子任务支持
+- [ ] 🔌 更多集成（Telegram、Slack 等）
+- [ ] 📖 API 文档和 SDK
+- [ ] 🌐 更多语言支持
+- [ ] 🔔 通知提醒功能
 
-  ### 桌面客户端（Wails）
-  
-  #### 环境要求
-  - Go 1.21+
-  - Wails CLI (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
-  - 系统 WebView（Windows 需要 WebView2，macOS/Linux 自带）
+查看 [Issues](https://github.com/wuuJiawei/snail-todolist/issues) 了解更多计划中的功能。
 
-  #### 开发模式
-  ```bash
-  npm run wails:dev
-  ```
-  
-  #### 构建
-  ```bash
-  # 构建当前平台
-  npm run wails:build
+## Star History
 
-  # 构建特定平台
-  npm run build:macos    # macOS (Universal)
-  npm run build:windows  # Windows (amd64)
-  npm run build:linux    # Linux (amd64)
-  ```
-  生成的可执行文件位于 `build/bin/` 目录。
+[![Star History Chart](https://api.star-history.com/svg?repos=wuuJiawei/snail-todolist&type=Date)](https://star-history.com/#wuuJiawei/snail-todolist&Date)
 
-  #### macOS 安全提醒
-  首次打开未签名的应用可能遇到 "应用已损坏，无法打开" 或 "无法验证开发者" 提示，可执行以下命令解除隔离：
-  ```bash
-  xattr -cr "/Applications/SnailTodoList.app"
-  ```
-  若安装路径不同，请替换为实际路径。之后重新打开应用即可。
+## 许可证
 
-  #### Windows 安全提醒
-  若被 Windows Defender 拦截：
-  1. 点击"更多信息"。
-  2. 选择"仍要运行"。
-  3. 可将程序添加至白名单，避免后续再次提示。
-</div>
+Snail TodoList 是根据 [MIT 许可证](LICENSE) 授权的开源软件。
+
+## 隐私政策
+
+Snail TodoList 以隐私为核心原则构建。作为自托管应用，所有数据都保存在你的基础设施上。没有遥测、没有追踪、没有数据收集。
+
+**我们的承诺：**
+- ✅ 不收集任何个人信息
+- ✅ 不使用任何追踪或分析工具
+- ✅ 不向第三方共享数据
+- ✅ 完全开源，代码可审计
+
+---
+
+**[项目主页](https://github.com/wuuJiawei/snail-todolist)** • **[在线演示](https://snail-todolist.vercel.app)** • **[使用文档](./docs)** • **[问题反馈](https://github.com/wuuJiawei/snail-todolist/issues)**
+
+---
+
+<p align="center">
+  <sub>用 ❤️ 构建 | Made with ❤️</sub>
+</p>
