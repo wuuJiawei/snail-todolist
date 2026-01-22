@@ -8,7 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+/web/dist
+/desktop/build
 dist-ssr
 *.local
 
@@ -44,3 +45,17 @@ supabase/.branches
 supabase/.temp
 supabase/logs
 supabase/config.toml
+
+# Server build artifacts
+server/tmp/
+server/uploads/
+
+# Wails build artifacts
+*.syso
+wails_build.log
+
+# Migration artifacts
+.migration-backup/
+migration-*.log
+rollback-*.log
+validation-report-*.md

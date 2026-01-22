@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "snail-todolist",
+  "outputfilename": "SnailTodoList",
+  "frontend:install": "cd ../web && npm install",
+  "frontend:build": "cd ../web && npm run build -- --outDir=../desktop/dist",
+  "frontend:dev:watcher": "cd ../web && npm run dev",
+  "frontend:dev:serverUrl": "http://localhost:8080",
+  "author": {
+    "name": "Snail Team",
+    "email": "team@snail-todolist.com"
+  },
+  "info": {
+    "companyName": "Snail",
+    "productName": "Snail TodoList",
+    "productVersion": "1.1.0",
+    "copyright": "Copyright © 2024 Snail Team",
+    "comments": "一个现代化、功能丰富的待办事项管理应用"
+  }
+}
