@@ -12,10 +12,20 @@ interface BlockNoteTextContent {
   };
 }
 
+interface BlockNoteBlockProps {
+  level?: number;
+  checked?: boolean;
+  language?: string;
+  url?: string;
+  caption?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
 interface BlockNoteBlock {
   id?: string;
   type: string;
-  props?: Record<string, any>;
+  props?: BlockNoteBlockProps;
   content?: BlockNoteTextContent[];
   children?: BlockNoteBlock[];
 }
@@ -114,6 +124,25 @@ function contentToMarkdown(content: BlockNoteTextContent[]): string {
   }).join('');
 }
 
+interface EditorJsBlockData {
+  text?: string;
+  level?: number;
+  items?: string[];
+  style?: string;
+  language?: string;
+  code?: string;
+  [key: string]: unknown;
+}
+
+interface EditorJsBlock {
+  type: string;
+  data?: EditorJsBlockData;
+}
+
+interface EditorJsContent {
+  blocks?: EditorJsBlock[];
+}
+
 /**
  * Create a simple markdown-like representation for legacy content
  */
@@ -124,20 +153,22 @@ export function createMarkdownFromLegacyContent(content: string): string {
 
   // Check if it's Editor.js format
   try {
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content) as EditorJsContent;
     if (parsed && parsed.blocks && Array.isArray(parsed.blocks)) {
       // Convert Editor.js to markdown
-      return parsed.blocks.map((block: any) => {
+      return parsed.blocks.map((block: EditorJsBlock) => {
         switch (block.type) {
           case 'paragraph':
             return block.data?.text || '';
-          case 'header':
+          case 'header': {
             const level = block.data?.level || 1;
             return `${'#'.repeat(level)} ${block.data?.text || ''}`;
-          case 'list':
+          }
+          case 'list': {
             const items = block.data?.items || [];
             const prefix = block.data?.style === 'ordered' ? '1.' : '-';
             return items.map((item: string) => `${prefix} ${item}`).join('\n');
+          }
           case 'code':
             return `\`\`\`${block.data?.language || ''}\n${block.data?.code || ''}\n\`\`\``;
           default:

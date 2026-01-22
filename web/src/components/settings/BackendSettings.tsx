@@ -39,7 +39,7 @@ function getCurrentMode(): StorageMode {
   return (import.meta.env.VITE_STORAGE_MODE as StorageMode) || 'online';
 }
 
-export default function BackendSettings() {
+export default function BackendSettings(): JSX.Element {
   const [apiUrl, setApiUrl] = useState(getApiBaseUrl());
   const [isOffline, setIsOffline] = useState(getCurrentMode() === 'offline');
   const [testing, setTesting] = useState(false);

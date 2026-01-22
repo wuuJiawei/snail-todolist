@@ -15,13 +15,13 @@ const mockEnv: Record<string, string | undefined> = {
 const originalEnv = { ...import.meta.env };
 
 // Helper to set env for tests
-export const setTestEnv = (key: string, value: string | undefined) => {
+export const setTestEnv = (key: string, value: string | undefined): void => {
   mockEnv[key] = value;
   (import.meta.env as Record<string, string | undefined>)[key] = value;
 };
 
 // Helper to reset env after tests
-export const resetTestEnv = () => {
+export const resetTestEnv = (): void => {
   Object.keys(mockEnv).forEach((key) => {
     (import.meta.env as Record<string, string | undefined>)[key] = originalEnv[key];
   });

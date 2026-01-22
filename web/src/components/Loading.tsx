@@ -13,7 +13,8 @@ interface LoadingProps {
   className?: string;
 }
 
-export const Loading: React.FC<LoadingProps> = ({ className }) => {
+function Loading(props: LoadingProps): JSX.Element {
+  const { className } = props;
   const [currentMessage, setCurrentMessage] = useState(messages[0]);
 
   useEffect(() => {
@@ -40,4 +41,6 @@ export const Loading: React.FC<LoadingProps> = ({ className }) => {
       <p className="mt-4 text-sm text-gray-500">{currentMessage}</p>
     </div>
   );
-};
+}
+
+export default Loading;

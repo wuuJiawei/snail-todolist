@@ -16,7 +16,9 @@ interface SearchStatsProps {
   query: string;
 }
 
-export const SearchStats: React.FC<SearchStatsProps> = ({ stats, query }) => {
+function SearchStats(props: SearchStatsProps): JSX.Element | null {
+  const { stats, query } = props;
+  
   if (!stats || !query) return null;
 
   const formatTime = (time: number) => {
@@ -109,4 +111,6 @@ export const SearchStats: React.FC<SearchStatsProps> = ({ stats, query }) => {
       </CardContent>
     </Card>
   );
-};
+}
+
+export default SearchStats;

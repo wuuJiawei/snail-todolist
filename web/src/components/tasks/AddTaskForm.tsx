@@ -32,7 +32,8 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) =>
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      const composing = (e.nativeEvent as any)?.isComposing || (e as any)?.isComposing || (e as any)?.keyCode === 229 || isComposingRef.current;
+      const nativeEvent = e.nativeEvent as CompositionEvent;
+      const composing = nativeEvent.isComposing || e.nativeEvent.isComposing || isComposingRef.current;
       if (composing) {
         e.preventDefault();
         return;

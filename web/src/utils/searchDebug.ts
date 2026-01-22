@@ -29,7 +29,7 @@ export function createTestTasks(): Task[] {
 }
 
 // 调试搜索功能
-export function debugSearch(query: string, tasks: Task[] = createTestTasks()) {
+export function debugSearch(query: string, tasks: Task[] = createTestTasks()): SearchMatch[] {
   console.group(`🔍 搜索调试: "${query}"`);
   
   // 1. 分词测试
@@ -72,7 +72,7 @@ export function debugSearch(query: string, tasks: Task[] = createTestTasks()) {
 }
 
 // 简单搜索测试
-export function testBasicSearch() {
+export function testBasicSearch(): void {
   const tasks = createTestTasks();
   
   console.group('🧪 基础搜索测试');
@@ -96,12 +96,20 @@ export function testBasicSearch() {
   console.groupEnd();
 }
 
+interface WindowWithDebugTools extends Window {
+  debugSearch?: typeof debugSearch;
+  createTestTasks?: typeof createTestTasks;
+  tokenize?: typeof tokenize;
+  testBasicSearch?: typeof testBasicSearch;
+}
+
 // 在浏览器控制台中使用
 if (typeof window !== 'undefined') {
-  (window as any).debugSearch = debugSearch;
-  (window as any).createTestTasks = createTestTasks;
-  (window as any).tokenize = tokenize;
-  (window as any).testBasicSearch = testBasicSearch;
+  const win = window as WindowWithDebugTools;
+  win.debugSearch = debugSearch;
+  win.createTestTasks = createTestTasks;
+  win.tokenize = tokenize;
+  win.testBasicSearch = testBasicSearch;
   
   console.log('🛠️ 搜索调试工具已加载！');
   console.log('使用方法:');

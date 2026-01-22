@@ -25,7 +25,7 @@ const DEFAULT_APP_INFO: AppInfo = {
   ],
 };
 
-const AboutSettings = () => {
+function AboutSettings(): JSX.Element {
   const [appInfo, setAppInfo] = useState<AppInfo>(DEFAULT_APP_INFO);
   const [version] = useState<AppVersion>(getAppVersion());
   const [loading, setLoading] = useState(true);
@@ -195,6 +195,6 @@ const AboutSettings = () => {
       </Card>
     </div>
   );
-};
+}
 
 export default AboutSettings;

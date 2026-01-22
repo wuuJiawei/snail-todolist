@@ -60,6 +60,25 @@ const tagArbitrary = fc.record({
 // Validates: Requirements 1.1, 1.2, 1.3, 1.4
 // ============================================
 
+interface MockStorage {
+  getProjects: () => Promise<Project[]>;
+  getTasks: () => Promise<Task[]>;
+  getTags: () => Promise<Tag[]>;
+  getTagsByTaskIds: (taskIds: string[]) => Promise<Record<string, Tag[]>>;
+  getProjectById?: (id: string) => Promise<Project | null>;
+  getTaskById?: (id: string) => Promise<Task | null>;
+  getTagById?: (id: string) => Promise<Tag | null>;
+  createProject?: (project: Partial<Project>) => Promise<Project>;
+  createTask?: (task: Partial<Task>) => Promise<Task>;
+  createTag?: (name: string, projectId: string | null) => Promise<Tag>;
+  attachTagToTask?: (taskId: string, tagId: string) => Promise<void>;
+  deleteProject?: (id: string) => Promise<boolean>;
+  deleteTask?: (id: string) => Promise<boolean>;
+  deleteTag?: (id: string) => Promise<boolean>;
+  updateProject?: (id: string, updates: Partial<Project>) => Promise<Project>;
+  updateTask?: (id: string, updates: Partial<Task>) => Promise<Task>;
+}
+
 describe('Property 1: Export Data Completeness', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -73,13 +92,13 @@ describe('Property 1: Export Data Completeness', () => {
         fc.array(tagArbitrary, { minLength: 0, maxLength: 10 }),
         async (projects, tasks, tags) => {
           // Setup mock storage
-          const mockStorage = {
+          const mockStorage: MockStorage = {
             getProjects: vi.fn().mockResolvedValue(projects),
             getTasks: vi.fn().mockResolvedValue(tasks),
             getTags: vi.fn().mockResolvedValue(tags),
             getTagsByTaskIds: vi.fn().mockResolvedValue({}),
           };
-          vi.mocked(getStorage).mockReturnValue(mockStorage as any);
+          vi.mocked(getStorage).mockReturnValue(mockStorage as never);
 
           // Export data using createBackupBlob (doesn't trigger download)
           const result = await createBackupBlob();
@@ -180,7 +199,7 @@ describe('Property 2: Import Data Round-Trip', () => {
           const importedTasks: Task[] = [];
           const importedTags: Tag[] = [];
 
-          const mockStorage = {
+          const mockStorage: MockStorage = {
             getProjects: vi.fn().mockResolvedValue([]),
             getTasks: vi.fn().mockResolvedValue([]),
             getTags: vi.fn().mockResolvedValue([]),
@@ -189,24 +208,24 @@ describe('Property 2: Import Data Round-Trip', () => {
             getTaskById: vi.fn().mockResolvedValue(null),
             getTagById: vi.fn().mockResolvedValue(null),
             createProject: vi.fn().mockImplementation(async (p) => {
-              importedProjects.push(p);
-              return p;
+              importedProjects.push(p as Project);
+              return p as Project;
             }),
             createTask: vi.fn().mockImplementation(async (t) => {
-              importedTasks.push(t);
-              return t;
+              importedTasks.push(t as Task);
+              return t as Task;
             }),
             createTag: vi.fn().mockImplementation(async (name, projectId) => {
               const tag = { id: `tag-${importedTags.length}`, name, project_id: projectId };
               importedTags.push(tag as Tag);
-              return tag;
+              return tag as Tag;
             }),
             attachTagToTask: vi.fn().mockResolvedValue(undefined),
             deleteProject: vi.fn().mockResolvedValue(true),
             deleteTask: vi.fn().mockResolvedValue(true),
             deleteTag: vi.fn().mockResolvedValue(true),
           };
-          vi.mocked(getStorage).mockReturnValue(mockStorage as any);
+          vi.mocked(getStorage).mockReturnValue(mockStorage as never);
 
           // Import data
           const importResult = await importData(file, { mode: 'replace' });

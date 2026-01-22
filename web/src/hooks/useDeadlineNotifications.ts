@@ -16,7 +16,7 @@ interface UseDeadlineNotificationsProps {
 export const useDeadlineNotifications = ({ 
   tasks, 
   enabled = true 
-}: UseDeadlineNotificationsProps) => {
+}: UseDeadlineNotificationsProps): void => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastCheckRef = useRef<number>(0);
   

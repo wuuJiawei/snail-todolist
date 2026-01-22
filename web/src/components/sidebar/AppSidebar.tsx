@@ -16,7 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Task } from "@/types/task";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const AppSidebar = () => {
+function AppSidebar(): JSX.Element {
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
@@ -345,6 +345,6 @@ const AppSidebar = () => {
       </Dialog>
     </>
   );
-};
+}
 
 export default AppSidebar;

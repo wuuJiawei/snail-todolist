@@ -19,10 +19,43 @@ export interface SearchOptions {
   enableSuggestions?: boolean;
 }
 
+export interface UseAdvancedSearchReturn {
+  query: string;
+  results: SearchMatch[];
+  suggestions: string[];
+  loading: boolean;
+  searchTime: number;
+  search: (query: string) => void;
+  searchImmediate: (query: string) => void;
+  clearSearch: () => void;
+  getSearchStats: () => {
+    totalResults: number;
+    completedTasks: number;
+    incompleteTasks: number;
+    searchTime: number;
+    averageScore: number;
+    topScore: number;
+  } | null;
+  getResultsByScore: () => {
+    excellent: SearchMatch[];
+    good: SearchMatch[];
+    fair: SearchMatch[];
+    poor: SearchMatch[];
+  };
+  getResultsByField: () => {
+    titleMatches: SearchMatch[];
+    descriptionMatches: SearchMatch[];
+    projectMatches: SearchMatch[];
+  };
+  hasResults: boolean;
+  isEmpty: boolean;
+  isSearching: boolean;
+}
+
 export function useAdvancedSearch(
   tasks: Task[], 
   options: SearchOptions = {}
-) {
+): UseAdvancedSearchReturn {
   const {
     minScore = 1,
     maxResults = 50,

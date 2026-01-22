@@ -38,7 +38,7 @@ const isValidUrl = (url: string): boolean => {
   }
 };
 
-const NotificationSettings = () => {
+function NotificationSettings(): JSX.Element {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -458,6 +458,6 @@ const NotificationSettings = () => {
       </div>
     </div>
   );
-};
+}
 
 export default NotificationSettings;

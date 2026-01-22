@@ -17,7 +17,7 @@ import { isOfflineMode } from "@/storage";
 import { useUserProfileStore } from "@/store/userProfileStore";
 import * as storageOps from "@/storage/operations";
 
-const UserMenu = () => {
+function UserMenu(): JSX.Element {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const userProfile = useUserProfileStore((state) => state.profile);
@@ -131,6 +131,6 @@ const UserMenu = () => {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-};
+}
 
 export default UserMenu;

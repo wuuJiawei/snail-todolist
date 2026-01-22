@@ -15,6 +15,8 @@ interface IconParkProps {
   onClick?: React.MouseEventHandler<HTMLSpanElement>;
 }
 
+type IconParkComponents = Record<string, React.ComponentType<IconParkProps>>;
+
 const IconParkComponent: React.FC<IconParkProps> = ({
   icon,
   theme = 'outline',
@@ -37,7 +39,7 @@ const IconParkComponent: React.FC<IconParkProps> = ({
 
   // Try to find the icon in @icon-park/react
   const pascalCaseName = toPascalCase(icon);
-  const IconComponent = (IconPark as Record<string, any>)[pascalCaseName];
+  const IconComponent = (IconPark as IconParkComponents)[pascalCaseName];
 
   if (IconComponent) {
     return (

@@ -35,7 +35,7 @@ export const ensureNotificationPermission = async (): Promise<boolean> => {
 };
 
 // Unified notification API - currently only browser notifications
-export const sendNotification = async (options: { title: string, body: string, tag?: string }) => {
+export const sendNotification = async (options: { title: string, body: string, tag?: string }): Promise<void> => {
   const { title, body, tag } = options;
   await sendBrowserNotification(title, body, tag);
 };
@@ -45,13 +45,13 @@ export const requestNotificationPermission = async (): Promise<NotificationPermi
 };
 
 // Task-specific notification helpers
-export const sendTaskReminder = async (task: Task) => {
+export const sendTaskReminder = async (task: Task): Promise<void> => {
   const title = "任务提醒";
   const body = `任务 "${task.title}" 即将到期`;
   await sendNotification({ title, body, tag: `task-${task.id}` });
 };
 
-export const sendTaskOverdue = async (task: Task) => {
+export const sendTaskOverdue = async (task: Task): Promise<void> => {
   const title = "任务已逾期";
   const body = `任务 "${task.title}" 已超过截止日期`;
   await sendNotification({ title, body, tag: `task-${task.id}` });

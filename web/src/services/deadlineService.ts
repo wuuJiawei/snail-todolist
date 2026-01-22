@@ -78,7 +78,7 @@ export const checkUpcomingDeadlines = (
 };
 
 // 发送浏览器通知
-export const sendBrowserNotification = async (task: Task) => {
+export const sendBrowserNotification = async (task: Task): Promise<void> => {
   const deadline = task.date ? new Date(task.date) : null;
   const deadlineText = deadline
     ? deadline.toLocaleString('zh-CN', {

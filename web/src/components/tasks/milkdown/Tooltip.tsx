@@ -9,7 +9,7 @@ import { usePluginViewContext } from "@prosemirror-adapter/react";
 
 export const tooltip = tooltipFactory("Text");
 
-export const TooltipView: React.FC = () => {
+function TooltipView(): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   const tooltipProvider = useRef<TooltipProvider>();
   const { view, prevState } = usePluginViewContext();
@@ -83,4 +83,6 @@ export const TooltipView: React.FC = () => {
       </div>
     </div>
   );
-};
+}
+
+export { TooltipView };

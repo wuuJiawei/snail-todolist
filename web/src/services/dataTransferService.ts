@@ -290,6 +290,10 @@ async function clearAllData(onProgress?: ProgressCallback): Promise<void> {
   }
 }
 
+interface ProjectInput extends Omit<Project, 'created_at' | 'updated_at'> {
+  id: string;
+}
+
 async function importProjects(projects: Project[], mode: 'merge' | 'replace', onProgress?: ProgressCallback): Promise<number> {
   const storage = await ensureStorage();
   let imported = 0;
@@ -304,15 +308,19 @@ async function importProjects(projects: Project[], mode: 'merge' | 'replace', on
       if (existing) {
         await storage.updateProject(project.id, project);
       } else {
-        await storage.createProject({ ...project, id: project.id } as any);
+        await storage.createProject({ ...project, id: project.id } as ProjectInput);
       }
     } else {
-      await storage.createProject({ ...project, id: project.id } as any);
+      await storage.createProject({ ...project, id: project.id } as ProjectInput);
     }
     imported++;
   }
   
   return imported;
+}
+
+interface TaskInput extends Omit<Task, 'created_at' | 'updated_at'> {
+  id: string;
 }
 
 async function importTasks(tasks: Task[], mode: 'merge' | 'replace', onProgress?: ProgressCallback): Promise<number> {
@@ -329,10 +337,10 @@ async function importTasks(tasks: Task[], mode: 'merge' | 'replace', onProgress?
       if (existing) {
         await storage.updateTask(task.id, task);
       } else {
-        await storage.createTask({ ...task, id: task.id } as any);
+        await storage.createTask({ ...task, id: task.id } as TaskInput);
       }
     } else {
-      await storage.createTask({ ...task, id: task.id } as any);
+      await storage.createTask({ ...task, id: task.id } as TaskInput);
     }
     imported++;
   }

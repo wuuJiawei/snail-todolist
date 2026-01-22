@@ -13,7 +13,7 @@ import TaskActivityDialog from "./TaskActivityDialog";
 import TaskAttachments from "./TaskAttachments";
 import { useTaskOperation } from "@/hooks/useTaskOperation";
 
-const TaskDetail = () => {
+function TaskDetail(): JSX.Element {
   const { selectedTask, updateTask, selectTask, trashedTasks } = useTaskContext();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -480,6 +480,6 @@ const TaskDetail = () => {
       />
     </div>
   );
-};
+}
 
 export default TaskDetail;

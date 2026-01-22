@@ -10,7 +10,7 @@ import { isOfflineMode } from "@/storage";
 import { useUserProfileStore } from "@/store/userProfileStore";
 import * as storageOps from "@/storage/operations";
 
-const AccountSettings = () => {
+function AccountSettings(): JSX.Element {
   const { user, refreshUser } = useAuth();
   const setUserProfile = useUserProfileStore((state) => state.setProfile);
   const [username, setUsername] = useState("");
@@ -199,6 +199,6 @@ const AccountSettings = () => {
       </form>
     </div>
   );
-};
+}
 
 export default AccountSettings;

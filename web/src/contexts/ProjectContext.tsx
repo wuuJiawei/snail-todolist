@@ -252,7 +252,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
-export const useProjectContext = () => {
+export const useProjectContext = (): ProjectContextType => {
   const context = useContext(ProjectContext);
   if (context === undefined) {
     throw new Error('useProjectContext must be used within a ProjectProvider');

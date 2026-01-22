@@ -7,7 +7,17 @@ export interface TaskOperationProgress {
   progress: number;
 }
 
-export const useTaskOperation = () => {
+export interface UseTaskOperationReturn {
+  operationState: TaskOperationProgress;
+  startOperation: (
+    operationType: TaskOperationType,
+    operationFn: () => Promise<void>,
+    options?: unknown
+  ) => Promise<void>;
+  cancelOperation: () => void;
+}
+
+export const useTaskOperation = (): UseTaskOperationReturn => {
   const [operationState, setOperationState] = useState<TaskOperationProgress>({
     isActive: false,
     operationType: "update",

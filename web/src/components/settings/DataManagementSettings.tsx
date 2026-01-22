@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Cloud, HardDrive } from "lucide-react";
 import { navigateWithReload } from "@/utils/runtime";
 
-const DataManagementSettings = () => {
+function DataManagementSettings(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { refreshProjects } = useProjectContext();
   const queryClient = useQueryClient();
@@ -341,6 +341,6 @@ const DataManagementSettings = () => {
       />
     </div>
   );
-};
+}
 
 export default DataManagementSettings;

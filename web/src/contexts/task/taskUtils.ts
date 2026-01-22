@@ -9,7 +9,7 @@ export const getSavedProject = (): string => {
 };
 
 // Format date for display in a user-friendly way
-export const formatDateText = (date: Date | undefined) => {
+export const formatDateText = (date: Date | undefined): string => {
   if (!date) return "添加日期";
   
   if (isToday(date)) return "今天";
@@ -64,7 +64,7 @@ export const getProjectTaskCount = (tasks: Task[], projectId: string): number =>
 };
 
 // Check if a task is expired (past date and not completed)
-export const isTaskExpired = (task: Task) => {
+export const isTaskExpired = (task: Task): boolean => {
   if (task.completed) return false;
   if (!task.date) return false;
   
@@ -80,7 +80,12 @@ export const isTaskExpired = (task: Task) => {
 };
 
 // Group tasks by their completion status and date
-export const groupTasksByDateAndStatus = (tasks: Task[]) => {
+export const groupTasksByDateAndStatus = (tasks: Task[]): {
+  expiredTasks: Task[];
+  pendingTasksByDate: Record<string, Task[]>;
+  completedTasks: Task[];
+  pendingTasks: Task[];
+} => {
   const expired: Task[] = [];
   const pending: Record<string, Task[]> = {};
   const completed: Task[] = [];

@@ -3,7 +3,7 @@ import { format, isToday, isTomorrow, isYesterday, isValid } from "date-fns";
 import { zhCN } from "date-fns/locale";
 
 // Format date for display in a user-friendly way
-export const formatDateText = (date: Date | undefined) => {
+export const formatDateText = (date: Date | undefined): string => {
   if (!date) return "添加日期";
   
   if (isToday(date)) return "今天";
@@ -14,7 +14,7 @@ export const formatDateText = (date: Date | undefined) => {
 };
 
 // Check if a task is expired (past date and not completed)
-export const isTaskExpired = (task: Task) => {
+export const isTaskExpired = (task: Task): boolean => {
   if (task.completed) return false;
   if (!task.date) return false;
   

@@ -14,7 +14,7 @@ import { useProjectContext } from "@/contexts/ProjectContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 
-const TagSettings = () => {
+function TagSettings(): JSX.Element {
   const { projects } = useProjectContext();
   const { listAllTags, createTag, deleteTagPermanently, updateTagProject, renameTag, getAllTagUsageCounts, tagsVersion, refreshAllTags } = useTaskContext();
 
@@ -331,6 +331,6 @@ const TagSettings = () => {
       </Dialog>
     </div>
   );
-};
+}
 
 export default TagSettings; 

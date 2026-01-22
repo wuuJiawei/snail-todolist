@@ -16,7 +16,7 @@ export const CircularProgress = ({
   className,
   trackColorClassName,
   children,
-}: CircularProgressProps) => {
+}: CircularProgressProps): JSX.Element => {
   const clamped = Math.max(0, Math.min(1, value));
   const angle = clamped * 360;
 

@@ -5,7 +5,12 @@ import { TaskFilterOptions } from "@/components/tasks/TaskFilter";
 import { isToday, isThisWeek, isPast, parseISO } from "date-fns";
 import { useTaskContext } from "@/contexts/task";
 
-export const useTaskFilter = (tasks: Task[] | { [key: string]: Task[] }, filters: TaskFilterOptions) => {
+export interface UseTaskFilterReturn {
+  filteredTasks: Task[] | { [key: string]: Task[] };
+  activeFilterCount: number;
+}
+
+export const useTaskFilter = (tasks: Task[] | { [key: string]: Task[] }, filters: TaskFilterOptions): UseTaskFilterReturn => {
   const { getTaskTags } = useTaskContext();
   const filteredTasks = useMemo(() => {
     if (!tasks) return Array.isArray(tasks) ? [] : {};

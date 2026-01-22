@@ -31,8 +31,17 @@ const formatTimestamp = (iso: string) => {
   return { relative, absolute };
 };
 
+interface TaskActivityMetadata {
+  from?: string | null;
+  to?: string | null;
+  previousCount?: number;
+  nextCount?: number;
+  tagName?: string;
+  tagId?: string;
+}
+
 const describeActivity = (activity: TaskActivity): string => {
-  const metadata = (activity.metadata || {}) as Record<string, any>;
+  const metadata = (activity.metadata || {}) as TaskActivityMetadata;
 
   switch (activity.action) {
     case "task_created":
@@ -69,7 +78,12 @@ const describeActivity = (activity: TaskActivity): string => {
   }
 };
 
-const ActivityItem: React.FC<{ activity: TaskActivity; isLast: boolean }> = ({ activity, isLast }) => {
+interface ActivityItemProps {
+  activity: TaskActivity;
+  isLast: boolean;
+}
+
+const ActivityItem: React.FC<ActivityItemProps> = ({ activity, isLast }) => {
   const { relative, absolute } = formatTimestamp(activity.created_at);
   const description = describeActivity(activity);
 
