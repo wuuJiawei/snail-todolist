@@ -23,6 +23,7 @@ type PomodoroSession struct {
 	Duration  int                 `gorm:"not null" json:"duration"`
 	Type      PomodoroSessionType `gorm:"size:20;not null" json:"type"`
 	Completed bool                `gorm:"default:false" json:"completed"`
+	Title     *string             `gorm:"size:200" json:"title"`
 	CreatedAt time.Time           `json:"created_at"`
 }
 

@@ -20,6 +20,7 @@ func NewPomodoroService(pomodoroRepo *repository.PomodoroRepository) *PomodoroSe
 type StartSessionInput struct {
 	Duration int                       `json:"duration" binding:"required,min=1,max=120"`
 	Type     model.PomodoroSessionType `json:"type" binding:"required,oneof=focus short_break long_break"`
+	Title    *string                   `json:"title"`
 }
 
 type SessionListResponse struct {
@@ -41,6 +42,7 @@ func (s *PomodoroService) StartSession(userID uuid.UUID, input *StartSessionInpu
 		Duration:  input.Duration,
 		Type:      input.Type,
 		Completed: false,
+		Title:     input.Title,
 	}
 
 	if err := s.pomodoroRepo.Create(session); err != nil {
