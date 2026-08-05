@@ -38,8 +38,8 @@
 
 ### M2：领域契约与 Provider 工厂 — 待开始
 
-- [ ] M2.1 建立统一领域错误及 Supabase 错误转换 — 待开始
-- [ ] M2.2 拆分 task/project/tag/check-in/pomodoro/auth 等 Repository 接口 — 待开始
+- [x] M2.1 建立统一领域错误（Supabase 转换在 M3 实现） — 已完成
+- [x] M2.2 拆分 task/project/tag/check-in/pomodoro/auth 等 Repository 接口 — 已完成
 - [ ] M2.3 建立 `DataProvider`、`createDataProvider`、`getDataProvider` — 待开始
 - [ ] M2.4 覆盖 `supabase`、`self-host` 未实现和非法配置测试 — 待开始
 
@@ -84,6 +84,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-05 | 修改前基线 | — | 3 failed / 60 passed | 108 errors / 19 warnings | 通过（2 类既有警告） | 已记录基线债务 |
 | 2026-08-05 | M1.1–M1.3 行为锁定 | 24 passed | 68 passed | 变更文件 0 errors / 0 warnings | 通过（基线警告不变） | 可进入契约设计 |
+| 2026-08-05 | M2.1–M2.2 领域契约 | — | 68 passed | `src/data` 0 errors / 0 warnings | 通过（基线警告不变） | 契约不暴露 Supabase SDK 类型 |
 
 ## M0 调用盘点
 
