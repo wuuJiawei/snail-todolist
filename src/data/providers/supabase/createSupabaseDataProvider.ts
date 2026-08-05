@@ -1,5 +1,4 @@
 import type { DataProvider } from "@/data/dataProvider";
-import { SupabaseAdapter } from "./SupabaseAdapter";
 import { SupabaseActivityRepository, SupabaseAppInfoRepository, SupabaseFileRepository, SupabaseProfileRepository, SupabaseSearchRepository } from "./supabaseSupportRepositories";
 import { SupabaseAuthRepository } from "./supabaseAuthRepository";
 import { SupabaseChatRepository } from "./supabaseChatRepository";
@@ -11,9 +10,8 @@ import { SupabaseTagRepository } from "./supabaseTagRepository";
 import { SupabaseTaskRepository } from "./supabaseTaskRepository";
 
 export function createSupabaseDataProvider(): DataProvider {
-  const adapter = new SupabaseAdapter();
   return {
-    tasks: new SupabaseTaskRepository(adapter),
+    tasks: new SupabaseTaskRepository(),
     projects: new SupabaseProjectRepository(),
     projectCollaboration: new SupabaseProjectCollaborationRepository(),
     tags: new SupabaseTagRepository(),

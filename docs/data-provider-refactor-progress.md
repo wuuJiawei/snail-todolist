@@ -86,8 +86,8 @@
 - [x] M8.4 将标签逻辑吸收到 `SupabaseTagRepository` — 已完成
 - [x] M8.5 将搜索、活动、附件、资料和应用信息逻辑吸收到对应 Repository — 已完成
 - [x] M8.6 将项目 CRUD/排序吸收到 `SupabaseProjectRepository` — 已完成
-- [ ] M8.7 将任务核心 CRUD/排序吸收到 `SupabaseTaskRepository` — 进行中
-- [ ] M8.8 删除最终 `SupabaseAdapter`、`legacy` 和无用依赖，重新生成最终统计 — 待开始
+- [x] M8.7 将任务核心 CRUD/排序吸收到 `SupabaseTaskRepository` — 已完成
+- [ ] M8.8 删除最终 `SupabaseAdapter`、`legacy` 和无用依赖，重新生成最终统计 — 进行中
 
 ## 回归记录
 
@@ -107,6 +107,7 @@
 | 2026-08-05 | M7.3 最终回归 | 53 passed | 53 passed | 0 errors / 0 warnings | 通过（Browserslist 与大 chunk 两类基线警告） | 交付检查通过 |
 | 2026-08-05 | M8.1–M8.5 Provider 辅助实体吸收 | Supabase Repository 测试通过 | 65 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 删除 7 个 legacy service，修复打卡、番茄钟、标签和搜索边界行为 |
 | 2026-08-05 | M8.6 Project Repository 去适配器化 | 3 passed | 68 passed | 0 errors / 0 warnings | 通过（基线警告不变） | Project CRUD/排序直接依赖注入的 Supabase client，数据库写入字段完成收口 |
+| 2026-08-05 | M8.7 Task Repository 去适配器化 | 12 passed | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 保留共享项目权限和附件映射；恢复时间字段真实清空；查询错误不再吞并为空数组 |
 
 ## M0 调用盘点
 
@@ -169,7 +170,7 @@
 - 游客聊天写入受 RLS 的 `x-anonymous-id` 校验约束；迁移到 Repository 时已在 Supabase Provider 内恢复专用请求头并加入回归测试，页面不感知 SDK 细节。
 - M5 删除了 34 个离线专属测试，故全量测试由 M4 的 83 项变为 49 项；保留的 Supabase 和业务行为测试全部通过。
 - task/project/tag 数组和加载状态已从 Zustand 移除；Query cache 是唯一服务端状态源，Context 只提供数据视图、业务操作和必要的生命周期能力。
-- Provider 内部遗留已由 2,787 行降至仅剩任务实现：`legacy/taskService.ts` 1,449 行、`SupabaseAdapter.ts` 67 行、`legacyTypes.ts` 30 行。M8.7 将继续按现有行为测试渐进吸收，不整体重写任务模块。
+- Task 核心链路已完成直接迁移；`legacy/taskService.ts`、`SupabaseAdapter.ts` 和 `legacyTypes.ts` 当前已无生产引用，待 M8.8 删除并同步清理仅由 legacy 使用的依赖。
 
 ## 交付统计
 

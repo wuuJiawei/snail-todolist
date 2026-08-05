@@ -1,55 +1,145 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SupabaseAdapter } from "./SupabaseAdapter";
+import { describe, expect, it, vi } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
 import { SupabaseTaskRepository } from "./supabaseTaskRepository";
 
-describe("SupabaseTaskRepository contract", () => {
-  const adapter = {
-    updateTask: vi.fn(),
-    batchUpdateSortOrder: vi.fn(),
-  };
-  const repository = new SupabaseTaskRepository(adapter as unknown as SupabaseAdapter);
+const taskRow = {
+  id: "task-1",
+  title: "Task",
+  completed: false,
+  user_id: "user-1",
+  project: null,
+  deleted: false,
+  abandoned: false,
+  flagged: false,
+};
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    adapter.updateTask.mockImplementation(async (id, updates) => ({ id, title: "task", completed: false, ...updates }));
-    adapter.batchUpdateSortOrder.mockResolvedValue(true);
+const authenticatedClient = (from: ReturnType<typeof vi.fn>) => ({
+  auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }) },
+  from,
+}) as unknown as SupabaseClient<Database>;
+
+describe("SupabaseTaskRepository", () => {
+  it("loads owned and shared-project tasks through one access query", async () => {
+    const membershipQuery = { select: vi.fn(), eq: vi.fn() };
+    membershipQuery.select.mockReturnValue(membershipQuery);
+    membershipQuery.eq.mockResolvedValue({ data: [{ project_id: "project-2" }], error: null });
+    const taskQuery = { select: vi.fn(), or: vi.fn(), eq: vi.fn(), order: vi.fn() };
+    taskQuery.select.mockReturnValue(taskQuery);
+    taskQuery.or.mockReturnValue(taskQuery);
+    taskQuery.eq.mockReturnValue(taskQuery);
+    taskQuery.order.mockReturnValueOnce(taskQuery).mockResolvedValueOnce({ data: [taskRow], error: null });
+    const from = vi.fn().mockReturnValueOnce(membershipQuery).mockReturnValueOnce(taskQuery);
+    const repository = new SupabaseTaskRepository(authenticatedClient(from));
+
+    await expect(repository.findAll()).resolves.toEqual([expect.objectContaining({ id: "task-1", attachments: [] })]);
+    expect(taskQuery.or).toHaveBeenCalledWith("user_id.eq.user-1,project.in.(project-2)");
+    expect(taskQuery.eq).toHaveBeenCalledWith("deleted", false);
+    expect(taskQuery.eq).toHaveBeenCalledWith("abandoned", false);
   });
 
-  it("expresses trash and restore as business operations", async () => {
-    await repository.moveToTrash("task-1");
-    expect(adapter.updateTask).toHaveBeenLastCalledWith("task-1", {
-      deleted: true,
-      deleted_at: expect.any(String),
+  it("creates a personal task at the top of its list", async () => {
+    const orderQuery = { select: vi.fn(), eq: vi.fn(), is: vi.fn(), order: vi.fn(), limit: vi.fn() };
+    orderQuery.select.mockReturnValue(orderQuery);
+    orderQuery.eq.mockReturnValue(orderQuery);
+    orderQuery.is.mockReturnValue(orderQuery);
+    orderQuery.order.mockReturnValue(orderQuery);
+    orderQuery.limit.mockResolvedValue({ data: [{ sort_order: 1000 }], error: null });
+    const insertQuery = { insert: vi.fn(), select: vi.fn(), single: vi.fn() };
+    insertQuery.insert.mockReturnValue(insertQuery);
+    insertQuery.select.mockReturnValue(insertQuery);
+    insertQuery.single.mockResolvedValue({ data: { ...taskRow, sort_order: 0, attachments: "[]" }, error: null });
+    const from = vi.fn().mockReturnValueOnce(orderQuery).mockReturnValueOnce(insertQuery);
+    const repository = new SupabaseTaskRepository(authenticatedClient(from));
+
+    await repository.create({ title: "Task", completed: false, attachments: [] });
+
+    expect(orderQuery.is).toHaveBeenCalledWith("project", null);
+    expect(insertQuery.insert).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Task",
+      user_id: "user-1",
+      sort_order: 0,
+      attachments: "[]",
+    }));
+  });
+
+  it("allows a shared-project member to update a task", async () => {
+    const taskLookup = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() };
+    taskLookup.select.mockReturnValue(taskLookup);
+    taskLookup.eq.mockReturnValue(taskLookup);
+    taskLookup.maybeSingle.mockResolvedValue({
+      data: { id: "task-1", user_id: "user-2", project: "project-1" },
+      error: null,
     });
+    const membershipQuery = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() };
+    membershipQuery.select.mockReturnValue(membershipQuery);
+    membershipQuery.eq.mockReturnValue(membershipQuery);
+    membershipQuery.maybeSingle.mockResolvedValue({ data: { role: "member" }, error: null });
+    const updateQuery = { update: vi.fn(), eq: vi.fn(), select: vi.fn(), maybeSingle: vi.fn() };
+    updateQuery.update.mockReturnValue(updateQuery);
+    updateQuery.eq.mockReturnValue(updateQuery);
+    updateQuery.select.mockReturnValue(updateQuery);
+    updateQuery.maybeSingle.mockResolvedValue({ data: { ...taskRow, title: "Next" }, error: null });
+    const from = vi.fn()
+      .mockReturnValueOnce(taskLookup)
+      .mockReturnValueOnce(membershipQuery)
+      .mockReturnValueOnce(updateQuery);
+    const repository = new SupabaseTaskRepository(authenticatedClient(from));
+
+    await expect(repository.update("task-1", { title: "Next" })).resolves.toMatchObject({ title: "Next" });
+    expect(updateQuery.update).toHaveBeenCalledWith({ title: "Next" });
+  });
+
+  it("clears trash metadata when restoring a task", async () => {
+    const taskLookup = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() };
+    taskLookup.select.mockReturnValue(taskLookup);
+    taskLookup.eq.mockReturnValue(taskLookup);
+    taskLookup.maybeSingle.mockResolvedValue({ data: taskRow, error: null });
+    const updateQuery = { update: vi.fn(), eq: vi.fn(), select: vi.fn(), maybeSingle: vi.fn() };
+    updateQuery.update.mockReturnValue(updateQuery);
+    updateQuery.eq.mockReturnValue(updateQuery);
+    updateQuery.select.mockReturnValue(updateQuery);
+    updateQuery.maybeSingle.mockResolvedValue({ data: taskRow, error: null });
+    const from = vi.fn().mockReturnValueOnce(taskLookup).mockReturnValueOnce(updateQuery);
+    const repository = new SupabaseTaskRepository(authenticatedClient(from));
 
     await repository.restore("task-1");
-    expect(adapter.updateTask).toHaveBeenLastCalledWith("task-1", {
-      deleted: false,
-      deleted_at: undefined,
-    });
+
+    expect(updateQuery.update).toHaveBeenCalledWith({ deleted: false, deleted_at: null });
   });
 
-  it("expresses abandon as a mutually exclusive task state", async () => {
-    await repository.abandon("task-1");
-    expect(adapter.updateTask).toHaveBeenCalledWith("task-1", {
-      abandoned: true,
-      abandoned_at: expect.any(String),
-      completed: false,
-      completed_at: undefined,
+  it("rejects permanent deletion by a non-owner project member", async () => {
+    const taskLookup = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() };
+    taskLookup.select.mockReturnValue(taskLookup);
+    taskLookup.eq.mockReturnValue(taskLookup);
+    taskLookup.maybeSingle.mockResolvedValue({
+      data: { id: "task-1", user_id: "user-2", project: "project-1" },
+      error: null,
     });
+    const membershipQuery = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() };
+    membershipQuery.select.mockReturnValue(membershipQuery);
+    membershipQuery.eq.mockReturnValue(membershipQuery);
+    membershipQuery.maybeSingle.mockResolvedValue({ data: { role: "member" }, error: null });
+    const from = vi.fn().mockReturnValueOnce(taskLookup).mockReturnValueOnce(membershipQuery);
+    const repository = new SupabaseTaskRepository(authenticatedClient(from));
+
+    await expect(repository.remove("task-1")).rejects.toMatchObject({
+      name: "DataError",
+      code: "FORBIDDEN",
+    });
+    expect(from).toHaveBeenCalledTimes(2);
   });
 
-  it("converts a missing row to the unified not-found error", async () => {
-    adapter.updateTask.mockResolvedValueOnce(null);
-    await expect(repository.update("missing", { title: "x" })).rejects.toMatchObject({
+  it("converts a missing task to the unified not-found error", async () => {
+    const taskLookup = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() };
+    taskLookup.select.mockReturnValue(taskLookup);
+    taskLookup.eq.mockReturnValue(taskLookup);
+    taskLookup.maybeSingle.mockResolvedValue({ data: null, error: null });
+    const repository = new SupabaseTaskRepository(authenticatedClient(vi.fn(() => taskLookup)));
+
+    await expect(repository.update("missing", { title: "Next" })).rejects.toMatchObject({
       name: "DataError",
       code: "NOT_FOUND",
     });
-  });
-
-  it("sends reorder changes as one repository operation", async () => {
-    const order = [{ id: "task-1", sort_order: 1000 }];
-    await repository.reorder(order);
-    expect(adapter.batchUpdateSortOrder).toHaveBeenCalledWith(order);
   });
 });

@@ -1,61 +1,233 @@
 import type { CreateTaskInput, TaskQuery, TaskRepository, UpdateTaskInput } from "@/data/contracts/taskRepository";
 import { DataError } from "@/data/contracts/errors";
-import { supabase } from "./client";
-import type { SupabaseAdapter } from "./SupabaseAdapter";
-import { mapTaskRow, type SupabaseTaskRow } from "./mappers";
-import { withSupabaseError } from "./mapSupabaseError";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Task } from "@/types/task";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "./client";
+import type { Database } from "./database.types";
+import { withSupabaseError } from "./mapSupabaseError";
+import { mapTaskRow, type SupabaseTaskRow } from "./mappers";
+
+type TaskAccessRow = Pick<SupabaseTaskRow, "id" | "user_id" | "project">;
+type TaskWrite = Record<string, string | number | boolean | null>;
+
+const hasOwn = (value: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(value, key);
+
+function mapTaskUpdate(input: UpdateTaskInput, normalizeCompletion = true): TaskWrite {
+  const updates: TaskWrite = {};
+  const nullableStrings = [
+    "date",
+    "project",
+    "description",
+    "icon",
+    "completed_at",
+    "updated_at",
+    "deleted_at",
+    "abandoned_at",
+  ] as const;
+  const booleans = ["completed", "deleted", "abandoned", "flagged"] as const;
+
+  if (input.title !== undefined) updates.title = input.title;
+  if (input.sort_order !== undefined) updates.sort_order = input.sort_order;
+  for (const field of nullableStrings) {
+    if (hasOwn(input, field)) updates[field] = input[field] ?? null;
+  }
+  for (const field of booleans) {
+    if (input[field] !== undefined) updates[field] = input[field];
+  }
+  if (hasOwn(input, "attachments")) {
+    updates.attachments = JSON.stringify(input.attachments ?? []);
+  }
+  if (normalizeCompletion && input.completed === true) updates.completed_at = new Date().toISOString();
+  if (normalizeCompletion && input.completed === false) updates.completed_at = null;
+  return updates;
+}
+
+function mapTaskForUpsert(task: Task, userId: string): TaskWrite {
+  return {
+    id: task.id,
+    title: task.title,
+    completed: task.completed,
+    date: task.date ?? null,
+    project: task.project ?? null,
+    description: task.description ?? null,
+    icon: task.icon ?? null,
+    completed_at: task.completed_at ?? null,
+    updated_at: task.updated_at ?? null,
+    user_id: userId,
+    sort_order: task.sort_order ?? null,
+    deleted: task.deleted ?? false,
+    deleted_at: task.deleted_at ?? null,
+    abandoned: task.abandoned ?? false,
+    abandoned_at: task.abandoned_at ?? null,
+    flagged: task.flagged ?? false,
+    attachments: JSON.stringify(task.attachments ?? []),
+  };
+}
 
 export class SupabaseTaskRepository implements TaskRepository {
-  constructor(private readonly adapter: SupabaseAdapter) {}
+  private readonly queryClient: SupabaseClient;
+
+  constructor(client: SupabaseClient<Database> = supabase) {
+    this.queryClient = client as unknown as SupabaseClient;
+  }
+
+  private async getUserId(): Promise<string | null> {
+    const { data, error } = await this.queryClient.auth.getUser();
+    if (error) throw error;
+    return data.user?.id ?? null;
+  }
+
+  private async requireUserId(): Promise<string> {
+    const userId = await this.getUserId();
+    if (!userId) throw new DataError("AUTH_REQUIRED", "请先登录");
+    return userId;
+  }
+
+  private async findAccessRow(id: string): Promise<TaskAccessRow> {
+    const { data, error } = await this.queryClient
+      .from("tasks")
+      .select("id,user_id,project")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new DataError("NOT_FOUND", "任务不存在");
+    return data as TaskAccessRow;
+  }
+
+  private async assertCanModify(id: string, userId: string, ownerOnly = false): Promise<void> {
+    const task = await this.findAccessRow(id);
+    if (task.user_id === userId) return;
+    if (!task.project) throw new DataError("FORBIDDEN", "您没有权限操作此任务");
+
+    const { data, error } = await this.queryClient
+      .from("project_members")
+      .select("role")
+      .eq("project_id", task.project)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data || (ownerOnly && data.role !== "owner")) {
+      throw new DataError("FORBIDDEN", "您没有权限操作此任务");
+    }
+  }
+
+  private async assertCanCreateInProject(projectId: string, userId: string): Promise<void> {
+    const { data: membership, error: memberError } = await this.queryClient
+      .from("project_members")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (memberError) throw memberError;
+    if (membership) return;
+
+    const { data: project, error: projectError } = await this.queryClient
+      .from("projects")
+      .select("user_id")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (projectError) throw projectError;
+    if (!project || project.user_id !== userId) {
+      throw new DataError("FORBIDDEN", "您没有权限在此清单中添加任务");
+    }
+  }
 
   findAll(query: TaskQuery = {}) {
     return withSupabaseError(async () => {
-      const adapter = this.adapter;
-      if (query.includeDeleted) {
-        const groups = await Promise.all([
-          adapter.getTasks({ deleted: false }),
-          adapter.getTasks({ deleted: true, abandoned: false }),
-          adapter.getTasks({ abandoned: true }),
-        ]);
-        const unique = new Map(groups.flat().map((row) => [row.id, row]));
-        return [...unique.values()].map((row) => mapTaskRow(row as SupabaseTaskRow));
+      const userId = await this.getUserId();
+      if (!userId) return [];
+
+      const { data: memberships, error: memberError } = await this.queryClient
+        .from("project_members")
+        .select("project_id")
+        .eq("user_id", userId);
+      if (memberError) throw memberError;
+      const projectIds = (memberships ?? [])
+        .map((membership) => membership.project_id as string | null)
+        .filter((projectId): projectId is string => Boolean(projectId));
+
+      let request = this.queryClient.from("tasks").select("*");
+      request = projectIds.length
+        ? request.or(`user_id.eq.${userId},project.in.(${projectIds.join(",")})`)
+        : request.eq("user_id", userId);
+
+      if (!query.includeDeleted) {
+        if (query.abandoned === true) {
+          request = request.eq("abandoned", true).eq("deleted", false);
+        } else if (query.deleted === true) {
+          request = request.eq("deleted", true).eq("abandoned", false);
+        } else {
+          request = request.eq("deleted", false).eq("abandoned", false);
+        }
       }
-      const rows = await adapter.getTasks({
-        completed: query.completed,
-        deleted: query.deleted ?? false,
-        abandoned: query.abandoned,
-        flagged: query.flagged,
-        projectId: query.projectId,
-      });
-      return rows.map((row) => mapTaskRow(row as SupabaseTaskRow));
+      if (query.completed !== undefined) request = request.eq("completed", query.completed);
+      if (query.flagged !== undefined) request = request.eq("flagged", query.flagged);
+      if (query.projectId !== undefined) request = request.eq("project", query.projectId);
+
+      if (query.deleted === true && !query.includeDeleted) {
+        request = request.order("deleted_at", { ascending: false });
+      } else if (query.abandoned === true && !query.includeDeleted) {
+        request = request.order("abandoned_at", { ascending: false });
+      } else {
+        request = request
+          .order("sort_order", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: false });
+      }
+
+      const { data, error } = await request;
+      if (error) throw error;
+      return ((data ?? []) as SupabaseTaskRow[]).map(mapTaskRow);
     }, "无法加载任务");
   }
 
   findById(id: string) {
     return withSupabaseError(async () => {
-      const row = await this.adapter.getTaskById(id);
-      return row ? mapTaskRow(row as SupabaseTaskRow) : null;
+      const { data, error } = await this.queryClient.from("tasks").select("*").eq("id", id).maybeSingle();
+      if (error) throw error;
+      return data ? mapTaskRow(data as SupabaseTaskRow) : null;
     }, "无法加载任务");
   }
 
   create(input: CreateTaskInput) {
-    return withSupabaseError(async () => mapTaskRow(await this.adapter.createTask(input) as SupabaseTaskRow), "无法创建任务");
+    return withSupabaseError(async () => {
+      const userId = await this.requireUserId();
+      if (input.project) await this.assertCanCreateInProject(input.project, userId);
+
+      let orderRequest = this.queryClient
+        .from("tasks")
+        .select("sort_order")
+        .eq("completed", input.completed);
+      orderRequest = input.project
+        ? orderRequest.eq("project", input.project)
+        : orderRequest.is("project", null).eq("user_id", userId);
+      const { data: orderRows, error: orderError } = await orderRequest
+        .order("sort_order", { ascending: true })
+        .limit(1);
+      if (orderError) throw orderError;
+      const minOrder = (orderRows?.[0] as { sort_order?: number | null } | undefined)?.sort_order ?? 1000;
+
+      const { data, error } = await this.queryClient.from("tasks").insert({
+        ...mapTaskUpdate(input, false),
+        title: input.title,
+        completed: input.completed,
+        user_id: userId,
+        sort_order: minOrder - 1000,
+        flagged: input.flagged ?? false,
+        attachments: JSON.stringify(input.attachments ?? []),
+      }).select().single();
+      if (error) throw error;
+      return mapTaskRow(data as SupabaseTaskRow);
+    }, "无法创建任务");
   }
 
   upsert(task: Task) {
     return withSupabaseError(async () => {
-      const { data: auth, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      if (!auth.user) throw new DataError("AUTH_REQUIRED", "请先登录");
-      const client = supabase as unknown as SupabaseClient;
-      const { _isPending: _pending, _tempId: _temporary, attachments, ...row } = task;
-      const { data, error } = await client.from("tasks").upsert({
-        ...row,
-        user_id: auth.user.id,
-        attachments: attachments ? JSON.stringify(attachments) : null,
-      }).select().single();
+      const userId = await this.requireUserId();
+      const { data, error } = await this.queryClient
+        .from("tasks")
+        .upsert(mapTaskForUpsert(task, userId))
+        .select()
+        .single();
       if (error) throw error;
       return mapTaskRow(data as SupabaseTaskRow);
     }, "无法导入任务");
@@ -63,16 +235,32 @@ export class SupabaseTaskRepository implements TaskRepository {
 
   update(id: string, input: UpdateTaskInput) {
     return withSupabaseError(async () => {
-      const row = await this.adapter.updateTask(id, input);
-      if (!row) throw new DataError("NOT_FOUND", "任务不存在");
-      return mapTaskRow(row as SupabaseTaskRow);
+      const userId = await this.requireUserId();
+      await this.assertCanModify(id, userId);
+      const { data, error } = await this.queryClient
+        .from("tasks")
+        .update(mapTaskUpdate(input))
+        .eq("id", id)
+        .select()
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new DataError("NOT_FOUND", "任务不存在");
+      return mapTaskRow(data as SupabaseTaskRow);
     }, "无法更新任务");
   }
 
   async remove(id: string) {
     await withSupabaseError(async () => {
-      const removed = await this.adapter.deleteTask(id);
-      if (!removed) throw new DataError("NOT_FOUND", "任务不存在");
+      const userId = await this.requireUserId();
+      await this.assertCanModify(id, userId, true);
+      const { data, error } = await this.queryClient
+        .from("tasks")
+        .delete()
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new DataError("NOT_FOUND", "任务不存在");
     }, "无法删除任务");
   }
 
@@ -99,14 +287,19 @@ export class SupabaseTaskRepository implements TaskRepository {
 
   async reorder(items: Array<{ id: string; sort_order: number }>) {
     await withSupabaseError(async () => {
-      const updated = await this.adapter.batchUpdateSortOrder(items);
-      if (!updated) throw new DataError("UNKNOWN", "任务排序失败");
-    });
+      if (items.length === 0) return;
+      await this.requireUserId();
+      const results = await Promise.all(items.map(({ id, sort_order }) =>
+        this.queryClient.from("tasks").update({ sort_order }).eq("id", id)
+      ));
+      const failed = results.find((result) => result.error);
+      if (failed?.error) throw failed.error;
+    }, "任务排序失败");
   }
 
   subscribe(userId: string, projectIds: string[], onChange: () => void) {
     const channels = [
-      supabase.channel(`tasks:user:${userId}`).on(
+      this.queryClient.channel(`tasks:user:${userId}`).on(
         "postgres_changes",
         { event: "*", schema: "public", table: "tasks", filter: `user_id=eq.${userId}` },
         onChange,
@@ -116,12 +309,12 @@ export class SupabaseTaskRepository implements TaskRepository {
     for (let index = 0; index < projectIds.length; index += chunkSize) {
       const chunk = projectIds.slice(index, index + chunkSize);
       const inList = chunk.map((id) => `"${id}"`).join(",");
-      channels.push(supabase.channel(`tasks:projects:${userId}:${index / chunkSize}`).on(
+      channels.push(this.queryClient.channel(`tasks:projects:${userId}:${index / chunkSize}`).on(
         "postgres_changes",
         { event: "*", schema: "public", table: "tasks", filter: `project=in.(${inList})` },
         onChange,
       ).subscribe());
     }
-    return () => { channels.forEach((channel) => { void supabase.removeChannel(channel); }); };
+    return () => { channels.forEach((channel) => { void this.queryClient.removeChannel(channel); }); };
   }
 }

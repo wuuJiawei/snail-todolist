@@ -13,6 +13,29 @@ describe("Supabase row mappers", () => {
     expect(task.attachments?.[0].original_name).toBe("a.txt");
   });
 
+  it("normalizes legacy attachment fields and nullable task state", () => {
+    const task = mapTaskRow({
+      id: "task-1",
+      title: "Mapped",
+      completed: false,
+      sort_order: "1000",
+      deleted: null,
+      abandoned: null,
+      flagged: null,
+      attachments: [{
+        id: "file-1",
+        file_name: "stored.txt",
+        original_name: "a.txt",
+        url: "/a",
+        file_size: 1,
+        file_type: "text/plain",
+        uploaded_at: "2026-08-05",
+      }],
+    });
+    expect(task).toMatchObject({ sort_order: 1000, deleted: false, abandoned: false, flagged: false });
+    expect(task.attachments?.[0]).toMatchObject({ filename: "stored.txt", size: 1, type: "text/plain" });
+  });
+
   it("maps check-in and pomodoro timestamps to domain names", () => {
     expect(mapCheckInRow({ id: "c1", check_in_time: "start", created_at: "created" })).toEqual({
       id: "c1", checkInTime: "start", createdAt: "created",
