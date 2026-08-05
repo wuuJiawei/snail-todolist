@@ -101,7 +101,7 @@ Supabase SDK
 
 当前 Provider 状态：
 
-- `supabase`：已实现并作为默认数据实现
+- `supabase`：已实现并作为默认数据实现，不需要设置 `VITE_DATA_PROVIDER`
 - `self-host`：保留规划值，尚未实现
 
 后续接入自部署后端时，只需实现 `src/data/contracts` 中的 Repository 接口、组装 Provider，并将 `VITE_DATA_PROVIDER` 改为 `self-host`。页面、组件和核心业务代码无需修改。
@@ -151,7 +151,6 @@ npm ci
 在项目根目录创建 `.env`：
 
 ```env
-VITE_DATA_PROVIDER=supabase
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
@@ -187,7 +186,7 @@ npm run dev
 
 1. Fork 或 Clone 本仓库。
 2. 在 Vercel 中导入项目。
-3. 配置 `VITE_DATA_PROVIDER`、`VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`。
+3. 配置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`；未配置 `VITE_DATA_PROVIDER` 时默认使用 Supabase。
 4. 使用默认 Vite 构建命令部署。
 
 ### 静态托管或自建 Web 服务器
