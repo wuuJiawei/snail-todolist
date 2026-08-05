@@ -50,11 +50,11 @@
 - [x] M3.3 将现有 Supabase 数据访问封装到各 Repository 实现 — 已完成（旧 adapter bridge 将在业务迁移后删除）
 - [x] M3.4 建立 Repository 契约测试 — 已完成
 
-### M4：业务层迁移与复杂流程编排 — 进行中
+### M4：业务层迁移与复杂流程编排 — 已完成
 
 - [x] M4.1 迁移任务、项目、标签 Query 和 mutation — 已完成
 - [x] M4.2 迁移认证、打卡、番茄钟、搜索、附件与资料访问 — 已完成
-- [ ] M4.3 将项目删除迁移、恢复关系、导入等流程放入 UseCase — 待开始
+- [x] M4.3 将导入清理、实体 upsert 和关系恢复流程放入 UseCase — 已完成
 - [x] M4.4 清除 Component、Context、Store、业务 Hook 的直接 Supabase SDK 调用 — 已完成
 
 ### M5：彻底移除离线模式 — 待开始
@@ -87,6 +87,7 @@
 | 2026-08-05 | M2.1–M2.2 领域契约 | — | 68 passed | `src/data` 0 errors / 0 warnings | 通过（基线警告不变） | 契约不暴露 Supabase SDK 类型 |
 | 2026-08-05 | M2.3–M3 Provider 与 Supabase 实现 | 16 passed | 80 passed | `src/data` 0 errors / 0 warnings | 通过（基线警告不变） | 工厂、映射、错误和任务契约已覆盖 |
 | 2026-08-05 | M4.1/M4.2/M4.4 业务迁移 | 4 compatibility passed | 83 passed | 变更范围 0 errors / 2 个既有 Fast Refresh warnings | 通过（基线警告不变） | UI、Context、Store、Hook、Query 的 SDK 直连已归零 |
+| 2026-08-05 | M4.3 导入导出 UseCase | 4 passed | 83 passed | 变更范围 0 errors / 0 warnings | 通过（基线警告不变） | 导入保留实体 ID 并恢复任务标签关系 |
 
 ## M0 调用盘点
 

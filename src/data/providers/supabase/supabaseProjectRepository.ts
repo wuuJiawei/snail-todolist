@@ -59,6 +59,19 @@ export class SupabaseProjectRepository extends SupabaseAdapterBridge implements 
     return withSupabaseError(async () => mapProjectRow(await (await this.ready()).createProject(input) as SupabaseProjectRow));
   }
 
+  upsert(project: import("@/types/project").Project) {
+    return withSupabaseError(async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) throw new DataError("AUTH_REQUIRED", "请先登录");
+      const client = supabase as unknown as SupabaseClient;
+      const { count: _count, members: _members, ...row } = project;
+      const { data, error } = await client.from("projects").upsert({ ...row, user_id: auth.user.id }).select().single();
+      if (error) throw error;
+      return mapProjectRow(data as SupabaseProjectRow);
+    });
+  }
+
   update(id: string, input: UpdateProjectInput) {
     return withSupabaseError(async () => {
       const row = await (await this.ready()).updateProject(id, input);

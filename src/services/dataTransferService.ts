@@ -7,7 +7,7 @@ import JSZip from 'jszip';
 import { Task } from '@/types/task';
 import { Project } from '@/types/project';
 import { Tag, TaskTagLink } from '@/types/tag';
-import { getStorage, initializeStorage } from '@/storage';
+import { getDataProvider } from '@/data';
 
 // ============================================
 // Type Definitions
@@ -71,11 +71,6 @@ const APP_VERSION = '1.0.0';
 // Helper Functions
 // ============================================
 
-async function ensureStorage() {
-  await initializeStorage();
-  return getStorage();
-}
-
 function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
@@ -119,20 +114,20 @@ export async function createBackupBlob(options?: ExportOptions): Promise<{ blob:
 // ============================================
 
 async function collectAllData(onProgress?: ProgressCallback): Promise<BackupData> {
-  const storage = await ensureStorage();
+  const provider = getDataProvider();
   
   onProgress?.(10, '正在收集清单数据...');
-  const projects = await storage.getProjects();
+  const projects = await provider.projects.findAll();
   
   onProgress?.(30, '正在收集任务数据...');
-  const tasks = await storage.getTasks();
+  const tasks = await provider.tasks.findAll({ includeDeleted: true });
   
   onProgress?.(50, '正在收集标签数据...');
-  const tags = await storage.getTags();
+  const tags = await provider.tags.findAll();
   
   onProgress?.(60, '正在收集标签关联...');
   const taskIds = tasks.map(t => t.id);
-  const tagsByTask = await storage.getTagsByTaskIds(taskIds);
+  const tagsByTask = await provider.tags.findByTaskIds(taskIds);
   
   // Convert tagsByTask to TaskTagLink array
   const taskTags: TaskTagLink[] = [];
@@ -265,33 +260,33 @@ async function parseBackupZip(file: File): Promise<BackupData> {
 }
 
 async function clearAllData(onProgress?: ProgressCallback): Promise<void> {
-  const storage = await ensureStorage();
+  const provider = getDataProvider();
   
   onProgress?.(15, '正在清除现有数据...');
   
   // Get all existing data
-  const tasks = await storage.getTasks();
-  const projects = await storage.getProjects();
-  const tags = await storage.getTags();
+  const tasks = await provider.tasks.findAll({ includeDeleted: true });
+  const projects = await provider.projects.findAll();
+  const tags = await provider.tags.findAll();
   
   // Delete all tasks
   for (const task of tasks) {
-    await storage.deleteTask(task.id);
+    await provider.tasks.remove(task.id);
   }
   
   // Delete all projects
   for (const project of projects) {
-    await storage.deleteProject(project.id);
+    await provider.projects.remove(project.id);
   }
   
   // Delete all tags
   for (const tag of tags) {
-    await storage.deleteTag(tag.id);
+    await provider.tags.remove(tag.id);
   }
 }
 
 async function importProjects(projects: Project[], mode: 'merge' | 'replace', onProgress?: ProgressCallback): Promise<number> {
-  const storage = await ensureStorage();
+  const provider = getDataProvider();
   let imported = 0;
   
   for (let i = 0; i < projects.length; i++) {
@@ -300,14 +295,14 @@ async function importProjects(projects: Project[], mode: 'merge' | 'replace', on
     onProgress?.(Math.round(progress), `正在导入清单 (${i + 1}/${projects.length})...`);
     
     if (mode === 'merge') {
-      const existing = await storage.getProjectById(project.id);
+      const existing = await provider.projects.findById(project.id);
       if (existing) {
-        await storage.updateProject(project.id, project);
+        await provider.projects.upsert(project);
       } else {
-        await storage.createProject({ ...project, id: project.id } as any);
+        await provider.projects.upsert(project);
       }
     } else {
-      await storage.createProject({ ...project, id: project.id } as any);
+      await provider.projects.upsert(project);
     }
     imported++;
   }
@@ -316,7 +311,7 @@ async function importProjects(projects: Project[], mode: 'merge' | 'replace', on
 }
 
 async function importTasks(tasks: Task[], mode: 'merge' | 'replace', onProgress?: ProgressCallback): Promise<number> {
-  const storage = await ensureStorage();
+  const provider = getDataProvider();
   let imported = 0;
   
   for (let i = 0; i < tasks.length; i++) {
@@ -325,14 +320,14 @@ async function importTasks(tasks: Task[], mode: 'merge' | 'replace', onProgress?
     onProgress?.(Math.round(progress), `正在导入任务 (${i + 1}/${tasks.length})...`);
     
     if (mode === 'merge') {
-      const existing = await storage.getTaskById(task.id);
+      const existing = await provider.tasks.findById(task.id);
       if (existing) {
-        await storage.updateTask(task.id, task);
+        await provider.tasks.upsert(task);
       } else {
-        await storage.createTask({ ...task, id: task.id } as any);
+        await provider.tasks.upsert(task);
       }
     } else {
-      await storage.createTask({ ...task, id: task.id } as any);
+      await provider.tasks.upsert(task);
     }
     imported++;
   }
@@ -341,7 +336,7 @@ async function importTasks(tasks: Task[], mode: 'merge' | 'replace', onProgress?
 }
 
 async function importTags(tags: Tag[], taskTags: TaskTagLink[], mode: 'merge' | 'replace', onProgress?: ProgressCallback): Promise<number> {
-  const storage = await ensureStorage();
+  const provider = getDataProvider();
   let imported = 0;
   
   // Import tags
@@ -351,12 +346,12 @@ async function importTags(tags: Tag[], taskTags: TaskTagLink[], mode: 'merge' | 
     onProgress?.(Math.round(progress), `正在导入标签 (${i + 1}/${tags.length})...`);
     
     if (mode === 'merge') {
-      const existing = await storage.getTagById(tag.id);
+      const existing = await provider.tags.findById(tag.id);
       if (!existing) {
-        await storage.createTag(tag.name, tag.project_id);
+        await provider.tags.upsert(tag);
       }
     } else {
-      await storage.createTag(tag.name, tag.project_id);
+      await provider.tags.upsert(tag);
     }
     imported++;
   }
@@ -365,7 +360,7 @@ async function importTags(tags: Tag[], taskTags: TaskTagLink[], mode: 'merge' | 
   onProgress?.(90, '正在恢复标签关联...');
   for (const link of taskTags) {
     try {
-      await storage.attachTagToTask(link.task_id, link.tag_id);
+      await provider.tags.attachToTask(link.task_id, link.tag_id);
     } catch {
       // Ignore errors for missing tasks/tags
     }

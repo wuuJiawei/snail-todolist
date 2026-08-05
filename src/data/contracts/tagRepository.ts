@@ -4,6 +4,7 @@ export interface TagRepository {
   findAll(projectId?: string | null): Promise<Tag[]>;
   findById(id: string): Promise<Tag | null>;
   create(name: string, projectId?: string | null): Promise<Tag>;
+  upsert(tag: Tag): Promise<Tag>;
   update(id: string, input: Partial<Pick<Tag, "name" | "project_id">>): Promise<Tag>;
   remove(id: string): Promise<void>;
   findByTaskIds(taskIds: string[]): Promise<Record<string, Tag[]>>;

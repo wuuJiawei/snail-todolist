@@ -4,6 +4,9 @@ import type { SupabaseAdapter } from "@/storage/supabase/SupabaseAdapter";
 import { SupabaseAdapterBridge } from "./adapterBridge";
 import { mapTagRow, type SupabaseTagRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";
+import { supabase } from "@/integrations/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Tag } from "@/types/tag";
 
 export class SupabaseTagRepository extends SupabaseAdapterBridge implements TagRepository {
   constructor(adapter: SupabaseAdapter) { super(adapter); }
@@ -21,6 +24,18 @@ export class SupabaseTagRepository extends SupabaseAdapterBridge implements TagR
 
   create(name: string, projectId?: string | null) {
     return withSupabaseError(async () => mapTagRow(await (await this.ready()).createTag(name, projectId) as SupabaseTagRow));
+  }
+
+  upsert(tag: Tag) {
+    return withSupabaseError(async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) throw new DataError("AUTH_REQUIRED", "请先登录");
+      const client = supabase as unknown as SupabaseClient;
+      const { data, error } = await client.from("tags").upsert({ ...tag, user_id: auth.user.id }).select().single();
+      if (error) throw error;
+      return mapTagRow(data as SupabaseTagRow);
+    });
   }
 
   update(id: string, input: { name?: string; project_id?: string | null }) {

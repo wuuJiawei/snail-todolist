@@ -17,6 +17,7 @@ export interface TaskRepository {
   findAll(query?: TaskQuery): Promise<Task[]>;
   findById(id: string): Promise<Task | null>;
   create(input: CreateTaskInput): Promise<Task>;
+  upsert(task: Task): Promise<Task>;
   update(id: string, input: UpdateTaskInput): Promise<Task>;
   remove(id: string): Promise<void>;
   moveToTrash(id: string): Promise<Task>;

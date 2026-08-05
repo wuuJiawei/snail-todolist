@@ -5,6 +5,8 @@ import type { SupabaseAdapter } from "@/storage/supabase/SupabaseAdapter";
 import { mapTaskRow, type SupabaseTaskRow } from "./mappers";
 import { SupabaseAdapterBridge } from "./adapterBridge";
 import { withSupabaseError } from "./mapSupabaseError";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Task } from "@/types/task";
 
 export class SupabaseTaskRepository extends SupabaseAdapterBridge implements TaskRepository {
   constructor(adapter: SupabaseAdapter) { super(adapter); }
@@ -12,9 +14,18 @@ export class SupabaseTaskRepository extends SupabaseAdapterBridge implements Tas
   findAll(query: TaskQuery = {}) {
     return withSupabaseError(async () => {
       const adapter = await this.ready();
+      if (query.includeDeleted) {
+        const groups = await Promise.all([
+          adapter.getTasks({ deleted: false }),
+          adapter.getTasks({ deleted: true, abandoned: false }),
+          adapter.getTasks({ abandoned: true }),
+        ]);
+        const unique = new Map(groups.flat().map((row) => [row.id, row]));
+        return [...unique.values()].map((row) => mapTaskRow(row as SupabaseTaskRow));
+      }
       const rows = await adapter.getTasks({
         completed: query.completed,
-        deleted: query.includeDeleted ? undefined : query.deleted ?? false,
+        deleted: query.deleted ?? false,
         abandoned: query.abandoned,
         flagged: query.flagged,
         projectId: query.projectId,
@@ -32,6 +43,23 @@ export class SupabaseTaskRepository extends SupabaseAdapterBridge implements Tas
 
   create(input: CreateTaskInput) {
     return withSupabaseError(async () => mapTaskRow(await (await this.ready()).createTask(input) as SupabaseTaskRow), "无法创建任务");
+  }
+
+  upsert(task: Task) {
+    return withSupabaseError(async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) throw new DataError("AUTH_REQUIRED", "请先登录");
+      const client = supabase as unknown as SupabaseClient;
+      const { _isPending: _pending, _tempId: _temporary, attachments, ...row } = task;
+      const { data, error } = await client.from("tasks").upsert({
+        ...row,
+        user_id: auth.user.id,
+        attachments: attachments ? JSON.stringify(attachments) : null,
+      }).select().single();
+      if (error) throw error;
+      return mapTaskRow(data as SupabaseTaskRow);
+    }, "无法导入任务");
   }
 
   update(id: string, input: UpdateTaskInput) {
