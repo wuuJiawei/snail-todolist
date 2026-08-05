@@ -14,7 +14,7 @@ export function createSupabaseDataProvider(): DataProvider {
   const adapter = new SupabaseAdapter();
   return {
     tasks: new SupabaseTaskRepository(adapter),
-    projects: new SupabaseProjectRepository(adapter),
+    projects: new SupabaseProjectRepository(),
     projectCollaboration: new SupabaseProjectCollaborationRepository(),
     tags: new SupabaseTagRepository(),
     checkIns: new SupabaseCheckInRepository(),

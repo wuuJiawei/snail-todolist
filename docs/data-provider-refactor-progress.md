@@ -78,6 +78,17 @@
 - [x] M7.3 `npm run test`、`npm run lint`、`npm run build` 全绿 — 已完成
 - [x] M7.4 统计代码行变化、提交 SHA、自部署接入说明和遗留问题 — 已完成
 
+### M8：Provider 内部遗留吸收 — 进行中
+
+- [x] M8.1 将项目协作逻辑吸收到 `SupabaseProjectCollaborationRepository` — 已完成
+- [x] M8.2 将打卡逻辑吸收到 `SupabaseCheckInRepository` — 已完成
+- [x] M8.3 将番茄钟逻辑吸收到 `SupabasePomodoroRepository` — 已完成
+- [x] M8.4 将标签逻辑吸收到 `SupabaseTagRepository` — 已完成
+- [x] M8.5 将搜索、活动、附件、资料和应用信息逻辑吸收到对应 Repository — 已完成
+- [x] M8.6 将项目 CRUD/排序吸收到 `SupabaseProjectRepository` — 已完成
+- [ ] M8.7 将任务核心 CRUD/排序吸收到 `SupabaseTaskRepository` — 进行中
+- [ ] M8.8 删除最终 `SupabaseAdapter`、`legacy` 和无用依赖，重新生成最终统计 — 待开始
+
 ## 回归记录
 
 | 时间 | 节点 | 受影响测试 | 全量测试 | lint | build | 结论 |
@@ -94,6 +105,8 @@
 | 2026-08-05 | M6.3/M7.1 lint 与过渡层清理 | Supabase Repository 相关测试 13 passed | 53 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 清除全仓 lint 债务；删除 adapter bridge 和 3 个未使用兼容类型 |
 | 2026-08-05 | M7.2 SDK 目录边界收口 | Supabase Provider 相关测试 13 passed | 53 passed | 0 errors / 0 warnings | 通过（基线警告不变） | Supabase client、数据库类型和 SDK 调用全部位于 `src/data/providers/supabase` |
 | 2026-08-05 | M7.3 最终回归 | 53 passed | 53 passed | 0 errors / 0 warnings | 通过（Browserslist 与大 chunk 两类基线警告） | 交付检查通过 |
+| 2026-08-05 | M8.1–M8.5 Provider 辅助实体吸收 | Supabase Repository 测试通过 | 65 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 删除 7 个 legacy service，修复打卡、番茄钟、标签和搜索边界行为 |
+| 2026-08-05 | M8.6 Project Repository 去适配器化 | 3 passed | 68 passed | 0 errors / 0 warnings | 通过（基线警告不变） | Project CRUD/排序直接依赖注入的 Supabase client，数据库写入字段完成收口 |
 
 ## M0 调用盘点
 
@@ -146,6 +159,7 @@
 | M6.3 | `c3ec1a6` | 清除既有 lint errors 和 warnings |
 | M7.1 | `d680008` | 删除 Supabase adapter bridge 和统一大接口残留 |
 | M7.2 | `fceba29` | 将 Supabase client、SDK 类型和数据库类型完全收口到 Provider |
+| M8.1–M8.5 | `d90409a`、`4550211`、`a8f5c51`、`39e0dae`、`7d4e332` | 依次吸收项目协作、打卡、番茄钟、标签和辅助服务 |
 
 ## 风险与决策记录
 
@@ -155,7 +169,7 @@
 - 游客聊天写入受 RLS 的 `x-anonymous-id` 校验约束；迁移到 Repository 时已在 Supabase Provider 内恢复专用请求头并加入回归测试，页面不感知 SDK 细节。
 - M5 删除了 34 个离线专属测试，故全量测试由 M4 的 83 项变为 49 项；保留的 Supabase 和业务行为测试全部通过。
 - task/project/tag 数组和加载状态已从 Zustand 移除；Query cache 是唯一服务端状态源，Context 只提供数据视图、业务操作和必要的生命周期能力。
-- `src/data/providers/supabase/legacy` 仍有 2,787 行由主分支迁入的 Supabase 查询实现，`SupabaseAdapter.ts` 为 599 行。它们已封闭在 Provider 内且业务层不可见；本次不继续整体改写，以避免在缺少真实 Supabase 集成环境时扩大回归面。后续应按实体逐个吸收到 Repository，并同步移除其中的内部 toast。
+- Provider 内部遗留已由 2,787 行降至仅剩任务实现：`legacy/taskService.ts` 1,449 行、`SupabaseAdapter.ts` 67 行、`legacyTypes.ts` 30 行。M8.7 将继续按现有行为测试渐进吸收，不整体重写任务模块。
 
 ## 交付统计
 

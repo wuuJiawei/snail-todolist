@@ -1,29 +1,13 @@
 /** Internal Supabase datasource retained while repositories absorb legacy query modules. */
 
-import { supabase } from './client';
 import { Task } from '@/types/task';
-import { Project } from '@/types/project';
 import {
   TaskFilter,
   CreateTaskInput,
-  CreateProjectInput,
 } from './legacyTypes';
 import * as taskService from './legacy/taskService';
 
 export class SupabaseAdapter {
-  private userId: string | null = null;
-
-  private async ensureUser(): Promise<string> {
-    if (!this.userId) {
-      const { data } = await supabase.auth.getUser();
-      this.userId = data?.user?.id ?? null;
-    }
-    if (!this.userId) {
-      throw new Error('User not authenticated');
-    }
-    return this.userId;
-  }
-
   // ============================================
   // Task Operations
   // ============================================
@@ -78,103 +62,6 @@ export class SupabaseAdapter {
 
   async batchUpdateSortOrder(updates: Array<{ id: string; sort_order: number }>): Promise<boolean> {
     return taskService.batchUpdateSortOrder(updates, false);
-  }
-
-  // ============================================
-  // Project Operations
-  // ============================================
-
-  async getProjects(): Promise<Project[]> {
-    await this.ensureUser();
-    
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('user_id', this.userId!)
-      .order('sort_order', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return (data || []).map((p) => ({ ...p, count: 0 }));
-  }
-
-  async getProjectById(id: string): Promise<Project | null> {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (error) throw error;
-    return data ? { ...data, count: 0 } : null;
-  }
-
-  async createProject(project: CreateProjectInput): Promise<Project> {
-    const userId = await this.ensureUser();
-
-    const { data: maxOrderData } = await supabase
-      .from('projects')
-      .select('sort_order')
-      .eq('user_id', userId)
-      .order('sort_order', { ascending: false })
-      .limit(1);
-
-    const maxOrder =
-      maxOrderData && maxOrderData.length > 0 && maxOrderData[0].sort_order !== null
-        ? maxOrderData[0].sort_order
-        : 0;
-    const nextSortOrder = maxOrder + 1000;
-
-    const { data, error } = await supabase
-      .from('projects')
-      .insert({
-        name: project.name,
-        icon: project.icon || 'folder',
-        color: project.color || '#4CAF50',
-        view_type: project.view_type || 'list',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        user_id: userId,
-        sort_order: nextSortOrder,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return { ...data, count: 0 };
-  }
-
-  async updateProject(id: string, updates: Partial<Project>): Promise<Project | null> {
-    const { data, error } = await supabase
-      .from('projects')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .maybeSingle();
-
-    if (error) throw error;
-    return data ? { ...data, count: 0 } : null;
-  }
-
-  async deleteProject(id: string): Promise<boolean> {
-    const { error } = await supabase.from('projects').delete().eq('id', id);
-    if (error) throw error;
-    return true;
-  }
-
-  async batchUpdateProjectSortOrder(
-    updates: Array<{ id: string; sort_order: number }>
-  ): Promise<boolean> {
-    if (updates.length === 0) return true;
-
-    const updatePromises = updates.map(({ id, sort_order }) =>
-      supabase.from('projects').update({ sort_order }).eq('id', id)
-    );
-
-    const results = await Promise.all(updatePromises);
-    const hasError = results.some((result) => result.error);
-    if (hasError) throw new Error('Some updates failed');
-    return true;
   }
 
 }
