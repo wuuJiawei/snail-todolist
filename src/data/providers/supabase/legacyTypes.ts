@@ -20,22 +20,6 @@ export interface TaskFilter {
 }
 
 /**
- * Pomodoro session record
- */
-export interface PomodoroSession {
-  id: string;
-  task_id?: string | null;
-  user_id?: string;
-  duration: number;
-  type: 'work' | 'short_break' | 'long_break';
-  started_at: string;
-  completed_at?: string | null;
-  created_at: string;
-  notes?: string | null;
-  title?: string | null;
-}
-
-/**
  * Task activity record for tracking changes
  */
 export interface TaskActivity {
@@ -67,11 +51,6 @@ export type CreateTaskInput = Omit<Task, 'id'>;
  * Input type for creating a new project (without id)
  */
 export type CreateProjectInput = Omit<Project, 'id' | 'count'>;
-
-/**
- * Input type for creating a new pomodoro session (without id)
- */
-export type CreatePomodoroInput = Omit<PomodoroSession, 'id' | 'created_at'>;
 
 /**
  * Input type for creating a new task activity (without id)

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as storageOps from "@/data/operations";
 import type { PomodoroSessionPublic, PomodoroSessionType } from "@/data/operations";
 import { POMODORO_CYCLE_PROGRESS_KEY, POMODORO_FOCUS_TITLE_KEY } from "@/constants/storage-keys";
+import { toast } from "@/hooks/use-toast";
 import { PomodoroSettings } from "./usePomodoroSettings";
 
 type TransitionReason = "complete" | "skip" | "reset";
@@ -126,6 +127,12 @@ const playCompletionChime = () => {
   }
 };
 
+const notifyPomodoroSyncError = () => toast({
+  title: "操作失败",
+  description: "与番茄钟同步时出现问题，请稍后重试。",
+  variant: "destructive",
+});
+
 export interface PomodoroTimerState {
   mode: PomodoroSessionType;
   isRunning: boolean;
@@ -234,6 +241,7 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
         const sessionTitle = targetMode === "focus" ? title : undefined;
         const created = await storageOps.startPomodoroSession(targetMode, durationMinutes, sessionTitle);
         if (!created) {
+          notifyPomodoroSyncError();
           return;
         }
         setSession(created);
@@ -318,6 +326,8 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
 
         if (mutated) {
           setVersion((prev) => prev + 1);
+        } else if (activeSession) {
+          notifyPomodoroSyncError();
         }
 
         if (shouldAutoStart) {
@@ -416,32 +426,37 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const active = await storageOps.getActivePomodoroSession();
-      if (!mounted || !active) {
-        return;
-      }
-
-      const durationSeconds = active.duration * 60;
-      const elapsedSeconds = Math.max(
-        0,
-        Math.floor((Date.now() - new Date(active.start_time).getTime()) / 1000)
-      );
-      const remaining = Math.max(0, durationSeconds - elapsedSeconds);
-
-      if (remaining > 0) {
-        setMode(active.type);
-        setSession(active);
-        setRemainingSeconds(remaining);
-        setIsRunning(true);
-        if (active.type === "focus" && active.title) {
-          setFocusTitleState(active.title);
-          focusTitleRef.current = active.title;
+      try {
+        const active = await storageOps.getActivePomodoroSession();
+        if (!mounted || !active) {
+          return;
         }
-      } else {
-        sessionRef.current = active;
-        setTimeout(() => {
-          void finalizeSessionRef.current("complete");
-        }, 0);
+
+        const durationSeconds = active.duration * 60;
+        const elapsedSeconds = Math.max(
+          0,
+          Math.floor((Date.now() - new Date(active.start_time).getTime()) / 1000)
+        );
+        const remaining = Math.max(0, durationSeconds - elapsedSeconds);
+
+        if (remaining > 0) {
+          setMode(active.type);
+          setSession(active);
+          setRemainingSeconds(remaining);
+          setIsRunning(true);
+          if (active.type === "focus" && active.title) {
+            setFocusTitleState(active.title);
+            focusTitleRef.current = active.title;
+          }
+        } else {
+          sessionRef.current = active;
+          setTimeout(() => {
+            void finalizeSessionRef.current("complete");
+          }, 0);
+        }
+      } catch (error) {
+        console.error("Failed to restore pomodoro session:", error);
+        notifyPomodoroSyncError();
       }
     })();
 

@@ -6,11 +6,9 @@ import { Project } from '@/types/project';
 import { Tag } from '@/types/tag';
 import {
   TaskFilter,
-  PomodoroSession,
   TaskActivity,
   CreateTaskInput,
   CreateProjectInput,
-  CreatePomodoroInput,
   CreateActivityInput,
   FileUploadResult,
   SearchOptions,
@@ -21,7 +19,6 @@ import {
 } from './legacyTypes';
 import * as taskService from './legacy/taskService';
 import * as tagService from './legacy/tagService';
-import * as pomodoroService from './legacy/pomodoroService';
 import * as taskActivityService from './legacy/taskActivityService';
 
 export class SupabaseAdapter {
@@ -240,84 +237,6 @@ export class SupabaseAdapter {
 
   async detachTagFromTask(taskId: string, tagId: string): Promise<void> {
     await tagService.detachTagFromTask(taskId, tagId);
-  }
-
-  // ============================================
-  // Pomodoro Operations
-  // ============================================
-
-  async getPomodoroSessions(taskId?: string): Promise<PomodoroSession[]> {
-    const sessions = await pomodoroService.fetchPomodoroSessions({});
-    
-    const mapped = sessions.map(s => ({
-      id: s.id,
-      task_id: null as string | null,
-      user_id: s.user_id,
-      duration: s.duration,
-      type: this.mapPomodoroType(s.type),
-      started_at: s.start_time,
-      completed_at: s.end_time,
-      created_at: s.created_at,
-      notes: null as string | null,
-      title: s.title ?? null,
-    }));
-    
-    if (taskId) {
-      return mapped.filter(s => s.task_id === taskId);
-    }
-    return mapped;
-  }
-
-  private mapPomodoroType(type: pomodoroService.PomodoroSessionType): 'work' | 'short_break' | 'long_break' {
-    if (type === 'focus') return 'work';
-    if (type === 'short_break') return 'short_break';
-    if (type === 'long_break') return 'long_break';
-    return 'work';
-  }
-
-  async getPomodoroSessionById(id: string): Promise<PomodoroSession | null> {
-    const sessions = await this.getPomodoroSessions();
-    return sessions.find(s => s.id === id) ?? null;
-  }
-
-  async createPomodoroSession(session: CreatePomodoroInput): Promise<PomodoroSession> {
-    const type = session.type === 'work' ? 'focus' : session.type;
-    const result = await pomodoroService.startPomodoroSession(type, session.duration, session.title ?? undefined);
-    
-    if (!result) {
-      throw new Error('Failed to create pomodoro session');
-    }
-    
-    return {
-      id: result.id,
-      task_id: session.task_id ?? null,
-      user_id: result.user_id,
-      duration: result.duration,
-      type: this.mapPomodoroType(result.type),
-      started_at: result.start_time,
-      completed_at: result.end_time,
-      created_at: result.created_at,
-      notes: null,
-      title: result.title ?? null,
-    };
-  }
-
-  async updatePomodoroSession(
-    id: string,
-    updates: Partial<PomodoroSession>
-  ): Promise<PomodoroSession | null> {
-    if (updates.completed_at) {
-      await pomodoroService.completePomodoroSession(id, {
-        completed: true,
-        endTime: updates.completed_at,
-        durationOverride: updates.duration,
-      });
-    }
-    return this.getPomodoroSessionById(id);
-  }
-
-  async deletePomodoroSession(id: string): Promise<boolean> {
-    return pomodoroService.deletePomodoroSession(id);
   }
 
   // ============================================
