@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useToast } from '@/hooks/use-toast';
 import { TaskAttachment } from '@/types/task';
 import { Paperclip, Download, Trash2, FileText, Image, File, Plus } from 'lucide-react';
-import * as storageOps from '@/storage/operations';
+import * as storageOps from '@/data/operations';
 import clsx from 'clsx';
 
 interface TaskAttachmentsProps {

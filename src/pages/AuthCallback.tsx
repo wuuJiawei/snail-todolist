@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { getDataProvider } from "@/data";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -11,25 +11,15 @@ const AuthCallback = () => {
     const handleAuthCallback = async () => {
       try {
         // 处理OAuth回调中的认证
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("Authentication error:", error);
-          setError(`认证错误: ${error.message}`);
-          // 等待2秒后重定向到登录页面
-          setTimeout(() => {
-            navigate("/auth", { replace: true });
-          }, 2000);
-          return;
-        }
+        const session = await getDataProvider().auth.getSession();
 
-        if (data.session) {
+        if (session) {
           console.log("Session established successfully");
           // 成功获取session，优先跳转到待处理重定向
           let target: string | null = null;
-          try { target = localStorage.getItem('post_login_redirect'); } catch {}
+          try { target = localStorage.getItem('post_login_redirect'); } catch { /* storage may be unavailable */ }
           if (target) {
-            try { localStorage.removeItem('post_login_redirect'); } catch {}
+            try { localStorage.removeItem('post_login_redirect'); } catch { /* storage may be unavailable */ }
             navigate(target, { replace: true });
           } else {
             navigate("/", { replace: true });
@@ -42,19 +32,15 @@ const AuthCallback = () => {
           
           if (accessToken) {
             // 如果有token，手动设置session
-            const { error: setSessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || ''
-            });
-            
-            if (setSessionError) {
-              console.error("Failed to set session:", setSessionError);
-              setError(`设置会话失败: ${setSessionError.message}`);
+            try {
+              await getDataProvider().auth.setSession(accessToken, refreshToken || "");
+              navigate("/", { replace: true });
+            } catch (sessionError) {
+              console.error("Failed to set session:", sessionError);
+              setError(`设置会话失败: ${sessionError instanceof Error ? sessionError.message : "未知错误"}`);
               setTimeout(() => {
                 navigate("/auth", { replace: true });
               }, 2000);
-            } else {
-              navigate("/", { replace: true });
             }
           } else {
             console.warn("No session and no tokens found");

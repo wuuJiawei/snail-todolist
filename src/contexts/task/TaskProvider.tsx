@@ -1,6 +1,6 @@
 
 import React, { useState, ReactNode, useEffect, useMemo, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getDataProvider } from "@/data";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task } from "@/types/task";
 import { useToast } from "@/hooks/use-toast";
@@ -16,9 +16,8 @@ import { tagKeys, tagQueries } from "@/queries/tagQueries";
 import { taskActivityKeys } from "@/queries/taskActivityQueries";
 import type { TaskActivityAction, TaskActivityInput } from "@/types/taskActivity";
 import { useProjectContext } from "@/contexts/ProjectContext";
-import { isOfflineMode } from "@/storage";
-import * as storageOps from "@/storage/operations";
-import { canPerformOperation, requiresAuth } from "@/storage/operations";
+import * as storageOps from "@/data/operations";
+import { canPerformOperation, requiresAuth } from "@/data/operations";
 
 const hasProp = <K extends keyof Partial<Task>>(obj: Partial<Task>, key: K): boolean =>
   Object.prototype.hasOwnProperty.call(obj, key);
@@ -324,7 +323,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     const optimisticTask: Task = {
       id: tempId,
       ...task,
-      user_id: user?.id || 'offline-user',
+      user_id: user!.id,
       completed: task.completed ?? false,
       attachments: task.attachments ?? [],
       _isPending: true,
@@ -337,7 +336,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     try {
       const taskWithUserId = {
         ...task,
-        user_id: user?.id || 'offline-user'
+        user_id: user!.id
       };
       const newTask = await storageOps.addTask(taskWithUserId);
 
@@ -1041,32 +1040,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   }, [selectedProject, builtinScopes, visibleProjectIds]);
 
   useEffect(() => {
-    // Skip realtime subscriptions in offline mode
-    if (isOfflineMode) return;
     if (!user) return;
     const uid = user.id;
     const invalidate = () => queryClient.invalidateQueries({ queryKey: taskKeys.active() });
-    const channels: ReturnType<typeof supabase.channel>[] = [];
-
-    // 1) 订阅属于当前用户的任务变更
-    const chUser = supabase.channel(`tasks:user:${uid}`);
-    chUser.on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `user_id=eq.${uid}` }, invalidate).subscribe();
-    channels.push(chUser);
-
-    // 2) 订阅可见清单内任务的变更（按 50 个一组分片）
-    const chunkSize = 50;
-    for (let i = 0; i < narrowedProjectIds.length; i += chunkSize) {
-      const group = narrowedProjectIds.slice(i, i + chunkSize);
-      if (group.length === 0) continue;
-      const inList = group.map(id => `"${id}"`).join(",");
-      const ch = supabase.channel(`tasks:projects:${uid}:${i / chunkSize}`);
-      ch.on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `project=in.(${inList})` }, invalidate).subscribe();
-      channels.push(ch);
-    }
-
-    return () => {
-      channels.forEach(ch => supabase.removeChannel(ch));
-    };
+    return getDataProvider().tasks.subscribe(uid, narrowedProjectIds, invalidate);
   }, [user, queryClient, narrowedProjectIds]);
 
   const selectTask = useCallback((id: string | null) => {
@@ -1245,8 +1222,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         try {
           savingSortRef.current = true;
           // 保存排序 - 使用统一的 storage operations
-          const saved2 = await storageOps.updateTask(job.movedId, { sort_order: newOrder2 });
-          if (!saved2) throw new Error("Failed to persist updated sort order");
+          await storageOps.updateTask(job.movedId, { sort_order: newOrder2 });
           queryClient.setQueryData(taskKeys.active(), useTaskStore.getState().tasks);
           toast({ title: "已保存排序" });
         } catch (err) {
@@ -1261,7 +1237,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         }
       }
     }
-  }, [toast, setTasks, queryClient, user]);
+  }, [toast, setTasks, queryClient]);
 
   // Calculate project counts that will be used by both contexts
   const calculateProjectCounts = useCallback(() => {

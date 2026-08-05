@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import * as storageOps from "@/storage/operations";
-import type { PomodoroSessionPublic, PomodoroSessionType } from "@/storage/operations";
+import * as storageOps from "@/data/operations";
+import type { PomodoroSessionPublic, PomodoroSessionType } from "@/data/operations";
 import { POMODORO_CYCLE_PROGRESS_KEY, POMODORO_FOCUS_TITLE_KEY } from "@/constants/storage-keys";
 import { PomodoroSettings } from "./usePomodoroSettings";
 
@@ -470,5 +470,3 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
     selectMode,
   };
 };
-
-

@@ -5,7 +5,7 @@ import { getAppVersion } from "@/utils/version";
 import { AppInfo, AppVersion } from "@/types/app";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isOfflineMode } from "@/storage";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 
 // Static app info for offline mode
 const OFFLINE_APP_INFO: AppInfo = {

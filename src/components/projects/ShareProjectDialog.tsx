@@ -11,14 +11,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Project } from "@/types/project";
-import { supabase } from "@/integrations/supabase/client";
+import { getDataProvider } from "@/data";
+import type { ProjectMemberProfile, ProjectMemberWithProfile } from "@/data/contracts/projectRepository";
 import { useToast } from "@/components/ui/use-toast";
-import { Copy, Check, Users, Link2, X, WifiOff } from "lucide-react";
+import { Copy, Check, Users, Link2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getOrCreateActiveShare } from "@/services/projectShareService";
-import { listMembers, removeMember, getProfileById, type ProjectMemberRow, type Profile } from "@/services/projectMemberService";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { isOfflineMode } from "@/storage";
 
 interface ShareProjectDialogProps {
   open: boolean;
@@ -34,29 +32,6 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
   onOpenChange,
   project,
 }) => {
-  // Show offline message if in offline mode
-  if (isOfflineMode) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>分享清单</DialogTitle>
-            <DialogDescription>离线模式下无法使用分享功能</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center py-8 gap-4 text-muted-foreground">
-            <WifiOff className="h-12 w-12" />
-            <p className="text-sm text-center">分享功能需要网络连接，请在在线模式下使用</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              关闭
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
   const [shareCode, setShareCode] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
@@ -64,12 +39,12 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const [members, setMembers] = useState<ProjectMemberRow[]>([]);
+  const [members, setMembers] = useState<ProjectMemberWithProfile[]>([]);
   const [membersLoading, setMembersLoading] = useState<boolean>(false);
   const [removing, setRemoving] = useState<string | null>(null);
-  const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
+  const [ownerProfile, setOwnerProfile] = useState<ProjectMemberProfile | null>(null);
   const lastLoadedProjectRef = useRef<string | null>(null);
-  const membersCacheRef = useRef<Record<string, ProjectMemberRow[]>>({});
+  const membersCacheRef = useRef<Record<string, ProjectMemberWithProfile[]>>({});
 
   useEffect(() => {
     if (open && project) {
@@ -84,8 +59,8 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
             });
             return;
           }
-          const active = await getOrCreateActiveShare(project.id, user.id);
-          const code = active?.share_code || "";
+          const active = await getDataProvider().projectCollaboration.getOrCreateShare(project.id, user.id);
+          const code = active.shareCode;
           setShareCode(code);
           setShareLink(code ? shareLinkFor(code) : "");
         } catch (error) {
@@ -112,7 +87,7 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
           setMembersLoading(false);
         } else {
           setMembersLoading(true);
-          listMembers(pid)
+          getDataProvider().projectCollaboration.listMembers(pid)
             .then((list) => {
               setMembers(list);
               membersCacheRef.current[pid] = list;
@@ -123,7 +98,7 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
             .finally(() => setMembersLoading(false));
         }
         if (project.user_id) {
-          getProfileById(project.user_id)
+          getDataProvider().projectCollaboration.getProfile(project.user_id)
             .then((p) => setOwnerProfile(p))
             .catch((e) => console.error('load owner profile error', e));
         }
@@ -144,28 +119,24 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
       setRemoving(null);
       setOwnerProfile(null);
     }
-  }, [open, project?.id, user?.id]);
+  }, [open, project, user, toast]);
 
   useEffect(() => {
     if (!open || !project) return;
     const pid = project.id;
-    const channel = supabase.channel(`share:members:${pid}`);
     const onChange = async () => {
       delete membersCacheRef.current[pid];
       setMembersLoading(true);
       try {
-        const list = await listMembers(pid);
+        const list = await getDataProvider().projectCollaboration.listMembers(pid);
         setMembers(list);
         membersCacheRef.current[pid] = list;
       } finally {
         setMembersLoading(false);
       }
     };
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "project_members", filter: `project_id=eq.${pid}` }, onChange).subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [open, project?.id]);
+    return getDataProvider().projectCollaboration.subscribeToMembers(pid, onChange);
+  }, [open, project]);
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(shareCode).then(() => {
@@ -198,7 +169,7 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
     if (!project) return;
     setMembersLoading(true);
     try {
-      const list = await listMembers(project.id);
+      const list = await getDataProvider().projectCollaboration.listMembers(project.id);
       setMembers(list);
       membersCacheRef.current[project.id] = list;
     } catch (e) {
@@ -218,8 +189,8 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
     if (!ok) return;
     try {
       setRemoving(targetUserId);
-      await removeMember(project.id, targetUserId);
-      const list = await listMembers(project.id);
+      await getDataProvider().projectCollaboration.removeMember(project.id, targetUserId);
+      const list = await getDataProvider().projectCollaboration.listMembers(project.id);
       setMembers(list);
       membersCacheRef.current[project.id] = list;
       toast({ title: isSelf ? "已退出共享" : "已移除成员" });
@@ -317,10 +288,10 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
                   <div className="flex items-center gap-3 min-w-0">
                     <Avatar className="h-7 w-7">
                       <AvatarImage src={ownerProfile?.avatar_url || ''} />
-                      <AvatarFallback>{(ownerProfile?.display_name || ownerProfile?.email || project?.user_id || '?').slice(0,1)}</AvatarFallback>
+                      <AvatarFallback>{(ownerProfile?.username || project?.user_id || '?').slice(0,1)}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{ownerProfile?.display_name || ownerProfile?.email || project?.user_id || '-'}</div>
+                      <div className="text-sm font-medium truncate">{ownerProfile?.username || project?.user_id || '-'}</div>
                       <div className="text-xs text-gray-500">拥有者</div>
                     </div>
                   </div>
@@ -337,10 +308,10 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
                       <div className="flex items-center gap-3 min-w-0">
                         <Avatar className="h-7 w-7">
                           <AvatarImage src={m.profile?.avatar_url || ''} />
-                          <AvatarFallback>{(m.profile?.display_name || m.profile?.email || m.user_id || '?').slice(0,1)}</AvatarFallback>
+                          <AvatarFallback>{(m.profile?.username || m.user_id || '?').slice(0,1)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{m.profile?.display_name || m.profile?.email || m.user_id || '-'}</div>
+                          <div className="text-sm font-medium truncate">{m.profile?.username || m.user_id || '-'}</div>
                           <div className="text-xs text-gray-500 truncate">{m.role ? `成员（${m.role}）` : '成员'}</div>
                         </div>
                       </div>

@@ -29,7 +29,7 @@ export interface ProjectRepository {
   update(id: string, input: UpdateProjectInput): Promise<Project>;
   remove(id: string): Promise<void>;
   reorder(items: ProjectOrder[]): Promise<void>;
-  subscribeToMemberships(userId: string, onChange: () => void): () => void;
+  subscribeToMemberships(userId: string, ownedProjectIds: string[], onChange: () => void): () => void;
 }
 
 export interface ProjectCollaborationRepository {

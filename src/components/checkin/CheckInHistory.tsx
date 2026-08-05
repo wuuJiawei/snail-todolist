@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 import { CheckInRecord } from "@/storage/types";
 import { Icon } from "@/components/ui/icon-park";
 import { Badge } from "@/components/ui/badge";

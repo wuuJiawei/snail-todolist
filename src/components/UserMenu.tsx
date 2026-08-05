@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { isOfflineMode } from "@/storage";
 import { useUserProfileStore } from "@/store/userProfileStore";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 
 const UserMenu = () => {
   const { user, signOut } = useAuth();
@@ -107,7 +107,7 @@ const UserMenu = () => {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
           <Avatar className="h-10 w-10 border">
-            <AvatarImage src={user?.user_metadata?.avatar_url || ""} alt="用户头像" />
+            <AvatarImage src={user?.userMetadata.avatar_url || ""} alt="用户头像" />
             <AvatarFallback>{getUserInitials()}</AvatarFallback>
           </Avatar>
         </Button>
@@ -115,7 +115,7 @@ const UserMenu = () => {
       <DropdownMenuContent className="w-56" align="start" forceMount>
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user?.user_metadata?.name || user?.email}</p>
+            <p className="text-sm font-medium leading-none">{user?.userMetadata.name || user?.email}</p>
             <p className="text-xs leading-none text-gray-500">{user?.email}</p>
           </div>
         </DropdownMenuLabel>

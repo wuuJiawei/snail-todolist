@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 import type { Tag } from "@/types/tag";
 
 export const tagKeys = {

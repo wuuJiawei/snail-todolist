@@ -88,9 +88,10 @@ export class SupabaseTaskRepository extends SupabaseAdapterBridge implements Tas
     const chunkSize = 50;
     for (let index = 0; index < projectIds.length; index += chunkSize) {
       const chunk = projectIds.slice(index, index + chunkSize);
+      const inList = chunk.map((id) => `"${id}"`).join(",");
       channels.push(supabase.channel(`tasks:projects:${userId}:${index / chunkSize}`).on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "tasks", filter: `project=in.(${chunk.join(",")})` },
+        { event: "*", schema: "public", table: "tasks", filter: `project=in.(${inList})` },
         onChange,
       ).subscribe());
     }

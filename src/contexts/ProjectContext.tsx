@@ -1,13 +1,12 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getDataProvider } from "@/data";
 import { Project } from "@/types/project";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectStore } from "@/store/projectStore";
-import { isOfflineMode } from "@/storage";
-import * as storageOps from "@/storage/operations";
-import { canPerformOperation, requiresAuth } from "@/storage/operations";
+import * as storageOps from "@/data/operations";
+import { canPerformOperation, requiresAuth } from "@/data/operations";
 
 interface ProjectContextType {
   projects: Project[];
@@ -40,14 +39,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setLoading(true);
       
-      // Use unified storage operations for offline mode
-      if (isOfflineMode) {
-        const projects = await storageOps.getProjects();
-        setProjects(projects);
-        setHasLoaded(true);
-        return;
-      }
-      
       if (!user) {
         setProjects([]);
         setHasLoaded(false);
@@ -60,85 +51,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      // Fetch projects the user created
-      const { data: ownedProjects, error: ownedError } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('sort_order', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: false });
-
-      if (ownedError) {
-        throw ownedError;
-      }
-
-      // Fetch projects the user is a member of
-      const { data: memberProjects, error: memberError } = await supabase
-        .from('project_members')
-        .select(`
-          project:project_id(
-            id, name, icon, color, view_type, created_at, updated_at, sort_order, user_id
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (memberError) {
-        throw memberError;
-      }
-
-      // Check which owned projects have other members (so owner lists show as shared)
-      const ownedIds = ownedProjects.map(p => p.id);
-      let ownedSharedSet = new Set<string>();
-      if (ownedIds.length > 0) {
-        const { data: ownedMemberRows, error: ownedMembersError } = await supabase
-          .from('project_members')
-          .select('project_id, user_id')
-          .in('project_id', ownedIds);
-        if (ownedMembersError) {
-          console.error('Error fetching owned project member rows:', ownedMembersError);
-        } else {
-          const ownerByProject: Record<string, string | null | undefined> = {};
-          ownedProjects.forEach(p => { ownerByProject[p.id] = p.user_id; });
-          (ownedMemberRows || []).forEach((r: any) => {
-            const pid = r.project_id as string | null;
-            const uid = r.user_id as string | null;
-            if (pid && uid && uid !== ownerByProject[pid]) {
-              ownedSharedSet.add(pid);
-            }
-          });
-        }
-      }
-
-      // Process member projects to match the format of owned projects
-      const formattedMemberProjects = memberProjects
-        .filter(item => item.project)
-        .map(item => ({
-          ...item.project,
-          is_shared: true
-        }));
-
-      // Create a Set of project IDs that the user owns
-      const ownedProjectIds = new Set(ownedProjects.map(project => project.id));
-
-      // Filter out member projects that the user already owns to avoid duplicates
-      const uniqueMemberProjects = formattedMemberProjects.filter(
-        project => !ownedProjectIds.has(project.id)
-      );
-
-      const ownedWithShareFlag = ownedProjects.map((p) => ({
-        ...p,
-        is_shared: ownedSharedSet.has(p.id),
-      }));
-      const allProjects = [...ownedWithShareFlag, ...uniqueMemberProjects];
-
-      // Add a count property with initial count of 0
-      const projectsWithCount = allProjects.map(project => ({
-        ...project,
-        count: 0
-      }));
-
-      setProjects(projectsWithCount);
+      setProjects(await getDataProvider().projects.findAll());
       setHasLoaded(true);
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -168,29 +81,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Realtime: refresh on project membership changes (filtered)
   useEffect(() => {
-    // Skip realtime subscriptions in offline mode
-    if (isOfflineMode) return;
     if (!user) return;
     const ownedIds = (projects || []).filter(p => p.user_id === user.id).map(p => p.id);
-    const channel = supabase.channel(`projects:members:${user.id}`);
     const refresh = () => fetchProjects(true);
-    channel.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "project_members", filter: `user_id=eq.${user.id}` },
-      refresh
-    );
-    if (ownedIds.length > 0) {
-      const inList = ownedIds.map(id => `"${id}"`).join(",");
-      channel.on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "project_members", filter: `project_id=in.(${inList})` },
-        refresh
-      );
-    }
-    channel.subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return getDataProvider().projects.subscribeToMemberships(user.id, ownedIds, refresh);
   }, [user, projects, fetchProjects]);
 
   // Listen for task count updates from TaskProvider
@@ -225,7 +119,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         view_type: data.view_type || 'list',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        user_id: user?.id || 'offline-user',
+        user_id: user!.id,
         sort_order: (projects.length + 1) * 1000,
       });
 

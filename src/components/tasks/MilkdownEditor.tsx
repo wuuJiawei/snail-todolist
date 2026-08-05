@@ -33,7 +33,7 @@ import { defaultKeymap } from "@codemirror/commands";
 import { keymap } from "@codemirror/view";
 import { $prose } from "@milkdown/kit/utils";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 
 const taskListClickPlugin = $prose(() => {
   return new Plugin({

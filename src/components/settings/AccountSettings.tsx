@@ -8,7 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { isOfflineMode } from "@/storage";
 import { useUserProfileStore } from "@/store/userProfileStore";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 
 const AccountSettings = () => {
   const { user, refreshUser } = useAuth();
@@ -26,8 +26,8 @@ const AccountSettings = () => {
         setUsername(profile.username || (isOfflineMode ? "离线用户" : ""));
         setAvatarUrl(profile.avatar_url || "");
       } else if (!isOfflineMode && user) {
-        setUsername(user.user_metadata?.name || "");
-        setAvatarUrl(user.user_metadata?.avatar_url || "");
+        setUsername(user.userMetadata.name || "");
+        setAvatarUrl(user.userMetadata.avatar_url || "");
       }
     };
 

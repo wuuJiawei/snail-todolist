@@ -1,7 +1,7 @@
 import { Task } from "@/types/task";
 import { toast } from "@/hooks/use-toast";
 import { ensureNotificationPermission, sendNotification as sendUnifiedNotification } from "@/utils/notifications";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 
 interface DeadlineNotificationConfig {
   enabled: boolean;

@@ -3,7 +3,7 @@ import { BlockNoteView } from '@blocknote/shadcn';
 import { useCreateBlockNote } from '@blocknote/react';
 import { PartialBlock, BlockNoteEditor } from '@blocknote/core';
 import { convertEditorJSToBlockNote, isEditorJSFormat } from '@/utils/contentConverter';
-import * as storageOps from '@/storage/operations';
+import * as storageOps from '@/data/operations';
 
 // Import BlockNote styles
 import '@blocknote/core/fonts/inter.css';
