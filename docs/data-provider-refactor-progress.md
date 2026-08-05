@@ -66,10 +66,10 @@
 
 ### M6：状态与职责收敛 — 进行中
 
-- [ ] M6.1 缩减 `TaskProvider` 的数据访问、缓存和提示职责 — 进行中（服务端加载与状态已迁移，业务操作拆分待继续）
+- [x] M6.1 缩减 `TaskProvider` 的数据访问、缓存和提示职责 — 已完成（1,487 行降至 975 行）
 - [x] M6.2 消除 Context、Zustand、Query 的重复服务端状态 — 已完成
 - [ ] M6.3 收敛重复 toast、错误处理和缓存失效逻辑 — 待开始
-- [ ] M6.4 拆分仍然过大的业务模块，保持增量改造 — 待开始
+- [x] M6.4 拆分仍然过大的业务模块，保持增量改造 — 已完成（活动日志、防抖和排序队列已拆 Hook）
 
 ### M7：清理、全量回归与交付 — 待开始
 
@@ -90,6 +90,7 @@
 | 2026-08-05 | M4.3 导入导出 UseCase | 4 passed | 83 passed | 变更范围 0 errors / 0 warnings | 通过（基线警告不变） | 导入保留实体 ID 并恢复任务标签关系 |
 | 2026-08-05 | M5.1–M5.4 离线模式移除 | 游客聊天 RLS 1 passed | 49 passed | 变更范围 0 errors / 0 warnings；全量 33 errors / 16 warnings | 通过（基线警告不变） | IndexedDB、离线身份/入口/配置和测试依赖归零；测试数下降来自离线专属测试删除 |
 | 2026-08-05 | M1.4/M6.2 Query 状态收敛 | Query 刷新与键隔离 2 passed | 51 passed | 变更范围 0 errors / 1 个既有 Fast Refresh warning；全量 33 errors / 16 warnings | 通过（基线警告不变） | task/project/tag 服务端状态只保留在 Query cache；删除 task/project Zustand store |
+| 2026-08-05 | M6.1/M6.4 TaskProvider 拆分 | 状态转换与排序计算 2 passed | 53 passed | 变更范围 0 errors / 0 warnings；全量 33 errors / 16 warnings | 通过（基线警告不变） | Provider 减少 512 行；活动记录/描述防抖与排序持久化队列拆为独立 Hook |
 
 ## M0 调用盘点
 
@@ -137,7 +138,8 @@
 | M3 | `15f479b` | 建立 Supabase repositories、mapper 和统一错误 |
 | M4 | `8733526`、`df6c351` | 迁移业务数据访问和导入导出流程 |
 | M5 | `c3dde5b` | 删除 IndexedDB、离线模式及其依赖和 UI |
-| M6.2 | 当前阶段提交 | 统一 task/project/tag 的 Query server-state 来源并补缓存测试 |
+| M6.2 | `11eafc4` | 统一 task/project/tag 的 Query server-state 来源并补缓存测试 |
+| M6.1/M6.4 | 当前阶段提交 | 拆分活动记录和排序 Hook，缩减 TaskProvider |
 
 ## 风险与决策记录
 

@@ -1,5 +1,5 @@
 
-import React, { useState, ReactNode, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, ReactNode, useEffect, useMemo, useCallback } from "react";
 import { getDataProvider } from "@/data";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task } from "@/types/task";
@@ -12,98 +12,11 @@ import { useDeadlineNotifications } from "@/hooks/useDeadlineNotifications";
 import { Tag } from "@/types/tag";
 import { taskKeys, taskQueries } from "@/queries/taskQueries";
 import { tagKeys, tagQueries } from "@/queries/tagQueries";
-import { taskActivityKeys } from "@/queries/taskActivityQueries";
-import type { TaskActivityAction, TaskActivityInput } from "@/types/taskActivity";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import * as storageOps from "@/data/operations";
 import { canPerformOperation, requiresAuth } from "@/data/operations";
-
-const hasProp = <K extends keyof Partial<Task>>(obj: Partial<Task>, key: K): boolean =>
-  Object.prototype.hasOwnProperty.call(obj, key);
-
-const attachmentsSignature = (list: Task["attachments"] = []) =>
-  JSON.stringify((list ?? []).map((att) => ({ id: att.id, url: att.url, filename: att.filename })));
-
-const attachmentsEqual = (a?: Task["attachments"], b?: Task["attachments"]) =>
-  attachmentsSignature(a) === attachmentsSignature(b);
-
-const statusLabel = (completed?: boolean) => (completed ? "completed" : "active");
-
-const buildTaskActivityDrafts = (
-  previous: Task | undefined,
-  updates: Partial<Task>
-): TaskActivityInput[] => {
-  if (!previous) return [];
-  const drafts: TaskActivityInput[] = [];
-
-  if (hasProp(updates, "title") && updates.title !== previous.title) {
-    drafts.push({
-      action: "title_updated",
-      metadata: { from: previous.title ?? "", to: updates.title ?? "" },
-    });
-  }
-
-  if (hasProp(updates, "description") && updates.description !== previous.description) {
-    drafts.push({
-      action: "description_updated",
-      metadata: {
-        previousLength: previous.description?.length ?? 0,
-        nextLength: updates.description?.length ?? 0,
-      },
-    });
-  }
-
-  if (hasProp(updates, "completed") && updates.completed !== previous.completed) {
-    drafts.push({
-      action: "status_updated",
-      metadata: {
-        from: statusLabel(previous.completed),
-        to: statusLabel(updates.completed),
-      },
-    });
-  }
-
-  if (hasProp(updates, "flagged") && updates.flagged !== previous.flagged) {
-    drafts.push({
-      action: updates.flagged ? "task_flagged" : "task_unflagged",
-      metadata: {
-        flagged: updates.flagged ?? false,
-      },
-    });
-  }
-
-  if (hasProp(updates, "date") && updates.date !== previous.date) {
-    drafts.push({
-      action: "due_date_updated",
-      metadata: {
-        from: previous.date ?? null,
-        to: updates.date ?? null,
-      },
-    });
-  }
-
-  if (hasProp(updates, "project") && updates.project !== previous.project) {
-    drafts.push({
-      action: "project_changed",
-      metadata: {
-        from: previous.project ?? null,
-        to: updates.project ?? null,
-      },
-    });
-  }
-
-  if (hasProp(updates, "attachments") && !attachmentsEqual(previous.attachments, updates.attachments)) {
-    drafts.push({
-      action: "attachments_updated",
-      metadata: {
-        previousCount: previous.attachments?.length ?? 0,
-        nextCount: updates.attachments?.length ?? 0,
-      },
-    });
-  }
-
-  return drafts;
-};
+import { buildTaskActivityDrafts, useTaskActivityRecorder } from "./useTaskActivityRecorder";
+import { useTaskReorder } from "./useTaskReorder";
 
 interface TaskProviderProps {
   children: ReactNode;
@@ -210,43 +123,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     enabled: true 
   });
 
-  // 用于 description_updated 动态的防抖处理
-  const descriptionActivityTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
-  const pendingDescriptionActivityRef = useRef<Record<string, { metadata: Record<string, unknown> }>>({});
-
-  const recordTaskActivity = useCallback(async (taskId: string, action: TaskActivityAction, metadata?: Record<string, unknown>) => {
-    // 对 description_updated 做防抖处理，避免频繁记录动态
-    if (action === "description_updated") {
-      // 清除之前的定时器
-      if (descriptionActivityTimerRef.current[taskId]) {
-        clearTimeout(descriptionActivityTimerRef.current[taskId]);
-      }
-      // 保存最新的 metadata
-      pendingDescriptionActivityRef.current[taskId] = { metadata: metadata ?? {} };
-      // 设置新的定时器，5 秒后记录动态
-      descriptionActivityTimerRef.current[taskId] = setTimeout(async () => {
-        const pending = pendingDescriptionActivityRef.current[taskId];
-        if (pending) {
-          try {
-            await storageOps.createTaskActivity({ task_id: taskId, action: "description_updated", metadata: pending.metadata });
-            queryClient.invalidateQueries({ queryKey: taskActivityKeys.byTask(taskId) });
-          } catch (error) {
-            console.error("Failed to record task activity:", error);
-          }
-          delete pendingDescriptionActivityRef.current[taskId];
-          delete descriptionActivityTimerRef.current[taskId];
-        }
-      }, 5000);
-      return;
-    }
-
-    try {
-      await storageOps.createTaskActivity({ task_id: taskId, action, metadata });
-      queryClient.invalidateQueries({ queryKey: taskActivityKeys.byTask(taskId) });
-    } catch (error) {
-      console.error("Failed to record task activity:", error);
-    }
-  }, [queryClient]);
+  const recordTaskActivity = useTaskActivityRecorder();
 
   useEffect(() => {
     if (canPerformOperation(user)) return;
@@ -870,185 +747,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     setSelectedTaskId(null);
   }, [setSelectedProject, setSelectedTaskId]);
 
-  // Reorder tasks
-  const SORT_ORDER_STEP = 1000;
-
-  const savingSortRef = useRef(false);
-  type PendingReorder = { projectId: string; movedId: string; prevId?: string; nextId?: string; isCompletedArea: boolean };
-  const pendingReorderRef = useRef<PendingReorder | null>(null);
-  const lastManualOrderAtRef = useRef<number>(0);
-
-  useEffect(() => {
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (savingSortRef.current) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, []);
-
-  const reorderTasks = useCallback(async (projectId: string, sourceIndex: number, destinationIndex: number, isCompletedArea = false) => {
-    // If source and destination are the same, no need to reorder
-    if (sourceIndex === destinationIndex) return;
-
-    // Get only tasks for the specific project based on completion status
-    const currentTasks = getCachedTasks(taskKeys.active());
-    const projectTasks = currentTasks.filter(
-      (task) => task.project === projectId && Boolean(task.completed) === isCompletedArea
-    );
-
-    if (projectTasks.length === 0) {
-      return;
-    }
-
-    // Keep a copy of the previous state in case we need to roll back
-    const previousTasksSnapshot = currentTasks.map((task) => ({ ...task }));
-
-    // Create a copy of the array
-    const reorderedProjectTasks = [...projectTasks];
-
-    // Remove the task from the source position and insert at destination
-    const [removed] = reorderedProjectTasks.splice(sourceIndex, 1);
-    reorderedProjectTasks.splice(destinationIndex, 0, removed);
-
-    const extractSortOrder = (task: Task) => {
-      if (typeof task.sort_order === "number" && !Number.isNaN(task.sort_order)) {
-        return task.sort_order;
-      }
-      if (task.sort_order !== undefined) {
-        const parsed = Number(task.sort_order);
-        return Number.isNaN(parsed) ? undefined : parsed;
-      }
-      return undefined;
-    };
-
-    const existingOrders = projectTasks
-      .map(extractSortOrder)
-      .filter((value): value is number => value !== undefined);
-
-    const baseOrder =
-      existingOrders.length > 0
-        ? Math.min(...existingOrders) - SORT_ORDER_STEP
-        : 0;
-
-    const prev = reorderedProjectTasks[destinationIndex - 1];
-    const next = reorderedProjectTasks[destinationIndex + 1];
-
-    const prevOrder = prev
-      ? extractSortOrder(prev) ?? baseOrder + (reorderedProjectTasks.indexOf(prev) + 1) * SORT_ORDER_STEP
-      : undefined;
-    const nextOrder = next
-      ? extractSortOrder(next) ?? baseOrder + (reorderedProjectTasks.indexOf(next) + 1) * SORT_ORDER_STEP
-      : undefined;
-
-    const newOrder =
-      prevOrder != null && nextOrder != null
-        ? (prevOrder + nextOrder) / 2
-        : prevOrder != null
-          ? prevOrder + SORT_ORDER_STEP
-          : nextOrder != null
-            ? nextOrder - SORT_ORDER_STEP
-            : baseOrder + SORT_ORDER_STEP;
-
-    const movedUpdated = { ...removed, sort_order: newOrder } as Task;
-    const areaMatch = (t: Task) => t.project === projectId && Boolean(t.completed) === isCompletedArea;
-    const otherTasks = currentTasks.filter((t) => !areaMatch(t));
-    const nextTasks = [
-      ...reorderedProjectTasks.map((t) => (t.id === movedUpdated.id ? movedUpdated : t)),
-      ...otherTasks,
-    ];
-
-    // Optimistically update the local store
-    setTasks(nextTasks);
-    lastManualOrderAtRef.current = Date.now();
-
-    if (savingSortRef.current) {
-      pendingReorderRef.current = {
-        projectId,
-        movedId: movedUpdated.id,
-        prevId: prev?.id,
-        nextId: next?.id,
-        isCompletedArea,
-      };
-      return;
-    }
-
-    // Persist only the moved task's order
-    try {
-      savingSortRef.current = true;
-      // 保存排序 - 使用统一的 storage operations
-      const saved = await storageOps.updateTask(movedUpdated.id, { sort_order: newOrder });
-      if (!saved) throw new Error("Failed to persist updated sort order");
-
-      // Sync query cache without triggering refetch to avoid flicker
-      toast({ title: "已保存排序" });
-    } catch (error) {
-      console.error('Failed to update task order in database:', error);
-      // Roll back optimistic update
-      setTasks(previousTasksSnapshot);
-      toast({
-        title: "排序保存失败",
-        description: "任务顺序已在本地更新，但未能保存到服务器",
-        variant: "destructive"
-      });
-    }
-    finally {
-      savingSortRef.current = false;
-      while (pendingReorderRef.current) {
-        const job = pendingReorderRef.current;
-        pendingReorderRef.current = null;
-
-        const currentTasks2 = getCachedTasks(taskKeys.active());
-        const projectTasks2 = currentTasks2.filter(
-          (task) => task.project === job.projectId && Boolean(task.completed) === job.isCompletedArea
-        );
-
-        const existingOrders2 = projectTasks2
-          .map(extractSortOrder)
-          .filter((value): value is number => value !== undefined);
-
-        const baseOrder2 =
-          existingOrders2.length > 0 ? Math.min(...existingOrders2) - SORT_ORDER_STEP : 0;
-
-        const prev2 = job.prevId ? projectTasks2.find((t) => t.id === job.prevId) : undefined;
-        const next2 = job.nextId ? projectTasks2.find((t) => t.id === job.nextId) : undefined;
-
-        const prevOrder2 = prev2
-          ? extractSortOrder(prev2) ?? baseOrder2 + (projectTasks2.indexOf(prev2) + 1) * SORT_ORDER_STEP
-          : undefined;
-        const nextOrder2 = next2
-          ? extractSortOrder(next2) ?? baseOrder2 + (projectTasks2.indexOf(next2) + 1) * SORT_ORDER_STEP
-          : undefined;
-
-        const newOrder2 =
-          prevOrder2 != null && nextOrder2 != null
-            ? (prevOrder2 + nextOrder2) / 2
-            : prevOrder2 != null
-              ? prevOrder2 + SORT_ORDER_STEP
-              : nextOrder2 != null
-                ? nextOrder2 - SORT_ORDER_STEP
-                : baseOrder2 + SORT_ORDER_STEP;
-
-        try {
-          savingSortRef.current = true;
-          // 保存排序 - 使用统一的 storage operations
-          await storageOps.updateTask(job.movedId, { sort_order: newOrder2 });
-          toast({ title: "已保存排序" });
-        } catch (err) {
-          console.error('Failed to process queued task order:', err);
-          toast({
-            title: "排序保存失败",
-            description: "存在未保存的排序变更未能同步到服务器",
-            variant: "destructive",
-          });
-        } finally {
-          savingSortRef.current = false;
-        }
-      }
-    }
-  }, [toast, setTasks, getCachedTasks]);
+  const reorderTasks = useTaskReorder();
 
   // Calculate project counts that will be used by both contexts
   const calculateProjectCounts = useCallback(() => {
