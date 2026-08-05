@@ -88,6 +88,7 @@
 - [x] M8.6 将项目 CRUD/排序吸收到 `SupabaseProjectRepository` — 已完成
 - [x] M8.7 将任务核心 CRUD/排序吸收到 `SupabaseTaskRepository` — 已完成
 - [x] M8.8 删除最终 `SupabaseAdapter`、`legacy` 和无用依赖，重新生成最终统计 — 已完成
+- [x] M8.9 启动本地 Web 执行认证页、受保护路由和控制台冒烟 — 已完成
 
 ## 回归记录
 
@@ -109,6 +110,7 @@
 | 2026-08-05 | M8.6 Project Repository 去适配器化 | 3 passed | 68 passed | 0 errors / 0 warnings | 通过（基线警告不变） | Project CRUD/排序直接依赖注入的 Supabase client，数据库写入字段完成收口 |
 | 2026-08-05 | M8.7 Task Repository 去适配器化 | 12 passed | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 保留共享项目权限和附件映射；恢复时间字段真实清空；查询错误不再吞并为空数组 |
 | 2026-08-05 | M8.8 最终 legacy/依赖清理 | 12 passed | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | `npm ci` 成功；Adapter、legacy、`uuid` 及空目录全部删除；静态扫描归零 |
+| 2026-08-05 | M8.9 本地 Web 冒烟 | `/auth`、登录/注册切换、`/settings`、`/chat` | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 修复 Query 空数据引用导致的 Provider 无限更新；复测控制台 0 errors |
 
 ## M0 调用盘点
 
@@ -175,15 +177,15 @@
 - 游客聊天写入受 RLS 的 `x-anonymous-id` 校验约束；迁移到 Repository 时已在 Supabase Provider 内恢复专用请求头并加入回归测试，页面不感知 SDK 细节。
 - M5 删除了 34 个离线专属测试，故全量测试由 M4 的 83 项变为 49 项；保留的 Supabase 和业务行为测试全部通过。
 - task/project/tag 数组和加载状态已从 Zustand 移除；Query cache 是唯一服务端状态源，Context 只提供数据视图、业务操作和必要的生命周期能力。
-- 自动化回归使用注入的 Supabase client mock，没有可用的独立 Supabase 测试环境执行真实 RLS/E2E；共享项目权限分支已用 Repository 测试锁定，生产 RLS 仍需部署后冒烟验证。
+- 当前分支已在 `http://127.0.0.1:8080` 完成本地 Web 冒烟；仓库未提供可用的前端 `.env`，因此真实 Supabase RLS/CRUD 仍需配置测试环境后验证。
 
 ## 交付统计
 
-- TypeScript/TSX 总量：33,547 行降至 28,771 行，减少 4,776 行。
-- 生产 TypeScript/TSX：31,064 行降至 26,725 行，减少 4,339 行。
+- TypeScript/TSX 总量：33,547 行降至 28,774 行，减少 4,773 行。
+- 生产 TypeScript/TSX：31,064 行降至 26,728 行，减少 4,336 行。
 - 测试 TypeScript/TSX：2,483 行降至 2,046 行；净减少来自删除 1,322 行 IndexedDB/storage 专属测试，同时新增 Repository、工厂、Query 和业务行为测试。
-- 全部文件 diff：新增 4,640 行、删除 9,664 行，净减少 5,024 行；共影响 122 个文件。
-- `TaskProvider.tsx`：1,487 行降至 990 行，减少 497 行。
+- 全部文件 diff：新增 4,722 行、删除 9,664 行，净减少 4,942 行；共影响 122 个文件。
+- `TaskProvider.tsx`：1,487 行降至 993 行，减少 494 行。
 - 静态扫描：`src` 内 IndexedDB/离线配置、Adapter/legacy 引用均为 0；Provider 外 Supabase SDK/client 引用为 0；旧 `src/storage` 引用为 0。
 
 ## 最终删除清单
@@ -252,7 +254,7 @@ src/data/
 ## 尚未处理的问题
 
 - `self-host` 只保留规划值和明确的“未实现”错误；本次目标是不实现后端本身。
-- 未连接真实 Supabase 测试项目执行 RLS/E2E；原因是仓库没有隔离的集成测试环境和凭据，需部署前按登录、共享清单、附件和实时订阅清单冒烟。
+- 已完成本地 UI/路由冒烟，但未连接真实 Supabase 测试项目执行 RLS/CRUD；原因是当前 worktree 没有 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`，需提供测试环境配置后继续登录、共享清单、附件和实时订阅验证。
 - build 仍提示 Browserslist 数据过期和主 chunk 约 6 MB；均为修改前已有警告，拆包属于独立性能任务。
 - `npm ci` 报告 21 个依赖漏洞（1 low、3 moderate、15 high、2 critical）；未执行可能引入破坏性升级的 `npm audit fix --force`。
 - `database.types.ts` 来自主分支且落后于部分 SQL migration（如 task `attachments`、`flagged`）；运行时已在 Provider Row mapper 隔离，后续应从目标 Supabase schema 重新生成类型。

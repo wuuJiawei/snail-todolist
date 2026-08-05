@@ -23,6 +23,9 @@ interface TaskProviderProps {
   children: ReactNode;
 }
 
+const EMPTY_TASKS: Task[] = [];
+const EMPTY_TASK_TAGS: Record<string, Tag[]> = {};
+
 export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -34,19 +37,19 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const builtinScopes = useMemo(() => new Set(["recent","today","flagged","completed","abandoned","trash"]), []);
 
   const {
-    data: tasks = [],
+    data: tasks = EMPTY_TASKS,
     isPending: isActivePending,
   } = useQuery({
     ...taskQueries.active(),
     enabled: canPerformOperation(user),
   });
   const {
-    data: trashedTasks = [],
+    data: trashedTasks = EMPTY_TASKS,
     isFetching: trashedLoading,
     isFetched: trashedLoaded,
   } = useQuery({ ...taskQueries.trashed(), enabled: false });
   const {
-    data: abandonedTasks = [],
+    data: abandonedTasks = EMPTY_TASKS,
     isFetching: abandonedLoading,
     isFetched: abandonedLoaded,
   } = useQuery({ ...taskQueries.abandoned(), enabled: false });
@@ -56,7 +59,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     [tasks],
   );
   const taskMappingKey = useMemo(() => tagKeys.forTasks(tagTaskIds), [tagTaskIds]);
-  const { data: taskIdToTags = {} } = useQuery({
+  const { data: taskIdToTags = EMPTY_TASK_TAGS } = useQuery({
     ...tagQueries.forTasks(tagTaskIds),
     enabled: canPerformOperation(user),
     placeholderData: (previous) => previous,
