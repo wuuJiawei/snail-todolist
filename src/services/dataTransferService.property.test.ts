@@ -9,6 +9,7 @@ import JSZip from 'jszip';
 import { Task } from '@/types/task';
 import { Project } from '@/types/project';
 import { Tag } from '@/types/tag';
+import type { StorageAdapter } from '@/storage/types';
 
 // Mock the storage module
 vi.mock('@/storage', () => ({
@@ -38,7 +39,7 @@ const taskArbitrary = fc.record({
   title: fc.string({ minLength: 1, maxLength: 200 }),
   completed: fc.boolean(),
   project: fc.option(fc.uuid(), { nil: undefined }),
-  date: fc.option(fc.date().map(d => d.toISOString()), { nil: undefined }),
+  date: fc.option(fc.date({ noInvalidDate: true }).map(d => d.toISOString()), { nil: undefined }),
   user_id: fc.uuid(),
   sort_order: fc.integer({ min: 0, max: 1000 }),
   deleted: fc.boolean(),
@@ -79,7 +80,7 @@ describe('Property 1: Export Data Completeness', () => {
             getTags: vi.fn().mockResolvedValue(tags),
             getTagsByTaskIds: vi.fn().mockResolvedValue({}),
           };
-          vi.mocked(getStorage).mockReturnValue(mockStorage as any);
+          vi.mocked(getStorage).mockReturnValue(mockStorage as unknown as StorageAdapter);
 
           // Export data using createBackupBlob (doesn't trigger download)
           const result = await createBackupBlob();
@@ -206,7 +207,7 @@ describe('Property 2: Import Data Round-Trip', () => {
             deleteTask: vi.fn().mockResolvedValue(true),
             deleteTag: vi.fn().mockResolvedValue(true),
           };
-          vi.mocked(getStorage).mockReturnValue(mockStorage as any);
+          vi.mocked(getStorage).mockReturnValue(mockStorage as unknown as StorageAdapter);
 
           // Import data
           const importResult = await importData(file, { mode: 'replace' });
