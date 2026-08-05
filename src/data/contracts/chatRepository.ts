@@ -20,7 +20,7 @@ export interface ChatPresence {
 }
 
 export interface ChatRepository {
-  findRecent(limit?: number): Promise<ChatMessage[]>;
+  findRecent(limit?: number, before?: string): Promise<ChatMessage[]>;
   send(input: Omit<ChatMessage, "id" | "createdAt">): Promise<void>;
   subscribe(
     presence: ChatPresence,

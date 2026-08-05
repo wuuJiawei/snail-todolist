@@ -36,19 +36,19 @@
 - [x] M1.3 补充项目、任务、标签关联与导入导出测试 — 已完成（复用现有关联测试并修正导入导出生成器）
 - [ ] M1.4 补充 Query 缓存刷新保护测试 — 待开始
 
-### M2：领域契约与 Provider 工厂 — 待开始
+### M2：领域契约与 Provider 工厂 — 已完成
 
 - [x] M2.1 建立统一领域错误（Supabase 转换在 M3 实现） — 已完成
 - [x] M2.2 拆分 task/project/tag/check-in/pomodoro/auth 等 Repository 接口 — 已完成
-- [ ] M2.3 建立 `DataProvider`、`createDataProvider`、`getDataProvider` — 待开始
-- [ ] M2.4 覆盖 `supabase`、`self-host` 未实现和非法配置测试 — 待开始
+- [x] M2.3 建立 `DataProvider`、`createDataProvider`、`getDataProvider` — 已完成
+- [x] M2.4 覆盖 `supabase`、`self-host` 未实现和非法配置测试 — 已完成
 
-### M3：Supabase Provider 实现与映射 — 待开始
+### M3：Supabase Provider 实现与映射 — 已完成
 
-- [ ] M3.1 将数据库 Row 类型限制在 Supabase Provider 内 — 待开始
-- [ ] M3.2 建立 task/project/tag 等 mapper 与映射测试 — 待开始
-- [ ] M3.3 将现有 Supabase 数据访问迁移到各 Repository 实现 — 待开始
-- [ ] M3.4 建立 Repository 契约测试 — 待开始
+- [x] M3.1 将数据库 Row 类型限制在 Supabase Provider 内 — 已完成
+- [x] M3.2 建立 task/project/tag 等 mapper 与映射测试 — 已完成
+- [x] M3.3 将现有 Supabase 数据访问封装到各 Repository 实现 — 已完成（旧 adapter bridge 将在业务迁移后删除）
+- [x] M3.4 建立 Repository 契约测试 — 已完成
 
 ### M4：业务层迁移与复杂流程编排 — 待开始
 
@@ -85,6 +85,7 @@
 | 2026-08-05 | 修改前基线 | — | 3 failed / 60 passed | 108 errors / 19 warnings | 通过（2 类既有警告） | 已记录基线债务 |
 | 2026-08-05 | M1.1–M1.3 行为锁定 | 24 passed | 68 passed | 变更文件 0 errors / 0 warnings | 通过（基线警告不变） | 可进入契约设计 |
 | 2026-08-05 | M2.1–M2.2 领域契约 | — | 68 passed | `src/data` 0 errors / 0 warnings | 通过（基线警告不变） | 契约不暴露 Supabase SDK 类型 |
+| 2026-08-05 | M2.3–M3 Provider 与 Supabase 实现 | 16 passed | 80 passed | `src/data` 0 errors / 0 warnings | 通过（基线警告不变） | 工厂、映射、错误和任务契约已覆盖 |
 
 ## M0 调用盘点
 
@@ -128,6 +129,7 @@
 | --- | --- | --- |
 | M0 | 待提交 | 建立可持续更新的里程碑、节点和回归记录 |
 | M1 | 待提交 | 修正随机测试边界并锁定任务状态转换和排序行为 |
+| M2–M3 | 待提交 | 建立 Provider 工厂、Supabase repositories、mapper 和统一错误 |
 
 ## 风险与决策记录
 
