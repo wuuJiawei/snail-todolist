@@ -89,6 +89,7 @@
 - [x] M8.7 将任务核心 CRUD/排序吸收到 `SupabaseTaskRepository` — 已完成
 - [x] M8.8 删除最终 `SupabaseAdapter`、`legacy` 和无用依赖，重新生成最终统计 — 已完成
 - [x] M8.9 启动本地 Web 执行认证页、受保护路由和控制台冒烟 — 已完成
+- [x] M8.10 连接真实 Supabase 执行注册、会话与核心 CRUD 回归 — 已完成
 
 ## 回归记录
 
@@ -111,6 +112,7 @@
 | 2026-08-05 | M8.7 Task Repository 去适配器化 | 12 passed | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 保留共享项目权限和附件映射；恢复时间字段真实清空；查询错误不再吞并为空数组 |
 | 2026-08-05 | M8.8 最终 legacy/依赖清理 | 12 passed | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | `npm ci` 成功；Adapter、legacy、`uuid` 及空目录全部删除；静态扫描归零 |
 | 2026-08-05 | M8.9 本地 Web 冒烟 | `/auth`、登录/注册切换、`/settings`、`/chat` | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 修复 Query 空数据引用导致的 Provider 无限更新；复测控制台 0 errors |
+| 2026-08-05 | M8.10 真实 Supabase 回归 | 注册/确认/登录/退出/会话恢复；清单、任务、标签、状态流转、垃圾桶、日期、标记、搜索、打卡、番茄钟、导出 | 71 passed | 0 errors / 0 warnings | 通过（Browserslist 与大 chunk 两类基线警告） | 真实 RLS/CRUD 通过；导出 ZIP 含项目、任务、标签和关系数据；搜索弹窗仍有 `origin/main` 已存在的 Radix 无障碍标题告警 |
 
 ## M0 调用盘点
 
@@ -177,7 +179,7 @@
 - 游客聊天写入受 RLS 的 `x-anonymous-id` 校验约束；迁移到 Repository 时已在 Supabase Provider 内恢复专用请求头并加入回归测试，页面不感知 SDK 细节。
 - M5 删除了 34 个离线专属测试，故全量测试由 M4 的 83 项变为 49 项；保留的 Supabase 和业务行为测试全部通过。
 - task/project/tag 数组和加载状态已从 Zustand 移除；Query cache 是唯一服务端状态源，Context 只提供数据视图、业务操作和必要的生命周期能力。
-- 当前分支已在 `http://127.0.0.1:8080` 完成本地 Web 冒烟；仓库未提供可用的前端 `.env`，因此真实 Supabase RLS/CRUD 仍需配置测试环境后验证。
+- 当前分支已通过仓库外启动脚本连接真实 Supabase，完成邮箱注册确认、登录/退出/会话恢复和核心 RLS/CRUD 回归；环境配置和测试账号均未写入 Git。
 
 ## 交付统计
 
@@ -248,13 +250,15 @@ src/data/
 - Query：缓存 key 隔离与刷新。
 - 导入导出：实体 ID、项目/任务/标签和任务标签关系保持。
 - 统一错误：PostgREST/Supabase 错误到 `DataError`。
+- 真实环境冒烟：认证会话、清单/任务/标签 CRUD、任务状态流转、日期/标记/搜索、打卡、番茄钟及 ZIP 导出。
 
 最终共有 17 个测试文件、71 项测试，全部通过。
 
 ## 尚未处理的问题
 
 - `self-host` 只保留规划值和明确的“未实现”错误；本次目标是不实现后端本身。
-- 已完成本地 UI/路由冒烟，但未连接真实 Supabase 测试项目执行 RLS/CRUD；原因是当前 worktree 没有 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`，需提供测试环境配置后继续登录、共享清单、附件和实时订阅验证。
+- 共享清单邀请需要第二个测试用户；附件上传需要确认目标 Storage bucket 策略；聊天室只验证了认证加载，未向全局聊天室发送测试消息。这三项为避免影响其他用户而未执行写入回归。
+- 搜索弹窗缺少 `DialogTitle`，打开时会产生一条 Radix 无障碍控制台错误；`origin/main` 同样存在，非本次重构引入。
 - build 仍提示 Browserslist 数据过期和主 chunk 约 6 MB；均为修改前已有警告，拆包属于独立性能任务。
 - `npm ci` 报告 21 个依赖漏洞（1 low、3 moderate、15 high、2 critical）；未执行可能引入破坏性升级的 `npm audit fix --force`。
 - `database.types.ts` 来自主分支且落后于部分 SQL migration（如 task `attachments`、`flagged`）；运行时已在 Provider Row mapper 隔离，后续应从目标 Supabase schema 重新生成类型。
