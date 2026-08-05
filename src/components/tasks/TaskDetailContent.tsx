@@ -114,7 +114,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
         onAttachmentsChange(merged);
       }
     },
-    [taskId, attachments, onAttachmentsChange, onEditorChange, isTaskInTrash, toast]
+    [taskId, attachments, onAttachmentsChange, isTaskInTrash, toast]
   );
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {

@@ -1,6 +1,15 @@
 import { Task } from '@/types/task';
 import { searchTasks, tokenize } from './searchUtils';
 
+declare global {
+  interface Window {
+    debugSearch: typeof debugSearch;
+    createTestTasks: typeof createTestTasks;
+    tokenize: typeof tokenize;
+    testBasicSearch: typeof testBasicSearch;
+  }
+}
+
 // 创建测试任务数据
 export function createTestTasks(): Task[] {
   return [
@@ -98,10 +107,10 @@ export function testBasicSearch() {
 
 // 在浏览器控制台中使用
 if (typeof window !== 'undefined') {
-  (window as any).debugSearch = debugSearch;
-  (window as any).createTestTasks = createTestTasks;
-  (window as any).tokenize = tokenize;
-  (window as any).testBasicSearch = testBasicSearch;
+  window.debugSearch = debugSearch;
+  window.createTestTasks = createTestTasks;
+  window.tokenize = tokenize;
+  window.testBasicSearch = testBasicSearch;
   
   console.log('🛠️ 搜索调试工具已加载！');
   console.log('使用方法:');

@@ -345,6 +345,11 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
     await startSessionForMode(mode, false, focusTitleRef.current);
   }, [isRunning, mode, startSessionForMode]);
 
+  const finalizeSessionRef = useRef(finalizeSession);
+  useEffect(() => {
+    finalizeSessionRef.current = finalizeSession;
+  }, [finalizeSession]);
+
   const pause = useCallback(() => {
     setIsRunning(false);
     clearTimer();
@@ -435,7 +440,7 @@ export const usePomodoroTimer = (settings: PomodoroSettings): PomodoroTimerState
       } else {
         sessionRef.current = active;
         setTimeout(() => {
-          void finalizeSession("complete");
+          void finalizeSessionRef.current("complete");
         }, 0);
       }
     })();

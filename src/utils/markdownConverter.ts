@@ -15,10 +15,15 @@ interface BlockNoteTextContent {
 interface BlockNoteBlock {
   id?: string;
   type: string;
-  props?: Record<string, any>;
+  props?: Record<string, unknown>;
   content?: BlockNoteTextContent[];
   children?: BlockNoteBlock[];
 }
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const stringValue = (value: unknown): string => typeof value === 'string' ? value : '';
 
 /**
  * Convert BlockNote JSON content to markdown
@@ -57,10 +62,11 @@ function blockToMarkdown(block: BlockNoteBlock): string {
     case 'paragraph':
       return contentToMarkdown(block.content || []);
 
-    case 'heading':
-      const level = block.props?.level || 1;
+    case 'heading': {
+      const level = typeof block.props?.level === 'number' ? block.props.level : 1;
       const headingPrefix = '#'.repeat(Math.min(level, 6));
       return `${headingPrefix} ${contentToMarkdown(block.content || [])}`;
+    }
 
     case 'bulletListItem':
       return `- ${contentToMarkdown(block.content || [])}`;
@@ -68,19 +74,22 @@ function blockToMarkdown(block: BlockNoteBlock): string {
     case 'numberedListItem':
       return `1. ${contentToMarkdown(block.content || [])}`;
 
-    case 'checkListItem':
+    case 'checkListItem': {
       const checked = block.props?.checked ? 'x' : ' ';
       return `- [${checked}] ${contentToMarkdown(block.content || [])}`;
+    }
 
-    case 'codeBlock':
-      const language = block.props?.language || '';
+    case 'codeBlock': {
+      const language = stringValue(block.props?.language);
       const code = contentToMarkdown(block.content || []);
       return `\`\`\`${language}\n${code}\n\`\`\``;
+    }
 
-    case 'image':
-      const url = block.props?.url || '';
-      const caption = block.props?.caption || block.props?.name || '';
+    case 'image': {
+      const url = stringValue(block.props?.url);
+      const caption = stringValue(block.props?.caption) || stringValue(block.props?.name);
       return `![${caption}](${url})`;
+    }
 
     case 'table':
       // Simple table representation
@@ -124,24 +133,28 @@ export function createMarkdownFromLegacyContent(content: string): string {
 
   // Check if it's Editor.js format
   try {
-    const parsed = JSON.parse(content);
-    if (parsed && parsed.blocks && Array.isArray(parsed.blocks)) {
+    const parsed: unknown = JSON.parse(content);
+    if (isRecord(parsed) && Array.isArray(parsed.blocks)) {
       // Convert Editor.js to markdown
-      return parsed.blocks.map((block: any) => {
+      return parsed.blocks.map((block: unknown) => {
+        if (!isRecord(block)) return '[Unknown content]';
+        const data = isRecord(block.data) ? block.data : {};
         switch (block.type) {
           case 'paragraph':
-            return block.data?.text || '';
-          case 'header':
-            const level = block.data?.level || 1;
-            return `${'#'.repeat(level)} ${block.data?.text || ''}`;
-          case 'list':
-            const items = block.data?.items || [];
-            const prefix = block.data?.style === 'ordered' ? '1.' : '-';
-            return items.map((item: string) => `${prefix} ${item}`).join('\n');
+            return stringValue(data.text);
+          case 'header': {
+            const level = typeof data.level === 'number' ? data.level : 1;
+            return `${'#'.repeat(level)} ${stringValue(data.text)}`;
+          }
+          case 'list': {
+            const items = Array.isArray(data.items) ? data.items.filter((item): item is string => typeof item === 'string') : [];
+            const prefix = data.style === 'ordered' ? '1.' : '-';
+            return items.map((item) => `${prefix} ${item}`).join('\n');
+          }
           case 'code':
-            return `\`\`\`${block.data?.language || ''}\n${block.data?.code || ''}\n\`\`\``;
+            return `\`\`\`${stringValue(data.language)}\n${stringValue(data.code)}\n\`\`\``;
           default:
-            return block.data?.text || '[Unknown content]';
+            return stringValue(data.text) || '[Unknown content]';
         }
       }).join('\n\n');
     }
