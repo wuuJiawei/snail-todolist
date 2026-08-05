@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "../client";
 import { Tag, TaskTagLink } from "@/types/tag";
 import { toast } from "@/hooks/use-toast";
 

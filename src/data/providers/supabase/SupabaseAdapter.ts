@@ -1,6 +1,6 @@
 /** Internal Supabase datasource retained while repositories absorb legacy query modules. */
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from './client';
 import { Task } from '@/types/task';
 import { Project } from '@/types/project';
 import { Tag } from '@/types/tag';

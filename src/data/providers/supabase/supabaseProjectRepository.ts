@@ -1,6 +1,6 @@
 import type { CreateProjectInput, ProjectRepository, UpdateProjectInput } from "@/data/contracts/projectRepository";
 import { DataError } from "@/data/contracts/errors";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "./client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SupabaseAdapter } from "./SupabaseAdapter";
 import { mapProjectRow, type SupabaseProjectRow } from "./mappers";

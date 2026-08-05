@@ -1,3 +1,4 @@
+/** Generated Supabase database schema types. */
 export type Json =
   | string
   | number

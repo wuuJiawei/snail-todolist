@@ -1,5 +1,5 @@
 import type { AuthEvent, AuthRepository, AuthUser } from "@/data/contracts/authRepository";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "./client";
 import type { AuthChangeEvent } from "@supabase/supabase-js";
 import { mapAuthSession, mapAuthUser } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";

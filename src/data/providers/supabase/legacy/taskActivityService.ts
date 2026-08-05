@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "../client";
 import { TaskActivity, TaskActivityAction } from "@/types/taskActivity";
 import { getOrCreateGuestId } from "./taskService";
 

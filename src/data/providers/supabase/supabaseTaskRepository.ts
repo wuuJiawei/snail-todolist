@@ -1,6 +1,6 @@
 import type { CreateTaskInput, TaskQuery, TaskRepository, UpdateTaskInput } from "@/data/contracts/taskRepository";
 import { DataError } from "@/data/contracts/errors";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "./client";
 import type { SupabaseAdapter } from "./SupabaseAdapter";
 import { mapTaskRow, type SupabaseTaskRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";

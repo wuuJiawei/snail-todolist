@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "../client";
 import { Task } from "@/types/task";
 import { toast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from "uuid";

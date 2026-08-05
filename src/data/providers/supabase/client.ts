@@ -1,6 +1,6 @@
 // Supabase client configuration
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
+import type { Database } from './database.types';
 import { ENV_CONFIG } from '@/config/env';
 
 // Get environment variables with fallbacks
@@ -15,8 +15,5 @@ if (!SUPABASE_URL) {
 if (!SUPABASE_ANON_KEY) {
   throw new Error('Missing VITE_SUPABASE_ANON_KEY environment variable');
 }
-
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);

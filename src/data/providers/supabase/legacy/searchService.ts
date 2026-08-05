@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../client';
 import { Task } from '@/types/task';
 
 export interface SearchOptions {

@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "../client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const untypedClient = supabase as unknown as SupabaseClient;

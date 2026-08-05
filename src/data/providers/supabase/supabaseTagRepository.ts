@@ -3,7 +3,7 @@ import { DataError } from "@/data/contracts/errors";
 import type { SupabaseAdapter } from "./SupabaseAdapter";
 import { mapTagRow, type SupabaseTagRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "./client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Tag } from "@/types/tag";
 

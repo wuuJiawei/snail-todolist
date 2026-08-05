@@ -1,7 +1,7 @@
 import type { ChatMessage, ChatPresence, ChatRepository } from "@/data/contracts/chatRepository";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "./client";
 import { ENV_CONFIG } from "@/config/env";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database } from "./database.types";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { withSupabaseError } from "./mapSupabaseError";
 

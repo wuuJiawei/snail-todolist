@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database } from "./database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SupabaseChatRepository } from "./supabaseChatRepository";
 

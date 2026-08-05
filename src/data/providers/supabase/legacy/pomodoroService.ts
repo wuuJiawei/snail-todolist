@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "../client";
 import { toast } from "@/hooks/use-toast";
 
 export type PomodoroSessionType = "focus" | "short_break" | "long_break";
