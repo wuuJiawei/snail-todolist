@@ -92,6 +92,11 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
       if (onClick) onClick();
     } else {
       setIsAnimating(false);
+      toast({
+        title: "打卡失败",
+        description: "请稍后再试",
+        variant: "destructive",
+      });
       // Refresh status in case of failure too
       await checkStatus();
     }
