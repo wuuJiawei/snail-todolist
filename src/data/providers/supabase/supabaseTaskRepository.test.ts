@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SupabaseAdapter } from "@/storage/supabase/SupabaseAdapter";
+import type { SupabaseAdapter } from "./SupabaseAdapter";
 import { SupabaseTaskRepository } from "./supabaseTaskRepository";
 
 describe("SupabaseTaskRepository contract", () => {

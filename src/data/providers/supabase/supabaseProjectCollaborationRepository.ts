@@ -1,7 +1,7 @@
 import type { ProjectCollaborationRepository, ProjectMemberWithProfile, ProjectShare } from "@/data/contracts/projectRepository";
 import { supabase } from "@/integrations/supabase/client";
-import { getOrCreateActiveShare } from "@/services/projectShareService";
-import { getProfileById, listMembers, removeMember } from "@/services/projectMemberService";
+import { getOrCreateActiveShare } from "./legacy/projectShareService";
+import { getProfileById, listMembers, removeMember } from "./legacy/projectMemberService";
 import { withSupabaseError } from "./mapSupabaseError";
 
 export class SupabaseProjectCollaborationRepository implements ProjectCollaborationRepository {

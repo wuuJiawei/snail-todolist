@@ -1,6 +1,8 @@
 import type { ChatMessage, ChatPresence, ChatRepository } from "@/data/contracts/chatRepository";
 import { supabase } from "@/integrations/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { ENV_CONFIG } from "@/config/env";
+import type { Database } from "@/integrations/supabase/types";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { withSupabaseError } from "./mapSupabaseError";
 
 interface ChatRow {
@@ -15,6 +17,18 @@ interface ChatRow {
 interface ProfileRow { id: string; display_name: string | null; email: string | null; avatar_url: string | null }
 
 const untypedClient = supabase as unknown as SupabaseClient;
+
+type AnonymousClientFactory = (anonymousId: string) => SupabaseClient<Database>;
+
+const createAnonymousClient: AnonymousClientFactory = (anonymousId) =>
+  createClient<Database>(ENV_CONFIG.SUPABASE_URL, ENV_CONFIG.SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: { headers: { "x-anonymous-id": anonymousId } },
+  });
 
 async function hydrate(rows: ChatRow[]): Promise<ChatMessage[]> {
   const ids = Array.from(new Set(rows.map((row) => row.user_id).filter((id): id is string => Boolean(id))));
@@ -40,6 +54,8 @@ async function hydrate(rows: ChatRow[]): Promise<ChatMessage[]> {
 }
 
 export class SupabaseChatRepository implements ChatRepository {
+  constructor(private readonly anonymousClientFactory: AnonymousClientFactory = createAnonymousClient) {}
+
   findRecent(limit = 50, before?: string) {
     return withSupabaseError(async () => {
       let query = supabase.from("global_chat_messages").select("*").order("created_at", { ascending: false }).limit(limit);
@@ -52,7 +68,8 @@ export class SupabaseChatRepository implements ChatRepository {
 
   async send(input: Omit<ChatMessage, "id" | "createdAt">) {
     await withSupabaseError(async () => {
-      const { error } = await supabase.from("global_chat_messages").insert({
+      const client = input.anonymousId ? this.anonymousClientFactory(input.anonymousId) : supabase;
+      const { error } = await client.from("global_chat_messages").insert({
         content: input.content,
         author_name: input.author.name,
         user_id: input.userId,

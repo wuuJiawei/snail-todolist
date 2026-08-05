@@ -151,7 +151,6 @@ const calculateActualMinutes = (session: PomodoroSession): number => {
 /**
  * Pomodoro Service - Supabase Implementation
  * Note: These functions are only called in online mode via SupabaseAdapter
- * For offline mode, use storageOps.* functions instead
  */
 
 export const startPomodoroSession = async (

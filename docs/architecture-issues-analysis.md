@@ -556,7 +556,7 @@ const TaskList = ({ tasks }) => (
 11. 实现虚拟滚动 - 处理大量任务
 12. 代码分割 - 按路由和功能模块拆分
 13. 添加性能监控 - 使用 Web Vitals
-14. 实现离线支持 - Service Worker + IndexedDB
+14. 实现 self-host 数据 Provider 并补充契约测试
 
 ---
 
@@ -673,4 +673,3 @@ export const useTasks = (projectId: string) => {
 
 **文档版本：** v1.0  
 **最后更新：** 2025-11-06
-

@@ -3,6 +3,55 @@ import { Task } from "@/types/task";
 import { toast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from "uuid";
 
+type LegacyTaskRow = Pick<Task, "id" | "title" | "completed"> & {
+  date?: string | null;
+  project?: string | null;
+  description?: string | null;
+  icon?: string | null;
+  completed_at?: string | null;
+  updated_at?: string | null;
+  user_id?: string | null;
+  sort_order?: number | string | null;
+  deleted?: boolean | null;
+  deleted_at?: string | null;
+  abandoned?: boolean | null;
+  abandoned_at?: string | null;
+  flagged?: boolean | null;
+  attachments?: unknown;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const normalizeAttachment = (value: unknown): NonNullable<Task["attachments"]>[number] | null => {
+  if (!isRecord(value)) return null;
+
+  const filename = value.filename ?? value.file_name;
+  const size = value.size ?? value.file_size;
+  const type = value.type ?? value.file_type;
+  if (
+    typeof value.id !== "string" ||
+    typeof filename !== "string" ||
+    typeof value.original_name !== "string" ||
+    typeof value.url !== "string" ||
+    typeof size !== "number" ||
+    typeof type !== "string" ||
+    typeof value.uploaded_at !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    filename,
+    original_name: value.original_name,
+    url: value.url,
+    size,
+    type,
+    uploaded_at: value.uploaded_at,
+  };
+};
+
 // 游客ID本地存储key
 export const GUEST_ID_KEY = "snail_guest_id";
 
@@ -120,41 +169,25 @@ export const fetchTasks = async (includeDeleted: boolean = false, isGuest: boole
 };
 
 // 统一的Task数据映射函数
-const mapTaskData = (item: any): Task => {
+const mapTaskData = (item: LegacyTaskRow): Task => {
   // Normalize attachments: database may return JSON string or array
-  let normalizedAttachments: any[] = [];
+  let rawAttachments: unknown[] = [];
   const raw = item.attachments;
   if (Array.isArray(raw)) {
-    normalizedAttachments = raw;
+    rawAttachments = raw;
   } else if (typeof raw === 'string') {
     try {
-      const parsed = JSON.parse(raw);
-      normalizedAttachments = Array.isArray(parsed) ? parsed : [];
+      const parsed: unknown = JSON.parse(raw);
+      rawAttachments = Array.isArray(parsed) ? parsed : [];
     } catch {
-      normalizedAttachments = [];
+      rawAttachments = [];
     }
-  } else if (raw && typeof raw === 'object') {
-    // Some drivers may return object for JSON
-    normalizedAttachments = [];
   }
 
-  // Fix old attachment field names for backward compatibility
-  normalizedAttachments = normalizedAttachments.map((att: any) => {
-    // If attachment has old field names (file_name, file_type, file_size), convert them
-    if (att.file_name || att.file_type || att.file_size) {
-      return {
-        id: att.id,
-        filename: att.file_name || att.filename,
-        original_name: att.original_name,
-        url: att.url,
-        size: att.file_size || att.size,
-        type: att.file_type || att.type,
-        uploaded_at: att.uploaded_at,
-      };
-    }
-    // Return as-is if already using correct field names
-    return att;
-  });
+  // Fix old attachment field names for backward compatibility and discard malformed entries.
+  const normalizedAttachments = rawAttachments
+    .map(normalizeAttachment)
+    .filter((attachment): attachment is NonNullable<Task["attachments"]>[number] => attachment !== null);
 
   return {
     id: item.id,
@@ -1096,7 +1129,7 @@ export const fetchAbandonedTasks = async (isGuest: boolean = false): Promise<Tas
     if (isGuest) {
       const guestId = setGuestIdHeader();
       
-      let query = supabase.from("tasks")
+      const query = supabase.from("tasks")
         .select("*")
         .eq("anonymous_id", guestId)
         .eq("abandoned", true)

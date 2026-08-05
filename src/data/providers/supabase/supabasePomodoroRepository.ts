@@ -1,6 +1,6 @@
 import type { PomodoroRepository, PomodoroSessionType } from "@/data/contracts/pomodoroRepository";
 import { DataError } from "@/data/contracts/errors";
-import type { SupabaseAdapter } from "@/storage/supabase/SupabaseAdapter";
+import type { SupabaseAdapter } from "./SupabaseAdapter";
 import { SupabaseAdapterBridge } from "./adapterBridge";
 import { withSupabaseError } from "./mapSupabaseError";
 import { mapPomodoroRow, type SupabasePomodoroRow } from "./mappers";

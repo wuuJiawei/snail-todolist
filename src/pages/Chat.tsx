@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getOrCreateGuestId } from "@/services/taskService";
+import { getOrCreateGuestId } from "@/utils/guestId";
 
 const formatTime = (iso: string) => new Date(iso).toLocaleTimeString();
 

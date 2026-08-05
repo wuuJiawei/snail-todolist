@@ -1,6 +1,6 @@
 import type { TagRepository } from "@/data/contracts/tagRepository";
 import { DataError } from "@/data/contracts/errors";
-import type { SupabaseAdapter } from "@/storage/supabase/SupabaseAdapter";
+import type { SupabaseAdapter } from "./SupabaseAdapter";
 import { SupabaseAdapterBridge } from "./adapterBridge";
 import { mapTagRow, type SupabaseTagRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";

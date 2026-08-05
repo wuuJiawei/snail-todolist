@@ -1,5 +1,5 @@
 import type { DataProvider } from "@/data/dataProvider";
-import { SupabaseAdapter } from "@/storage/supabase/SupabaseAdapter";
+import { SupabaseAdapter } from "./SupabaseAdapter";
 import { SupabaseActivityRepository, SupabaseAppInfoRepository, SupabaseFileRepository, SupabaseProfileRepository, SupabaseSearchRepository } from "./supabaseSupportRepositories";
 import { SupabaseAuthRepository } from "./supabaseAuthRepository";
 import { SupabaseChatRepository } from "./supabaseChatRepository";

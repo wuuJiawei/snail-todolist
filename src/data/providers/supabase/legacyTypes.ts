@@ -1,7 +1,7 @@
 /**
- * Storage Adapter Interface
+ * Legacy adapter types kept private to the Supabase provider during incremental migration.
  * Defines the common interface for all storage operations
- * Supports both Supabase (online) and IndexedDB (offline) implementations
+ * Compatibility types used only inside the Supabase provider.
  */
 
 import { Task } from '@/types/task';
@@ -420,45 +420,11 @@ export interface StorageAdapter {
   getAppInfo(): Promise<AppInfo>;
 }
 
-/**
- * Database store names for IndexedDB
- */
-export const DB_STORES = {
-  TASKS: 'tasks',
-  PROJECTS: 'projects',
-  TAGS: 'tags',
-  TASK_TAGS: 'task_tags',
-  POMODORO_SESSIONS: 'pomodoro_sessions',
-  TASK_ACTIVITIES: 'task_activities',
-  CHECKIN_RECORDS: 'checkin_records',
-  USER_PROFILE: 'user_profile',
-  ATTACHMENTS: 'attachments',
-} as const;
-
-export type DBStoreName = typeof DB_STORES[keyof typeof DB_STORES];
-
-/**
- * User profile for offline mode
- */
+/** User profile stored in Supabase auth metadata. */
 export interface UserProfile {
   id: string;
   username: string;
   avatar_url?: string | null;
-  avatar_data?: string | null; // Base64 encoded avatar image
   settings?: UserSettings;
   updated_at: string;
-}
-
-/**
- * Attachment file stored locally
- */
-export interface LocalAttachment {
-  id: string;
-  task_id: string;
-  filename: string;
-  original_name: string;
-  type: string;
-  size: number;
-  data: string; // Base64 encoded file content
-  uploaded_at: string;
 }

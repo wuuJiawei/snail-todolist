@@ -1,5 +1,5 @@
 import type { CheckInRepository } from "@/data/contracts/checkInRepository";
-import type { SupabaseAdapter } from "@/storage/supabase/SupabaseAdapter";
+import type { SupabaseAdapter } from "./SupabaseAdapter";
 import { SupabaseAdapterBridge } from "./adapterBridge";
 import { mapCheckInRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";

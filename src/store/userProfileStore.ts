@@ -12,7 +12,7 @@ interface UserProfileState {
 
 export const useUserProfileStore = create<UserProfileState>((set) => ({
   profile: {
-    username: "离线用户",
+    username: "",
     avatarUrl: null,
   },
   setProfile: (profile) =>

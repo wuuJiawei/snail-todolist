@@ -4,7 +4,6 @@ import { toast } from "@/components/ui/use-toast";
 /**
  * Check-In Service - Supabase Implementation
  * Note: These functions are only called in online mode via SupabaseAdapter
- * For offline mode, use storageOps.* functions instead
  */
 
 export type CheckInRecord = {

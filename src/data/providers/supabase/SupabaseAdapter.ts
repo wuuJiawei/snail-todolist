@@ -27,11 +27,11 @@ import {
   UserSettings,
   UserProfile,
   AppInfo,
-} from '../types';
-import * as taskService from '@/services/taskService';
-import * as tagService from '@/services/tagService';
-import * as pomodoroService from '@/services/pomodoroService';
-import * as taskActivityService from '@/services/taskActivityService';
+} from './legacyTypes';
+import * as taskService from './legacy/taskService';
+import * as tagService from './legacy/tagService';
+import * as pomodoroService from './legacy/pomodoroService';
+import * as taskActivityService from './legacy/taskActivityService';
 
 export class SupabaseAdapter implements StorageAdapter {
   private ready = false;
@@ -377,12 +377,12 @@ export class SupabaseAdapter implements StorageAdapter {
 
   async hasCheckedInToday(): Promise<boolean> {
     // Import dynamically to avoid circular dependencies
-    const { hasCheckedInToday } = await import('@/services/checkInService');
+    const { hasCheckedInToday } = await import('./legacy/checkInService');
     return hasCheckedInToday();
   }
 
   async createCheckIn(note?: string): Promise<{ id: string; check_in_time: string; note?: string | null; created_at: string }> {
-    const { createCheckIn } = await import('@/services/checkInService');
+    const { createCheckIn } = await import('./legacy/checkInService');
     const success = await createCheckIn(note);
     if (!success) {
       throw new Error('Failed to create check-in');
@@ -397,7 +397,7 @@ export class SupabaseAdapter implements StorageAdapter {
   }
 
   async getCheckInHistory(page?: number, pageSize?: number): Promise<{ records: Array<{ id: string; check_in_time: string; note?: string | null; created_at: string }>; total: number }> {
-    const { getCheckInHistory } = await import('@/services/checkInService');
+    const { getCheckInHistory } = await import('./legacy/checkInService');
     const result = await getCheckInHistory(page, pageSize);
     return {
       records: result.records.map(r => ({
@@ -411,7 +411,7 @@ export class SupabaseAdapter implements StorageAdapter {
   }
 
   async getCheckInStreak(): Promise<number> {
-    const { getCheckInStreak } = await import('@/services/checkInService');
+    const { getCheckInStreak } = await import('./legacy/checkInService');
     return getCheckInStreak();
   }
 
@@ -523,7 +523,7 @@ export class SupabaseAdapter implements StorageAdapter {
   // ============================================
 
   async searchTasks(query: string, options?: SearchOptions): Promise<SearchResult> {
-    const { searchTasksWithILike } = await import('@/services/searchService');
+    const { searchTasksWithILike } = await import('./legacy/searchService');
     return searchTasksWithILike(query, options);
   }
 

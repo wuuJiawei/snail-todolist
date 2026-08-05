@@ -3,11 +3,10 @@
  * Configures global test environment
  */
 
-import 'fake-indexeddb/auto';
 
 // Mock import.meta.env for tests
 const mockEnv: Record<string, string | undefined> = {
-  VITE_STORAGE_MODE: undefined,
+  VITE_DATA_PROVIDER: 'supabase',
   VITE_SUPABASE_URL: 'https://test.supabase.co',
   VITE_SUPABASE_ANON_KEY: 'test-anon-key',
 };

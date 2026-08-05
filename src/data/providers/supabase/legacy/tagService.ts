@@ -2,10 +2,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tag, TaskTagLink } from "@/types/tag";
 import { toast } from "@/hooks/use-toast";
 
+const hasErrorCode = (error: unknown, code: string): boolean =>
+  typeof error === "object" && error !== null && "code" in error && error.code === code;
+
 /**
  * Tag Service - Supabase Implementation
  * Note: These functions are only called in online mode via SupabaseAdapter
- * For offline mode, use storageOps.* functions instead
  */
 
 export const fetchAllTags = async (projectId?: string | null): Promise<Tag[]> => {
@@ -48,7 +50,7 @@ export const createTag = async (name: string, projectId?: string | null): Promis
     const { data, error } = await supabase.from("tags").insert(payload).select().maybeSingle();
 
     if (error) {
-      if ((error as any).code === "23505") {
+      if (hasErrorCode(error, "23505")) {
         toast({ title: "标签已存在", description: `「${name}」已存在`, variant: "default" });
         return null;
       }
@@ -127,7 +129,7 @@ export const getTagsByTaskIds = async (taskIds: string[]): Promise<Record<string
     }
     
     const tagIds = Array.from(new Set(allLinks.map(l => l.tag_id)));
-    let tags: Tag[] = [];
+    const tags: Tag[] = [];
     
     // 同样分批查询 tags
     if (tagIds.length > 0) {
@@ -157,7 +159,7 @@ export const attachTagToTask = async (taskId: string, tagId: string): Promise<bo
   try {
     const { error } = await supabase.from("task_tags").insert({ task_id: taskId, tag_id: tagId } as TaskTagLink);
     if (error) {
-      if ((error as any).code === "23505") return true;
+      if (hasErrorCode(error, "23505")) return true;
       throw error;
     }
     return true;
@@ -204,5 +206,3 @@ export const updateTagProject = async (tagId: string, projectId: string | null):
     return null;
   }
 };
-
-

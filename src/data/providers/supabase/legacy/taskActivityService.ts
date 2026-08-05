@@ -5,7 +5,6 @@ import { getOrCreateGuestId } from "./taskService";
 /**
  * Create a task activity record in Supabase
  * Note: This function is only called in online mode via SupabaseAdapter
- * For offline mode, use storageOps.createTaskActivity() instead
  */
 export const createTaskActivity = async (
   taskId: string,
@@ -35,7 +34,6 @@ export const createTaskActivity = async (
 /**
  * Fetch task activities from Supabase
  * Note: This function is only called in online mode via SupabaseAdapter
- * For offline mode, use storageOps.getTaskActivities() instead
  */
 export const fetchTaskActivities = async (taskId: string): Promise<TaskActivity[]> => {
   const guestId = getOrCreateGuestId();

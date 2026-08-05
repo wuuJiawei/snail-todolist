@@ -7,7 +7,7 @@ import type {
 } from "@/data/contracts/supportRepositories";
 import type { AppInfo, SearchOptions, UserProfile, UserSettings } from "@/data/models";
 import type { TaskActivity } from "@/types/taskActivity";
-import type { SupabaseAdapter } from "@/storage/supabase/SupabaseAdapter";
+import type { SupabaseAdapter } from "./SupabaseAdapter";
 import { SupabaseAdapterBridge } from "./adapterBridge";
 import { mapFileRow, mapTaskRow, type SupabaseFileRow, type SupabaseTaskRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";

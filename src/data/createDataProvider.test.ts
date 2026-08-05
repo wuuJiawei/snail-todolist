@@ -17,6 +17,6 @@ describe("data provider factory", () => {
   });
 
   it("rejects an invalid configured provider", () => {
-    expect(() => parseDataProviderType("indexeddb")).toThrow("Unsupported data provider: indexeddb");
+    expect(() => parseDataProviderType("local")).toThrow("Unsupported data provider: local");
   });
 });

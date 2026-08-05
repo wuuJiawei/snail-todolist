@@ -29,7 +29,7 @@
 - [x] M0.3 盘点 Supabase、IndexedDB、模式分支、服务与 UI 调用图 — 已完成
 - [x] M0.4 记录生产代码行数和离线相关文件清单 — 已完成
 
-### M1：锁定核心业务行为 — 待开始
+### M1：锁定核心业务行为 — 进行中
 
 - [x] M1.1 修正不表达有效业务行为的既有测试生成器/断言 — 已完成
 - [x] M1.2 补充任务完成、放弃、删除、恢复、排序行为测试 — 已完成
@@ -57,12 +57,12 @@
 - [x] M4.3 将导入清理、实体 upsert 和关系恢复流程放入 UseCase — 已完成
 - [x] M4.4 清除 Component、Context、Store、业务 Hook 的直接 Supabase SDK 调用 — 已完成
 
-### M5：彻底移除离线模式 — 待开始
+### M5：彻底移除离线模式 — 已完成
 
-- [ ] M5.1 删除 IndexedDB adapter、测试和离线专属类型 — 待开始
-- [ ] M5.2 删除离线用户、会话、初始化与模式分支 — 待开始
-- [ ] M5.3 删除模式切换 UI、文案、环境变量与配置文件 — 待开始
-- [ ] M5.4 清理 `fake-indexeddb` 等不再使用的依赖 — 待开始
+- [x] M5.1 删除 IndexedDB adapter、测试和离线专属类型 — 已完成
+- [x] M5.2 删除离线用户、会话、初始化与模式分支 — 已完成
+- [x] M5.3 删除模式切换 UI、文案、环境变量与配置文件 — 已完成
+- [x] M5.4 清理 `fake-indexeddb` 等不再使用的依赖 — 已完成
 
 ### M6：状态与职责收敛 — 待开始
 
@@ -88,6 +88,7 @@
 | 2026-08-05 | M2.3–M3 Provider 与 Supabase 实现 | 16 passed | 80 passed | `src/data` 0 errors / 0 warnings | 通过（基线警告不变） | 工厂、映射、错误和任务契约已覆盖 |
 | 2026-08-05 | M4.1/M4.2/M4.4 业务迁移 | 4 compatibility passed | 83 passed | 变更范围 0 errors / 2 个既有 Fast Refresh warnings | 通过（基线警告不变） | UI、Context、Store、Hook、Query 的 SDK 直连已归零 |
 | 2026-08-05 | M4.3 导入导出 UseCase | 4 passed | 83 passed | 变更范围 0 errors / 0 warnings | 通过（基线警告不变） | 导入保留实体 ID 并恢复任务标签关系 |
+| 2026-08-05 | M5.1–M5.4 离线模式移除 | 游客聊天 RLS 1 passed | 49 passed | 变更范围 0 errors / 0 warnings；全量 33 errors / 16 warnings | 通过（基线警告不变） | IndexedDB、离线身份/入口/配置和测试依赖归零；测试数下降来自离线专属测试删除 |
 
 ## M0 调用盘点
 
@@ -129,12 +130,17 @@
 
 | 阶段 | Commit | 说明 |
 | --- | --- | --- |
-| M0 | 待提交 | 建立可持续更新的里程碑、节点和回归记录 |
-| M1 | 待提交 | 修正随机测试边界并锁定任务状态转换和排序行为 |
-| M2–M3 | 待提交 | 建立 Provider 工厂、Supabase repositories、mapper 和统一错误 |
+| M0 | `169d28d` | 建立可持续更新的里程碑、节点和回归记录 |
+| M1 | `4625618` | 修正随机测试边界并锁定任务状态转换和排序行为 |
+| M2 | `550cce6` | 建立领域模型、Repository 契约和 Provider 工厂 |
+| M3 | `15f479b` | 建立 Supabase repositories、mapper 和统一错误 |
+| M4 | `8733526`、`df6c351` | 迁移业务数据访问和导入导出流程 |
+| M5 | 当前阶段提交 | 删除 IndexedDB、离线模式及其依赖和 UI |
 
 ## 风险与决策记录
 
 - `origin/main` 与 `v2.0` 相差 56 个提交；本次已由用户明确选择 `origin/main`，不合并或 cherry-pick `v2.0`。
 - 原工作区 `docker/Dockerfile.web` 有用户未提交改动；通过独立 worktree 隔离，本分支不会携带该改动。
 - 当前 `StorageAdapter` 虽提供统一入口，但同时覆盖全部实体、含离线细节并通过 Supabase adapter 反向调用 service；它不是目标 Repository 边界，将按实体增量替换。
+- 游客聊天写入受 RLS 的 `x-anonymous-id` 校验约束；迁移到 Repository 时已在 Supabase Provider 内恢复专用请求头并加入回归测试，页面不感知 SDK 细节。
+- M5 删除了 34 个离线专属测试，故全量测试由 M4 的 83 项变为 49 项；保留的 Supabase 和业务行为测试全部通过。

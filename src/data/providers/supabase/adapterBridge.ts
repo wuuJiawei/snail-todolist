@@ -1,4 +1,4 @@
-import { SupabaseAdapter } from "@/storage/supabase/SupabaseAdapter";
+import { SupabaseAdapter } from "./SupabaseAdapter";
 
 export class SupabaseAdapterBridge {
   constructor(protected readonly adapter: SupabaseAdapter) {}

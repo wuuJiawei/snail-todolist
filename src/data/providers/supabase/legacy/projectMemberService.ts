@@ -1,4 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+const untypedClient = supabase as unknown as SupabaseClient;
 
 export type Profile = {
   id: string;
@@ -26,7 +29,7 @@ export const listMembers = async (projectId: string): Promise<ProjectMemberRow[]
   const rows = (data || []) as Array<{ id: string; project_id: string | null; user_id: string | null; role: string; created_at: string | null; }>;
   const ids = Array.from(new Set(rows.map(r => r.user_id).filter(Boolean))) as string[];
   if (ids.length === 0) return rows as ProjectMemberRow[];
-  const { data: profiles, error: pErr } = await (supabase as any)
+  const { data: profiles, error: pErr } = await untypedClient
     .from('profiles')
     .select('id, email, display_name, avatar_url')
     .in('id', ids);
@@ -35,7 +38,9 @@ export const listMembers = async (projectId: string): Promise<ProjectMemberRow[]
     return rows as ProjectMemberRow[];
   }
   const map: Record<string, Profile> = {};
-  (profiles || []).forEach((p: any) => { map[p.id] = p as Profile; });
+  for (const profile of (profiles || []) as Profile[]) {
+    map[profile.id] = profile;
+  }
   const result: ProjectMemberRow[] = rows.map(r => ({ ...r, profile: r.user_id ? map[r.user_id] : null }));
   return result;
 };
@@ -51,7 +56,7 @@ export const removeMember = async (projectId: string, userId: string): Promise<b
 };
 
 export const getProfileById = async (userId: string): Promise<Profile | null> => {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await untypedClient
     .from('profiles')
     .select('id, email, display_name, avatar_url')
     .eq('id', userId)
