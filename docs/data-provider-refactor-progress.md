@@ -29,12 +29,12 @@
 - [x] M0.3 盘点 Supabase、IndexedDB、模式分支、服务与 UI 调用图 — 已完成
 - [x] M0.4 记录生产代码行数和离线相关文件清单 — 已完成
 
-### M1：锁定核心业务行为 — 进行中
+### M1：锁定核心业务行为 — 已完成
 
 - [x] M1.1 修正不表达有效业务行为的既有测试生成器/断言 — 已完成
 - [x] M1.2 补充任务完成、放弃、删除、恢复、排序行为测试 — 已完成
 - [x] M1.3 补充项目、任务、标签关联与导入导出测试 — 已完成（复用现有关联测试并修正导入导出生成器）
-- [ ] M1.4 补充 Query 缓存刷新保护测试 — 待开始
+- [x] M1.4 补充 Query 缓存刷新保护测试 — 已完成
 
 ### M2：领域契约与 Provider 工厂 — 已完成
 
@@ -64,10 +64,10 @@
 - [x] M5.3 删除模式切换 UI、文案、环境变量与配置文件 — 已完成
 - [x] M5.4 清理 `fake-indexeddb` 等不再使用的依赖 — 已完成
 
-### M6：状态与职责收敛 — 待开始
+### M6：状态与职责收敛 — 进行中
 
-- [ ] M6.1 缩减 `TaskProvider` 的数据访问、缓存和提示职责 — 待开始
-- [ ] M6.2 消除 Context、Zustand、Query 的重复服务端状态 — 待开始
+- [ ] M6.1 缩减 `TaskProvider` 的数据访问、缓存和提示职责 — 进行中（服务端加载与状态已迁移，业务操作拆分待继续）
+- [x] M6.2 消除 Context、Zustand、Query 的重复服务端状态 — 已完成
 - [ ] M6.3 收敛重复 toast、错误处理和缓存失效逻辑 — 待开始
 - [ ] M6.4 拆分仍然过大的业务模块，保持增量改造 — 待开始
 
@@ -89,6 +89,7 @@
 | 2026-08-05 | M4.1/M4.2/M4.4 业务迁移 | 4 compatibility passed | 83 passed | 变更范围 0 errors / 2 个既有 Fast Refresh warnings | 通过（基线警告不变） | UI、Context、Store、Hook、Query 的 SDK 直连已归零 |
 | 2026-08-05 | M4.3 导入导出 UseCase | 4 passed | 83 passed | 变更范围 0 errors / 0 warnings | 通过（基线警告不变） | 导入保留实体 ID 并恢复任务标签关系 |
 | 2026-08-05 | M5.1–M5.4 离线模式移除 | 游客聊天 RLS 1 passed | 49 passed | 变更范围 0 errors / 0 warnings；全量 33 errors / 16 warnings | 通过（基线警告不变） | IndexedDB、离线身份/入口/配置和测试依赖归零；测试数下降来自离线专属测试删除 |
+| 2026-08-05 | M1.4/M6.2 Query 状态收敛 | Query 刷新与键隔离 2 passed | 51 passed | 变更范围 0 errors / 1 个既有 Fast Refresh warning；全量 33 errors / 16 warnings | 通过（基线警告不变） | task/project/tag 服务端状态只保留在 Query cache；删除 task/project Zustand store |
 
 ## M0 调用盘点
 
@@ -135,7 +136,8 @@
 | M2 | `550cce6` | 建立领域模型、Repository 契约和 Provider 工厂 |
 | M3 | `15f479b` | 建立 Supabase repositories、mapper 和统一错误 |
 | M4 | `8733526`、`df6c351` | 迁移业务数据访问和导入导出流程 |
-| M5 | 当前阶段提交 | 删除 IndexedDB、离线模式及其依赖和 UI |
+| M5 | `c3dde5b` | 删除 IndexedDB、离线模式及其依赖和 UI |
+| M6.2 | 当前阶段提交 | 统一 task/project/tag 的 Query server-state 来源并补缓存测试 |
 
 ## 风险与决策记录
 
@@ -144,3 +146,4 @@
 - 当前 `StorageAdapter` 虽提供统一入口，但同时覆盖全部实体、含离线细节并通过 Supabase adapter 反向调用 service；它不是目标 Repository 边界，将按实体增量替换。
 - 游客聊天写入受 RLS 的 `x-anonymous-id` 校验约束；迁移到 Repository 时已在 Supabase Provider 内恢复专用请求头并加入回归测试，页面不感知 SDK 细节。
 - M5 删除了 34 个离线专属测试，故全量测试由 M4 的 83 项变为 49 项；保留的 Supabase 和业务行为测试全部通过。
+- task/project/tag 数组和加载状态已从 Zustand 移除；Query cache 是唯一服务端状态源，Context 只提供数据视图、业务操作和必要的生命周期能力。
