@@ -16,7 +16,7 @@ export function createSupabaseDataProvider(): DataProvider {
     tasks: new SupabaseTaskRepository(adapter),
     projects: new SupabaseProjectRepository(adapter),
     projectCollaboration: new SupabaseProjectCollaborationRepository(),
-    tags: new SupabaseTagRepository(adapter),
+    tags: new SupabaseTagRepository(),
     checkIns: new SupabaseCheckInRepository(),
     pomodoros: new SupabasePomodoroRepository(),
     activities: new SupabaseActivityRepository(adapter),

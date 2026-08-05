@@ -1,6 +1,7 @@
 
 import React, { useState, ReactNode, useEffect, useMemo, useCallback } from "react";
 import { getDataProvider } from "@/data";
+import { DataError } from "@/data/contracts/errors";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task } from "@/types/task";
 import { useToast } from "@/hooks/use-toast";
@@ -348,9 +349,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     } catch (error) {
       setTaskIdToTags(previousMapping);
       incrementTagsVersion();
+      toast({ title: "关联失败", description: "无法给任务添加标签", variant: "destructive" });
       throw error;
     }
-  }, [queryClient, taskMappingKey, taskIdToTags, setTaskIdToTags, incrementTagsVersion, recordTaskActivity]);
+  }, [queryClient, taskMappingKey, taskIdToTags, setTaskIdToTags, incrementTagsVersion, recordTaskActivity, toast]);
 
   const detachTagFromTask = useCallback(async (taskId: string, tagId: string) => {
     const previousMapping = queryClient.getQueryData<Record<string, Tag[]>>(taskMappingKey) ?? taskIdToTags;
@@ -373,9 +375,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     } catch (error) {
       setTaskIdToTags(previousMapping);
       incrementTagsVersion();
+      toast({ title: "移除失败", description: "无法从任务移除标签", variant: "destructive" });
       throw error;
     }
-  }, [queryClient, taskMappingKey, taskIdToTags, setTaskIdToTags, incrementTagsVersion, recordTaskActivity]);
+  }, [queryClient, taskMappingKey, taskIdToTags, setTaskIdToTags, incrementTagsVersion, recordTaskActivity, toast]);
 
   const snapshotTagCache = useCallback(
     () => queryClient.getQueriesData({ queryKey: tagKeys.all }),
@@ -475,8 +478,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
   // 修改createTag函数，更新后刷新缓存
   const createTag = useCallback(async (name: string, projectId?: string | null) => {
-    const tag = await storageOps.createTag(name, projectId);
-    if (tag) {
+    try {
+      const tag = await storageOps.createTag(name, projectId);
       queryClient.setQueryData<Tag[]>(tagKeys.forScope(projectId ?? null), (list = []) =>
         [tag, ...list.filter((existing) => existing.id !== tag.id)]
       );
@@ -484,9 +487,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         [tag, ...list.filter((existing) => existing.id !== tag.id)]
       );
       incrementTagsVersion();
+      return tag;
+    } catch (error) {
+      const conflict = error instanceof DataError && error.code === "CONFLICT";
+      toast({
+        title: conflict ? "标签已存在" : "创建失败",
+        description: conflict ? `「${name}」已存在` : "无法创建标签",
+        variant: conflict ? "default" : "destructive",
+      });
+      return null;
     }
-    return tag;
-  }, [queryClient, incrementTagsVersion]);
+  }, [queryClient, incrementTagsVersion, toast]);
 
   // 修改deleteTagPermanently函数
   const deleteTagPermanently = useCallback(async (tagId: string): Promise<boolean> => {
@@ -526,6 +537,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         throw new Error("Update tag project failed");
       }
       await queryClient.invalidateQueries({ queryKey: tagKeys.all });
+      toast({
+        title: "已更新",
+        description: projectId === null ? "标签已设为全局可见" : "已更新标签可见范围",
+      });
       return updatedTag;
     } catch (error) {
       restoreTagCache(snapshot);

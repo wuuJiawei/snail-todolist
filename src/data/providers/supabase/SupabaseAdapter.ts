@@ -3,7 +3,6 @@
 import { supabase } from './client';
 import { Task } from '@/types/task';
 import { Project } from '@/types/project';
-import { Tag } from '@/types/tag';
 import {
   TaskFilter,
   TaskActivity,
@@ -18,7 +17,6 @@ import {
   AppInfo,
 } from './legacyTypes';
 import * as taskService from './legacy/taskService';
-import * as tagService from './legacy/tagService';
 import * as taskActivityService from './legacy/taskActivityService';
 
 export class SupabaseAdapter {
@@ -186,57 +184,6 @@ export class SupabaseAdapter {
     const hasError = results.some((result) => result.error);
     if (hasError) throw new Error('Some updates failed');
     return true;
-  }
-
-  // ============================================
-  // Tag Operations (delegate to tagService)
-  // ============================================
-
-  async getTags(projectId?: string | null): Promise<Tag[]> {
-    return tagService.fetchAllTags(projectId);
-  }
-
-  async getTagById(id: string): Promise<Tag | null> {
-    const tags = await tagService.fetchAllTags();
-    return tags.find(t => t.id === id) ?? null;
-  }
-
-  async createTag(name: string, projectId?: string | null): Promise<Tag> {
-    const result = await tagService.createTag(name, projectId);
-    if (!result) {
-      throw new Error('Failed to create tag');
-    }
-    return result;
-  }
-
-  async updateTag(id: string, updates: Partial<Tag>): Promise<Tag | null> {
-    if (updates.name) {
-      return tagService.renameTag(id, updates.name);
-    }
-    if (updates.project_id !== undefined) {
-      return tagService.updateTagProject(id, updates.project_id ?? null);
-    }
-    return null;
-  }
-
-  async deleteTag(id: string): Promise<boolean> {
-    return tagService.deleteTagById(id);
-  }
-
-  // ============================================
-  // Task-Tag Operations (delegate to tagService)
-  // ============================================
-
-  async getTagsByTaskIds(taskIds: string[]): Promise<Record<string, Tag[]>> {
-    return tagService.getTagsByTaskIds(taskIds);
-  }
-
-  async attachTagToTask(taskId: string, tagId: string): Promise<void> {
-    await tagService.attachTagToTask(taskId, tagId);
-  }
-
-  async detachTagFromTask(taskId: string, tagId: string): Promise<void> {
-    await tagService.detachTagFromTask(taskId, tagId);
   }
 
   // ============================================
