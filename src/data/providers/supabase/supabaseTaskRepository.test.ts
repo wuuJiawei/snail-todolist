@@ -4,8 +4,6 @@ import { SupabaseTaskRepository } from "./supabaseTaskRepository";
 
 describe("SupabaseTaskRepository contract", () => {
   const adapter = {
-    isReady: vi.fn(() => true),
-    initialize: vi.fn(),
     updateTask: vi.fn(),
     batchUpdateSortOrder: vi.fn(),
   };

@@ -1,20 +1,11 @@
-/**
- * Supabase Storage Adapter
- * Delegates to existing service functions to implement StorageAdapter interface
- * Used in online mode for cloud-based storage
- * 
- * Note: This adapter wraps existing services rather than reimplementing Supabase calls
- * to maintain backward compatibility and avoid duplicating complex permission logic.
- */
+/** Internal Supabase datasource retained while repositories absorb legacy query modules. */
 
 import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
 import { Project } from '@/types/project';
 import { Tag } from '@/types/tag';
 import {
-  StorageAdapter,
   TaskFilter,
-  SortOptions,
   PomodoroSession,
   TaskActivity,
   CreateTaskInput,
@@ -33,19 +24,8 @@ import * as tagService from './legacy/tagService';
 import * as pomodoroService from './legacy/pomodoroService';
 import * as taskActivityService from './legacy/taskActivityService';
 
-export class SupabaseAdapter implements StorageAdapter {
-  private ready = false;
+export class SupabaseAdapter {
   private userId: string | null = null;
-
-  async initialize(): Promise<void> {
-    const { data } = await supabase.auth.getUser();
-    this.userId = data?.user?.id ?? null;
-    this.ready = true;
-  }
-
-  isReady(): boolean {
-    return this.ready;
-  }
 
   private async ensureUser(): Promise<string> {
     if (!this.userId) {
@@ -62,7 +42,7 @@ export class SupabaseAdapter implements StorageAdapter {
   // Task Operations
   // ============================================
 
-  async getTasks(filter?: TaskFilter, _sort?: SortOptions[]): Promise<Task[]> {
+  async getTasks(filter?: TaskFilter): Promise<Task[]> {
     const includeDeleted = filter?.deleted === true;
     
     if (filter?.deleted === true && filter?.abandoned !== true) {

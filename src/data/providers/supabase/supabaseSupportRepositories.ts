@@ -8,15 +8,14 @@ import type {
 import type { AppInfo, SearchOptions, UserProfile, UserSettings } from "@/data/models";
 import type { TaskActivity } from "@/types/taskActivity";
 import type { SupabaseAdapter } from "./SupabaseAdapter";
-import { SupabaseAdapterBridge } from "./adapterBridge";
 import { mapFileRow, mapTaskRow, type SupabaseFileRow, type SupabaseTaskRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";
 
-export class SupabaseActivityRepository extends SupabaseAdapterBridge implements ActivityRepository {
-  constructor(adapter: SupabaseAdapter) { super(adapter); }
+export class SupabaseActivityRepository implements ActivityRepository {
+  constructor(private readonly adapter: SupabaseAdapter) {}
 
   findByTaskId(taskId: string) {
-    return withSupabaseError(async () => (await (await this.ready()).getTaskActivities(taskId)).map((row): TaskActivity => ({
+    return withSupabaseError(async () => (await this.adapter.getTaskActivities(taskId)).map((row): TaskActivity => ({
       id: row.id,
       task_id: row.task_id,
       user_id: row.user_id,
@@ -29,7 +28,7 @@ export class SupabaseActivityRepository extends SupabaseAdapterBridge implements
 
   create(taskId: string, action: string, metadata?: Record<string, unknown>) {
     return withSupabaseError(async () => {
-      const row = await (await this.ready()).createTaskActivity({ task_id: taskId, action, metadata });
+      const row = await this.adapter.createTaskActivity({ task_id: taskId, action, metadata });
       return {
         id: row.id, task_id: row.task_id, user_id: row.user_id, anonymous_id: null,
         action: row.action, metadata: row.metadata ?? null, created_at: row.created_at,
@@ -38,19 +37,19 @@ export class SupabaseActivityRepository extends SupabaseAdapterBridge implements
   }
 }
 
-export class SupabaseFileRepository extends SupabaseAdapterBridge implements FileRepository {
-  constructor(adapter: SupabaseAdapter) { super(adapter); }
+export class SupabaseFileRepository implements FileRepository {
+  constructor(private readonly adapter: SupabaseAdapter) {}
   uploadAttachment(taskId: string, file: File) {
-    return withSupabaseError(async () => mapFileRow(await (await this.ready()).uploadAttachment(taskId, file) as SupabaseFileRow));
+    return withSupabaseError(async () => mapFileRow(await this.adapter.uploadAttachment(taskId, file) as SupabaseFileRow));
   }
   async deleteAttachment(attachmentId: string) {
-    await withSupabaseError(async () => { await (await this.ready()).deleteAttachment(attachmentId); });
+    await withSupabaseError(async () => { await this.adapter.deleteAttachment(attachmentId); });
   }
   uploadImage(file: File) {
-    return withSupabaseError(async () => mapFileRow(await (await this.ready()).uploadImage(file) as SupabaseFileRow));
+    return withSupabaseError(async () => mapFileRow(await this.adapter.uploadImage(file) as SupabaseFileRow));
   }
   uploadAvatar(file: File) {
-    return withSupabaseError(async () => mapFileRow(await (await this.ready()).uploadAvatar(file) as SupabaseFileRow));
+    return withSupabaseError(async () => mapFileRow(await this.adapter.uploadAvatar(file) as SupabaseFileRow));
   }
 }
 
@@ -68,11 +67,11 @@ const toDomainSettings = (settings: Record<string, unknown>): UserSettings => ({
   webhookEnabled: settings.webhook_enabled as boolean | undefined,
 });
 
-export class SupabaseProfileRepository extends SupabaseAdapterBridge implements ProfileRepository {
-  constructor(adapter: SupabaseAdapter) { super(adapter); }
+export class SupabaseProfileRepository implements ProfileRepository {
+  constructor(private readonly adapter: SupabaseAdapter) {}
   get() {
     return withSupabaseError(async (): Promise<UserProfile | null> => {
-      const profile = await (await this.ready()).getUserProfile();
+      const profile = await this.adapter.getUserProfile();
       return profile ? {
         id: profile.id,
         username: profile.username,
@@ -84,7 +83,7 @@ export class SupabaseProfileRepository extends SupabaseAdapterBridge implements 
   }
   save(profile: Partial<UserProfile>) {
     return withSupabaseError(async () => {
-      const saved = await (await this.ready()).saveUserProfile({
+      const saved = await this.adapter.saveUserProfile({
         id: profile.id,
         username: profile.username,
         avatar_url: profile.avatarUrl,
@@ -98,18 +97,18 @@ export class SupabaseProfileRepository extends SupabaseAdapterBridge implements 
     });
   }
   getSettings() {
-    return withSupabaseError(async () => toDomainSettings(await (await this.ready()).getUserSettings()));
+    return withSupabaseError(async () => toDomainSettings(await this.adapter.getUserSettings()));
   }
   saveSettings(settings: Partial<UserSettings>) {
-    return withSupabaseError(async () => toDomainSettings(await (await this.ready()).saveUserSettings(toLegacySettings(settings))));
+    return withSupabaseError(async () => toDomainSettings(await this.adapter.saveUserSettings(toLegacySettings(settings))));
   }
 }
 
-export class SupabaseSearchRepository extends SupabaseAdapterBridge implements SearchRepository {
-  constructor(adapter: SupabaseAdapter) { super(adapter); }
+export class SupabaseSearchRepository implements SearchRepository {
+  constructor(private readonly adapter: SupabaseAdapter) {}
   searchTasks(query: string, options: SearchOptions = {}) {
     return withSupabaseError(async () => {
-      const result = await (await this.ready()).searchTasks(query, {
+      const result = await this.adapter.searchTasks(query, {
         includeCompleted: options.includeCompleted,
         includeDeleted: options.includeDeleted,
         includeAbandoned: options.includeAbandoned,
@@ -121,11 +120,11 @@ export class SupabaseSearchRepository extends SupabaseAdapterBridge implements S
   }
 }
 
-export class SupabaseAppInfoRepository extends SupabaseAdapterBridge implements AppInfoRepository {
-  constructor(adapter: SupabaseAdapter) { super(adapter); }
+export class SupabaseAppInfoRepository implements AppInfoRepository {
+  constructor(private readonly adapter: SupabaseAdapter) {}
   get() {
     return withSupabaseError(async (): Promise<AppInfo> => {
-      const info = await (await this.ready()).getAppInfo();
+      const info = await this.adapter.getAppInfo();
       return {
         version: info.version,
         announcement: info.announcement,

@@ -3,12 +3,11 @@ import { DataError } from "@/data/contracts/errors";
 import { supabase } from "@/integrations/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SupabaseAdapter } from "./SupabaseAdapter";
-import { SupabaseAdapterBridge } from "./adapterBridge";
 import { mapProjectRow, type SupabaseProjectRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";
 
-export class SupabaseProjectRepository extends SupabaseAdapterBridge implements ProjectRepository {
-  constructor(adapter: SupabaseAdapter) { super(adapter); }
+export class SupabaseProjectRepository implements ProjectRepository {
+  constructor(private readonly adapter: SupabaseAdapter) {}
 
   findAll() {
     return withSupabaseError(async () => {
@@ -50,13 +49,13 @@ export class SupabaseProjectRepository extends SupabaseAdapterBridge implements 
 
   findById(id: string) {
     return withSupabaseError(async () => {
-      const row = await (await this.ready()).getProjectById(id);
+      const row = await this.adapter.getProjectById(id);
       return row ? mapProjectRow(row as SupabaseProjectRow) : null;
     });
   }
 
   create(input: CreateProjectInput) {
-    return withSupabaseError(async () => mapProjectRow(await (await this.ready()).createProject(input) as SupabaseProjectRow));
+    return withSupabaseError(async () => mapProjectRow(await this.adapter.createProject(input) as SupabaseProjectRow));
   }
 
   upsert(project: import("@/types/project").Project) {
@@ -74,7 +73,7 @@ export class SupabaseProjectRepository extends SupabaseAdapterBridge implements 
 
   update(id: string, input: UpdateProjectInput) {
     return withSupabaseError(async () => {
-      const row = await (await this.ready()).updateProject(id, input);
+      const row = await this.adapter.updateProject(id, input);
       if (!row) throw new DataError("NOT_FOUND", "清单不存在");
       return mapProjectRow(row as SupabaseProjectRow);
     });
@@ -82,13 +81,13 @@ export class SupabaseProjectRepository extends SupabaseAdapterBridge implements 
 
   async remove(id: string) {
     await withSupabaseError(async () => {
-      if (!await (await this.ready()).deleteProject(id)) throw new DataError("NOT_FOUND", "清单不存在");
+      if (!await this.adapter.deleteProject(id)) throw new DataError("NOT_FOUND", "清单不存在");
     });
   }
 
   async reorder(items: Array<{ id: string; sort_order: number }>) {
     await withSupabaseError(async () => {
-      if (!await (await this.ready()).batchUpdateProjectSortOrder(items)) throw new DataError("UNKNOWN", "清单排序失败");
+      if (!await this.adapter.batchUpdateProjectSortOrder(items)) throw new DataError("UNKNOWN", "清单排序失败");
     });
   }
 

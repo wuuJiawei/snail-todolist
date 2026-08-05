@@ -3,17 +3,16 @@ import { DataError } from "@/data/contracts/errors";
 import { supabase } from "@/integrations/supabase/client";
 import type { SupabaseAdapter } from "./SupabaseAdapter";
 import { mapTaskRow, type SupabaseTaskRow } from "./mappers";
-import { SupabaseAdapterBridge } from "./adapterBridge";
 import { withSupabaseError } from "./mapSupabaseError";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Task } from "@/types/task";
 
-export class SupabaseTaskRepository extends SupabaseAdapterBridge implements TaskRepository {
-  constructor(adapter: SupabaseAdapter) { super(adapter); }
+export class SupabaseTaskRepository implements TaskRepository {
+  constructor(private readonly adapter: SupabaseAdapter) {}
 
   findAll(query: TaskQuery = {}) {
     return withSupabaseError(async () => {
-      const adapter = await this.ready();
+      const adapter = this.adapter;
       if (query.includeDeleted) {
         const groups = await Promise.all([
           adapter.getTasks({ deleted: false }),
@@ -36,13 +35,13 @@ export class SupabaseTaskRepository extends SupabaseAdapterBridge implements Tas
 
   findById(id: string) {
     return withSupabaseError(async () => {
-      const row = await (await this.ready()).getTaskById(id);
+      const row = await this.adapter.getTaskById(id);
       return row ? mapTaskRow(row as SupabaseTaskRow) : null;
     }, "无法加载任务");
   }
 
   create(input: CreateTaskInput) {
-    return withSupabaseError(async () => mapTaskRow(await (await this.ready()).createTask(input) as SupabaseTaskRow), "无法创建任务");
+    return withSupabaseError(async () => mapTaskRow(await this.adapter.createTask(input) as SupabaseTaskRow), "无法创建任务");
   }
 
   upsert(task: Task) {
@@ -64,7 +63,7 @@ export class SupabaseTaskRepository extends SupabaseAdapterBridge implements Tas
 
   update(id: string, input: UpdateTaskInput) {
     return withSupabaseError(async () => {
-      const row = await (await this.ready()).updateTask(id, input);
+      const row = await this.adapter.updateTask(id, input);
       if (!row) throw new DataError("NOT_FOUND", "任务不存在");
       return mapTaskRow(row as SupabaseTaskRow);
     }, "无法更新任务");
@@ -72,7 +71,7 @@ export class SupabaseTaskRepository extends SupabaseAdapterBridge implements Tas
 
   async remove(id: string) {
     await withSupabaseError(async () => {
-      const removed = await (await this.ready()).deleteTask(id);
+      const removed = await this.adapter.deleteTask(id);
       if (!removed) throw new DataError("NOT_FOUND", "任务不存在");
     }, "无法删除任务");
   }
@@ -100,7 +99,7 @@ export class SupabaseTaskRepository extends SupabaseAdapterBridge implements Tas
 
   async reorder(items: Array<{ id: string; sort_order: number }>) {
     await withSupabaseError(async () => {
-      const updated = await (await this.ready()).batchUpdateSortOrder(items);
+      const updated = await this.adapter.batchUpdateSortOrder(items);
       if (!updated) throw new DataError("UNKNOWN", "任务排序失败");
     });
   }

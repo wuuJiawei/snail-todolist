@@ -1,17 +1,16 @@
 import type { PomodoroRepository, PomodoroSessionType } from "@/data/contracts/pomodoroRepository";
 import { DataError } from "@/data/contracts/errors";
 import type { SupabaseAdapter } from "./SupabaseAdapter";
-import { SupabaseAdapterBridge } from "./adapterBridge";
 import { withSupabaseError } from "./mapSupabaseError";
 import { mapPomodoroRow, type SupabasePomodoroRow } from "./mappers";
 
 const publicType = (type: "work" | "short_break" | "long_break"): PomodoroSessionType => type === "work" ? "focus" : type;
 
-export class SupabasePomodoroRepository extends SupabaseAdapterBridge implements PomodoroRepository {
-  constructor(adapter: SupabaseAdapter) { super(adapter); }
+export class SupabasePomodoroRepository implements PomodoroRepository {
+  constructor(private readonly adapter: SupabaseAdapter) {}
 
   findAll(query: { taskId?: string } = {}) {
-    return withSupabaseError(async () => (await (await this.ready()).getPomodoroSessions(query.taskId)).map((row) => mapPomodoroRow({
+    return withSupabaseError(async () => (await this.adapter.getPomodoroSessions(query.taskId)).map((row) => mapPomodoroRow({
       id: row.id,
       user_id: row.user_id,
       task_id: row.task_id,
@@ -32,7 +31,7 @@ export class SupabasePomodoroRepository extends SupabaseAdapterBridge implements
 
   start(type: PomodoroSessionType, duration: number, title?: string) {
     return withSupabaseError(async () => {
-      const row = await (await this.ready()).createPomodoroSession({
+      const row = await this.adapter.createPomodoroSession({
         duration,
         type: type === "focus" ? "work" : type,
         started_at: new Date().toISOString(),
@@ -49,7 +48,7 @@ export class SupabasePomodoroRepository extends SupabaseAdapterBridge implements
 
   complete(id: string, options: { completed?: boolean; endTime?: string; duration?: number } = {}) {
     return withSupabaseError(async () => {
-      const row = await (await this.ready()).updatePomodoroSession(id, {
+      const row = await this.adapter.updatePomodoroSession(id, {
         completed_at: options.completed === false ? null : options.endTime ?? new Date().toISOString(),
         duration: options.duration,
       });
@@ -64,7 +63,7 @@ export class SupabasePomodoroRepository extends SupabaseAdapterBridge implements
 
   async remove(id: string) {
     await withSupabaseError(async () => {
-      if (!await (await this.ready()).deletePomodoroSession(id)) throw new DataError("NOT_FOUND", "番茄钟记录不存在");
+      if (!await this.adapter.deletePomodoroSession(id)) throw new DataError("NOT_FOUND", "番茄钟记录不存在");
     });
   }
 
