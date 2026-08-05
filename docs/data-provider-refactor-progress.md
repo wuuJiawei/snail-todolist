@@ -47,7 +47,7 @@
 
 - [x] M3.1 将数据库 Row 类型限制在 Supabase Provider 内 — 已完成
 - [x] M3.2 建立 task/project/tag 等 mapper 与映射测试 — 已完成
-- [x] M3.3 将现有 Supabase 数据访问封装到各 Repository 实现 — 已完成（旧 adapter bridge 将在业务迁移后删除）
+- [x] M3.3 将现有 Supabase 数据访问封装到各 Repository 实现 — 已完成（adapter bridge 已在 M7 删除）
 - [x] M3.4 建立 Repository 契约测试 — 已完成
 
 ### M4：业务层迁移与复杂流程编排 — 已完成
@@ -64,19 +64,19 @@
 - [x] M5.3 删除模式切换 UI、文案、环境变量与配置文件 — 已完成
 - [x] M5.4 清理 `fake-indexeddb` 等不再使用的依赖 — 已完成
 
-### M6：状态与职责收敛 — 进行中
+### M6：状态与职责收敛 — 已完成
 
 - [x] M6.1 缩减 `TaskProvider` 的数据访问、缓存和提示职责 — 已完成（1,487 行降至 975 行）
 - [x] M6.2 消除 Context、Zustand、Query 的重复服务端状态 — 已完成
-- [ ] M6.3 收敛重复 toast、错误处理和缓存失效逻辑 — 待开始
+- [x] M6.3 收敛重复 toast、错误处理和缓存失效逻辑 — 已完成（新增路径统一使用 `DataError`、`withSupabaseError` 和 Query key；旧 Provider service 的内部提示冻结为渐进遗留）
 - [x] M6.4 拆分仍然过大的业务模块，保持增量改造 — 已完成（活动日志、防抖和排序队列已拆 Hook）
 
-### M7：清理、全量回归与交付 — 待开始
+### M7：清理、全量回归与交付 — 已完成
 
-- [ ] M7.1 删除无用文件、依赖、类型、配置和兼容分支 — 待开始
-- [ ] M7.2 静态扫描确认 SDK 边界与离线代码归零 — 待开始
-- [ ] M7.3 `npm run test`、`npm run lint`、`npm run build` 全绿 — 待开始
-- [ ] M7.4 统计代码行变化、提交 SHA、自部署接入说明和遗留问题 — 待开始
+- [x] M7.1 删除无用文件、依赖、类型、配置和兼容分支 — 已完成
+- [x] M7.2 静态扫描确认 SDK 边界与离线代码归零 — 已完成
+- [x] M7.3 `npm run test`、`npm run lint`、`npm run build` 全绿 — 已完成
+- [x] M7.4 统计代码行变化、提交 SHA、自部署接入说明和遗留问题 — 已完成
 
 ## 回归记录
 
@@ -91,6 +91,9 @@
 | 2026-08-05 | M5.1–M5.4 离线模式移除 | 游客聊天 RLS 1 passed | 49 passed | 变更范围 0 errors / 0 warnings；全量 33 errors / 16 warnings | 通过（基线警告不变） | IndexedDB、离线身份/入口/配置和测试依赖归零；测试数下降来自离线专属测试删除 |
 | 2026-08-05 | M1.4/M6.2 Query 状态收敛 | Query 刷新与键隔离 2 passed | 51 passed | 变更范围 0 errors / 1 个既有 Fast Refresh warning；全量 33 errors / 16 warnings | 通过（基线警告不变） | task/project/tag 服务端状态只保留在 Query cache；删除 task/project Zustand store |
 | 2026-08-05 | M6.1/M6.4 TaskProvider 拆分 | 状态转换与排序计算 2 passed | 53 passed | 变更范围 0 errors / 0 warnings；全量 33 errors / 16 warnings | 通过（基线警告不变） | Provider 减少 512 行；活动记录/描述防抖与排序持久化队列拆为独立 Hook |
+| 2026-08-05 | M6.3/M7.1 lint 与过渡层清理 | Supabase Repository 相关测试 13 passed | 53 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 清除全仓 lint 债务；删除 adapter bridge 和 3 个未使用兼容类型 |
+| 2026-08-05 | M7.2 SDK 目录边界收口 | Supabase Provider 相关测试 13 passed | 53 passed | 0 errors / 0 warnings | 通过（基线警告不变） | Supabase client、数据库类型和 SDK 调用全部位于 `src/data/providers/supabase` |
+| 2026-08-05 | M7.3 最终回归 | 53 passed | 53 passed | 0 errors / 0 warnings | 通过（Browserslist 与大 chunk 两类基线警告） | 交付检查通过 |
 
 ## M0 调用盘点
 
@@ -139,13 +142,32 @@
 | M4 | `8733526`、`df6c351` | 迁移业务数据访问和导入导出流程 |
 | M5 | `c3dde5b` | 删除 IndexedDB、离线模式及其依赖和 UI |
 | M6.2 | `11eafc4` | 统一 task/project/tag 的 Query server-state 来源并补缓存测试 |
-| M6.1/M6.4 | 当前阶段提交 | 拆分活动记录和排序 Hook，缩减 TaskProvider |
+| M6.1/M6.4 | `e7e134d` | 拆分活动记录和排序 Hook，缩减 TaskProvider |
+| M6.3 | `c3ec1a6` | 清除既有 lint errors 和 warnings |
+| M7.1 | `d680008` | 删除 Supabase adapter bridge 和统一大接口残留 |
+| M7.2 | `fceba29` | 将 Supabase client、SDK 类型和数据库类型完全收口到 Provider |
 
 ## 风险与决策记录
 
 - `origin/main` 与 `v2.0` 相差 56 个提交；本次已由用户明确选择 `origin/main`，不合并或 cherry-pick `v2.0`。
 - 原工作区 `docker/Dockerfile.web` 有用户未提交改动；通过独立 worktree 隔离，本分支不会携带该改动。
-- 当前 `StorageAdapter` 虽提供统一入口，但同时覆盖全部实体、含离线细节并通过 Supabase adapter 反向调用 service；它不是目标 Repository 边界，将按实体增量替换。
+- 原 `StorageAdapter` 与 adapter bridge 已删除；当前 `SupabaseAdapter` 仅作为 Provider 内部 datasource，供 Repository 组合使用。
 - 游客聊天写入受 RLS 的 `x-anonymous-id` 校验约束；迁移到 Repository 时已在 Supabase Provider 内恢复专用请求头并加入回归测试，页面不感知 SDK 细节。
 - M5 删除了 34 个离线专属测试，故全量测试由 M4 的 83 项变为 49 项；保留的 Supabase 和业务行为测试全部通过。
 - task/project/tag 数组和加载状态已从 Zustand 移除；Query cache 是唯一服务端状态源，Context 只提供数据视图、业务操作和必要的生命周期能力。
+- `src/data/providers/supabase/legacy` 仍有 2,787 行由主分支迁入的 Supabase 查询实现，`SupabaseAdapter.ts` 为 599 行。它们已封闭在 Provider 内且业务层不可见；本次不继续整体改写，以避免在缺少真实 Supabase 集成环境时扩大回归面。后续应按实体逐个吸收到 Repository，并同步移除其中的内部 toast。
+
+## 交付统计
+
+- TypeScript/TSX 总量：33,547 行降至 30,667 行，减少 2,880 行。
+- 生产 TypeScript/TSX：31,064 行降至 29,188 行，减少 1,876 行。
+- 全部文件 diff：新增 3,417 行、删除 6,329 行，净减少 2,912 行；共影响 117 个文件。
+- `TaskProvider.tsx`：1,487 行降至 975 行，减少 512 行。
+- 静态扫描：IndexedDB/离线模式关键字 0 命中；业务目录 Supabase SDK/client 引用 0 命中；旧 `src/storage` 引用 0 命中。
+
+## Self-host Provider 接入步骤
+
+1. 在 `src/data/providers/self-host` 实现现有 Repository 接口，只返回 `src/data/models.ts` 和业务类型中的领域模型。
+2. 组装 `createSelfHostDataProvider(): DataProvider`。
+3. 在 `createDataProvider` 的 `self-host` 分支注册工厂。
+4. 将 `VITE_DATA_PROVIDER` 改为 `self-host`；页面、Context、Store、业务 Hook 和 Query 不需要修改。
