@@ -78,7 +78,7 @@
 - [x] M7.3 `npm run test`、`npm run lint`、`npm run build` 全绿 — 已完成
 - [x] M7.4 统计代码行变化、提交 SHA、自部署接入说明和遗留问题 — 已完成
 
-### M8：Provider 内部遗留吸收 — 进行中
+### M8：Provider 内部遗留吸收 — 已完成
 
 - [x] M8.1 将项目协作逻辑吸收到 `SupabaseProjectCollaborationRepository` — 已完成
 - [x] M8.2 将打卡逻辑吸收到 `SupabaseCheckInRepository` — 已完成
@@ -87,7 +87,7 @@
 - [x] M8.5 将搜索、活动、附件、资料和应用信息逻辑吸收到对应 Repository — 已完成
 - [x] M8.6 将项目 CRUD/排序吸收到 `SupabaseProjectRepository` — 已完成
 - [x] M8.7 将任务核心 CRUD/排序吸收到 `SupabaseTaskRepository` — 已完成
-- [ ] M8.8 删除最终 `SupabaseAdapter`、`legacy` 和无用依赖，重新生成最终统计 — 进行中
+- [x] M8.8 删除最终 `SupabaseAdapter`、`legacy` 和无用依赖，重新生成最终统计 — 已完成
 
 ## 回归记录
 
@@ -108,6 +108,7 @@
 | 2026-08-05 | M8.1–M8.5 Provider 辅助实体吸收 | Supabase Repository 测试通过 | 65 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 删除 7 个 legacy service，修复打卡、番茄钟、标签和搜索边界行为 |
 | 2026-08-05 | M8.6 Project Repository 去适配器化 | 3 passed | 68 passed | 0 errors / 0 warnings | 通过（基线警告不变） | Project CRUD/排序直接依赖注入的 Supabase client，数据库写入字段完成收口 |
 | 2026-08-05 | M8.7 Task Repository 去适配器化 | 12 passed | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 保留共享项目权限和附件映射；恢复时间字段真实清空；查询错误不再吞并为空数组 |
+| 2026-08-05 | M8.8 最终 legacy/依赖清理 | 12 passed | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | `npm ci` 成功；Adapter、legacy、`uuid` 及空目录全部删除；静态扫描归零 |
 
 ## M0 调用盘点
 
@@ -160,25 +161,101 @@
 | M6.3 | `c3ec1a6` | 清除既有 lint errors 和 warnings |
 | M7.1 | `d680008` | 删除 Supabase adapter bridge 和统一大接口残留 |
 | M7.2 | `fceba29` | 将 Supabase client、SDK 类型和数据库类型完全收口到 Provider |
+| M7.4 | `eb47690` | 汇总第一轮重构结果和接入说明 |
 | M8.1–M8.5 | `d90409a`、`4550211`、`a8f5c51`、`39e0dae`、`7d4e332` | 依次吸收项目协作、打卡、番茄钟、标签和辅助服务 |
+| M8.6 | `365cd8b` | 将项目 CRUD、排序和映射直接收口到 Repository |
+| M8.7 | `6929b79` | 将任务 CRUD、状态、排序、共享权限和附件映射直接收口到 Repository |
+| M8.8 | `eccd2e4` | 删除最终 Adapter/legacy 和仅由 legacy 使用的 `uuid` 依赖 |
 
 ## 风险与决策记录
 
 - `origin/main` 与 `v2.0` 相差 56 个提交；本次已由用户明确选择 `origin/main`，不合并或 cherry-pick `v2.0`。
 - 原工作区 `docker/Dockerfile.web` 有用户未提交改动；通过独立 worktree 隔离，本分支不会携带该改动。
-- 原 `StorageAdapter` 与 adapter bridge 已删除；当前 `SupabaseAdapter` 仅作为 Provider 内部 datasource，供 Repository 组合使用。
+- 原 `StorageAdapter`、Provider 内部 `SupabaseAdapter` 和所有 legacy service 已全部删除；Repository 直接依赖注入 Supabase client。
 - 游客聊天写入受 RLS 的 `x-anonymous-id` 校验约束；迁移到 Repository 时已在 Supabase Provider 内恢复专用请求头并加入回归测试，页面不感知 SDK 细节。
 - M5 删除了 34 个离线专属测试，故全量测试由 M4 的 83 项变为 49 项；保留的 Supabase 和业务行为测试全部通过。
 - task/project/tag 数组和加载状态已从 Zustand 移除；Query cache 是唯一服务端状态源，Context 只提供数据视图、业务操作和必要的生命周期能力。
-- Task 核心链路已完成直接迁移；`legacy/taskService.ts`、`SupabaseAdapter.ts` 和 `legacyTypes.ts` 当前已无生产引用，待 M8.8 删除并同步清理仅由 legacy 使用的依赖。
+- 自动化回归使用注入的 Supabase client mock，没有可用的独立 Supabase 测试环境执行真实 RLS/E2E；共享项目权限分支已用 Repository 测试锁定，生产 RLS 仍需部署后冒烟验证。
 
 ## 交付统计
 
-- TypeScript/TSX 总量：33,547 行降至 30,667 行，减少 2,880 行。
-- 生产 TypeScript/TSX：31,064 行降至 29,188 行，减少 1,876 行。
-- 全部文件 diff：新增 3,417 行、删除 6,329 行，净减少 2,912 行；共影响 117 个文件。
-- `TaskProvider.tsx`：1,487 行降至 975 行，减少 512 行。
-- 静态扫描：IndexedDB/离线模式关键字 0 命中；业务目录 Supabase SDK/client 引用 0 命中；旧 `src/storage` 引用 0 命中。
+- TypeScript/TSX 总量：33,547 行降至 28,771 行，减少 4,776 行。
+- 生产 TypeScript/TSX：31,064 行降至 26,725 行，减少 4,339 行。
+- 测试 TypeScript/TSX：2,483 行降至 2,046 行；净减少来自删除 1,322 行 IndexedDB/storage 专属测试，同时新增 Repository、工厂、Query 和业务行为测试。
+- 全部文件 diff：新增 4,640 行、删除 9,664 行，净减少 5,024 行；共影响 122 个文件。
+- `TaskProvider.tsx`：1,487 行降至 990 行，减少 497 行。
+- 静态扫描：`src` 内 IndexedDB/离线配置、Adapter/legacy 引用均为 0；Provider 外 Supabase SDK/client 引用为 0；旧 `src/storage` 引用为 0。
+
+## 最终删除清单
+
+- 离线实现与配置：`.env.offline`、`src/config/storage.ts`、`src/config/storage.test.ts`、整个 `src/storage/indexeddb`、旧 `src/storage` operations/types/adapter。
+- 离线 UI：`ModeSwitchDialog.tsx`；认证、用户菜单、账户设置、数据管理等页面中的离线入口、提示和条件分支已移除。`DataManagementSettings` 保留，仅服务当前 Supabase 数据的导入导出。
+- 重复服务与过渡层：task/tag/check-in/pomodoro/search/activity/project collaboration/app info service、两个 Supabase Adapter、最终 `legacy` 目录和 `legacyTypes.ts`。
+- 重复状态：`src/store/taskStore.ts`、`src/store/projectStore.ts`。
+- 依赖：`fake-indexeddb`、`uuid`。
+
+## 最终数据访问结构
+
+```text
+src/data/
+├── contracts/                 # 领域 Repository 与统一错误
+├── providers/supabase/        # Supabase client、Row 类型、mapper、Repository 实现
+├── createDataProvider.ts      # provider 配置解析与工厂
+├── dataProvider.ts            # DataProvider 聚合接口
+├── models.ts                  # provider-neutral 模型
+└── operations.ts              # 业务兼容入口/流程调用
+```
+
+业务依赖固定为：`Component/Context → Hook/Query/UseCase → Repository → Supabase 实现 → Supabase SDK`。认证、项目、任务、标签、打卡、番茄钟、搜索、附件、聊天室等原有直接 SDK 调用均已迁入 Provider；Component、Context、Store 和业务 Hook 扫描无直连。
+
+## Repository 与 Supabase 实现
+
+| Repository 契约 | Supabase 实现 |
+| --- | --- |
+| `TaskRepository` | `SupabaseTaskRepository` |
+| `ProjectRepository` | `SupabaseProjectRepository` |
+| `ProjectCollaborationRepository` | `SupabaseProjectCollaborationRepository` |
+| `TagRepository` | `SupabaseTagRepository` |
+| `CheckInRepository` | `SupabaseCheckInRepository` |
+| `PomodoroRepository` | `SupabasePomodoroRepository` |
+| `AuthRepository` | `SupabaseAuthRepository` |
+| `ChatRepository` | `SupabaseChatRepository` |
+| `ActivityRepository` | `SupabaseActivityRepository` |
+| `FileRepository` | `SupabaseFileRepository` |
+| `SearchRepository` | `SupabaseSearchRepository` |
+| `ProfileRepository` | `SupabaseProfileRepository` |
+| `AppInfoRepository` | `SupabaseAppInfoRepository` |
+
+数据库 Row 到领域模型统一通过 `mappers.ts`；附件 JSON、旧附件字段、check-in/pomodoro/file/auth 字段转换和 provider 错误不会散落到业务层。
+
+## 状态职责结果
+
+- TanStack Query：任务、项目、标签等服务端数据、加载状态、失效和重连刷新。
+- Zustand：仅保留用户资料等客户端全局状态；task/project 重复 server-state store 已删除。
+- Context：提供数据视图、操作编排和 Provider 生命周期，不再持有第二份服务端数据源或调用 SDK。
+- Repository：单实体数据访问、映射和 provider 错误转换。
+- UseCase/service：导入、清理、关系恢复等多实体流程。
+- Component：展示、交互、toast；Provider 内部 toast 已归零。
+
+## 新增回归覆盖
+
+- Provider 工厂：`supabase`、`self-host` 未实现、非法配置。
+- Repository：任务、项目、标签、项目协作、打卡、番茄钟、搜索、活动、聊天室的映射和访问契约。
+- 任务：完成/放弃/删除/恢复、排序、共享项目权限、附件兼容映射、缺失记录错误。
+- 项目与标签：创建排序、更新/不存在、任务标签关联。
+- Query：缓存 key 隔离与刷新。
+- 导入导出：实体 ID、项目/任务/标签和任务标签关系保持。
+- 统一错误：PostgREST/Supabase 错误到 `DataError`。
+
+最终共有 17 个测试文件、71 项测试，全部通过。
+
+## 尚未处理的问题
+
+- `self-host` 只保留规划值和明确的“未实现”错误；本次目标是不实现后端本身。
+- 未连接真实 Supabase 测试项目执行 RLS/E2E；原因是仓库没有隔离的集成测试环境和凭据，需部署前按登录、共享清单、附件和实时订阅清单冒烟。
+- build 仍提示 Browserslist 数据过期和主 chunk 约 6 MB；均为修改前已有警告，拆包属于独立性能任务。
+- `npm ci` 报告 21 个依赖漏洞（1 low、3 moderate、15 high、2 critical）；未执行可能引入破坏性升级的 `npm audit fix --force`。
+- `database.types.ts` 来自主分支且落后于部分 SQL migration（如 task `attachments`、`flagged`）；运行时已在 Provider Row mapper 隔离，后续应从目标 Supabase schema 重新生成类型。
 
 ## Self-host Provider 接入步骤
 
