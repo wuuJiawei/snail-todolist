@@ -1,5 +1,5 @@
 import type { DataProvider } from "@/data/dataProvider";
-import { SupabaseActivityRepository, SupabaseAppInfoRepository, SupabaseFileRepository, SupabaseProfileRepository, SupabaseSearchRepository } from "./supabaseSupportRepositories";
+import { SupabaseActivityRepository, SupabaseAppInfoRepository, SupabaseDataTransferRepository, SupabaseFileRepository, SupabaseProfileRepository, SupabaseSearchRepository } from "./supabaseSupportRepositories";
 import { SupabaseAuthRepository } from "./supabaseAuthRepository";
 import { SupabaseChatRepository } from "./supabaseChatRepository";
 import { SupabaseCheckInRepository } from "./supabaseCheckInRepository";
@@ -22,6 +22,7 @@ export function createSupabaseDataProvider(): DataProvider {
     search: new SupabaseSearchRepository(),
     profiles: new SupabaseProfileRepository(),
     appInfo: new SupabaseAppInfoRepository(),
+    dataTransfer: new SupabaseDataTransferRepository(),
     auth: new SupabaseAuthRepository(),
     chat: new SupabaseChatRepository(),
   };

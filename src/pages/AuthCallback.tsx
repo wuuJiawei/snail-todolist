@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { getDataProvider } from "@/data";
+import { getAuthSession, setAuthSession } from "@/data/operations";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -11,7 +11,7 @@ const AuthCallback = () => {
     const handleAuthCallback = async () => {
       try {
         // 处理OAuth回调中的认证
-        const session = await getDataProvider().auth.getSession();
+        const session = await getAuthSession();
 
         if (session) {
           console.log("Session established successfully");
@@ -33,7 +33,7 @@ const AuthCallback = () => {
           if (accessToken) {
             // 如果有token，手动设置session
             try {
-              await getDataProvider().auth.setSession(accessToken, refreshToken || "");
+              await setAuthSession(accessToken, refreshToken || "");
               navigate("/", { replace: true });
             } catch (sessionError) {
               console.error("Failed to set session:", sessionError);

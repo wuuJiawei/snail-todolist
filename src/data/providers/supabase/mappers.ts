@@ -1,13 +1,13 @@
 import type { AuthSession, AuthUser } from "@/data/contracts/authRepository";
 import type { CheckInRecord } from "@/data/contracts/checkInRepository";
 import type { PomodoroSession } from "@/data/contracts/pomodoroRepository";
-import type { FileUploadResult } from "@/data/models";
-import type { Project } from "@/types/project";
-import type { Tag } from "@/types/tag";
-import type { Task, TaskAttachment } from "@/types/task";
+import type { DomainProject, DomainTag, DomainTask, DomainTaskAttachment, FileUploadResult } from "@/data/models";
 import type { Session, User } from "@supabase/supabase-js";
 
-export type SupabaseTaskRow = Pick<Task, "id" | "title" | "completed"> & {
+export type SupabaseTaskRow = {
+  id: string;
+  title: string;
+  completed: boolean;
   date?: string | null;
   project?: string | null;
   description?: string | null;
@@ -24,8 +24,15 @@ export type SupabaseTaskRow = Pick<Task, "id" | "title" | "completed"> & {
   attachments?: unknown;
 };
 
-export type SupabaseProjectRow = Omit<Project, "count" | "members"> & { count?: number | null };
-export type SupabaseTagRow = Tag;
+export type SupabaseProjectRow = {
+  id: string; name: string; icon: string; count?: number | null; isFixed?: boolean | null;
+  color?: string | null; view_type?: string | null; created_at?: string | null;
+  updated_at?: string | null; sort_order?: number | null; user_id?: string | null;
+  is_shared?: boolean | null; original_owner_id?: string | null;
+};
+export type SupabaseTagRow = {
+  id: string; name: string; user_id?: string | null; project_id?: string | null; created_at?: string | null;
+};
 
 export interface SupabaseCheckInRow {
   id: string;
@@ -61,24 +68,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function normalizeAttachment(value: unknown): TaskAttachment | null {
+function normalizeAttachment(value: unknown): DomainTaskAttachment | null {
   if (!isRecord(value)) return null;
   const filename = value.filename ?? value.file_name;
+  const originalName = value.originalName ?? value.original_name;
+  const uploadedAt = value.uploadedAt ?? value.uploaded_at;
   const size = value.size ?? value.file_size;
   const type = value.type ?? value.file_type;
   if (
     typeof value.id !== "string" ||
     typeof filename !== "string" ||
-    typeof value.original_name !== "string" ||
+    typeof originalName !== "string" ||
     typeof value.url !== "string" ||
     typeof size !== "number" ||
     typeof type !== "string" ||
-    typeof value.uploaded_at !== "string"
+    typeof uploadedAt !== "string"
   ) return null;
-  return { id: value.id, filename, original_name: value.original_name, url: value.url, size, type, uploaded_at: value.uploaded_at };
+  return { id: value.id, filename, originalName, url: value.url, size, type, uploadedAt };
 }
 
-function parseAttachments(value: SupabaseTaskRow["attachments"]): TaskAttachment[] {
+function parseAttachments(value: SupabaseTaskRow["attachments"]): DomainTaskAttachment[] {
   if (!value) return [];
   let rows: unknown;
   if (Array.isArray(value)) rows = value;
@@ -90,40 +99,47 @@ function parseAttachments(value: SupabaseTaskRow["attachments"]): TaskAttachment
     }
   }
   if (!Array.isArray(rows)) return [];
-  return rows.map(normalizeAttachment).filter((attachment): attachment is TaskAttachment => attachment !== null);
+  return rows.map(normalizeAttachment).filter((attachment): attachment is DomainTaskAttachment => attachment !== null);
 }
 
-export function mapTaskRow(row: SupabaseTaskRow): Task {
-  const task: Task = {
+export function mapTaskRow(row: SupabaseTaskRow): DomainTask {
+  const task: DomainTask = {
     id: row.id,
     title: row.title,
     completed: row.completed,
     attachments: parseAttachments(row.attachments),
   };
   if (row.date != null) task.date = row.date;
-  if (row.project != null) task.project = row.project;
+  if (row.project != null) task.projectId = row.project;
   if (row.description != null) task.description = row.description;
   if (row.icon != null) task.icon = row.icon;
-  if (row.completed_at != null) task.completed_at = row.completed_at;
-  if (row.updated_at != null) task.updated_at = row.updated_at;
-  if (row.user_id != null) task.user_id = row.user_id;
+  if (row.completed_at != null) task.completedAt = row.completed_at;
+  if (row.updated_at != null) task.updatedAt = row.updated_at;
+  if (row.user_id != null) task.ownerId = row.user_id;
   if (row.sort_order !== null && row.sort_order !== undefined) {
-    task.sort_order = typeof row.sort_order === "string" ? Number.parseFloat(row.sort_order) : row.sort_order;
+    task.sortOrder = typeof row.sort_order === "string" ? Number.parseFloat(row.sort_order) : row.sort_order;
   }
   if (row.deleted !== undefined) task.deleted = row.deleted ?? false;
-  if (row.deleted_at != null) task.deleted_at = row.deleted_at;
+  if (row.deleted_at != null) task.deletedAt = row.deleted_at;
   if (row.abandoned !== undefined) task.abandoned = row.abandoned ?? false;
-  if (row.abandoned_at != null) task.abandoned_at = row.abandoned_at;
+  if (row.abandoned_at != null) task.abandonedAt = row.abandoned_at;
   if (row.flagged !== undefined) task.flagged = row.flagged ?? false;
   return task;
 }
 
-export function mapProjectRow(row: SupabaseProjectRow): Project {
-  return { ...row, count: row.count ?? 0 };
+export function mapProjectRow(row: SupabaseProjectRow): DomainProject {
+  return {
+    id: row.id, name: row.name, icon: row.icon, count: row.count ?? 0,
+    isFixed: row.isFixed ?? undefined, color: row.color ?? undefined,
+    viewType: row.view_type ?? undefined, createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined, sortOrder: row.sort_order ?? undefined,
+    ownerId: row.user_id ?? undefined, isShared: row.is_shared ?? undefined,
+    originalOwnerId: row.original_owner_id ?? undefined,
+  };
 }
 
-export function mapTagRow(row: SupabaseTagRow): Tag {
-  return { ...row };
+export function mapTagRow(row: SupabaseTagRow): DomainTag {
+  return { id: row.id, name: row.name, ownerId: row.user_id ?? undefined, projectId: row.project_id, createdAt: row.created_at ?? undefined };
 }
 
 export function mapCheckInRow(row: SupabaseCheckInRow): CheckInRecord {

@@ -1,7 +1,7 @@
 import type { TagRepository } from "@/data/contracts/tagRepository";
 import { DataError } from "@/data/contracts/errors";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Tag } from "@/types/tag";
+import type { DomainTag } from "@/data/models";
 import { supabase } from "./client";
 import type { Database } from "./database.types";
 import { mapTagRow, type SupabaseTagRow } from "./mappers";
@@ -42,7 +42,7 @@ export class SupabaseTagRepository implements TagRepository {
 
       const { data, error } = await request;
       if (error) throw error;
-      return ((data ?? []) as Tag[]).map(mapTagRow);
+      return ((data ?? []) as SupabaseTagRow[]).map(mapTagRow);
     });
   }
 
@@ -75,13 +75,13 @@ export class SupabaseTagRepository implements TagRepository {
     });
   }
 
-  upsert(tag: Tag) {
+  upsert(tag: DomainTag) {
     return withSupabaseError(async () => {
       const userId = await this.getUserId();
       if (!userId) throw new DataError("AUTH_REQUIRED", "请先登录");
       const { data, error } = await this.queryClient
         .from("tags")
-        .upsert({ ...tag, user_id: userId })
+        .upsert({ id: tag.id, name: tag.name, project_id: tag.projectId, created_at: tag.createdAt, user_id: userId })
         .select()
         .single();
       if (error) throw error;
@@ -89,9 +89,12 @@ export class SupabaseTagRepository implements TagRepository {
     });
   }
 
-  update(id: string, input: { name?: string; project_id?: string | null }) {
+  update(id: string, input: { name?: string; projectId?: string | null }) {
     return withSupabaseError(async () => {
-      const updates = { ...input, ...(input.name !== undefined ? { name: input.name.trim() } : {}) };
+      const updates = {
+        ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+        ...(input.projectId !== undefined ? { project_id: input.projectId } : {}),
+      };
       const { data, error } = await this.queryClient
         .from("tags")
         .update(updates)
@@ -119,7 +122,7 @@ export class SupabaseTagRepository implements TagRepository {
 
   findByTaskIds(taskIds: string[]) {
     return withSupabaseError(async () => {
-      const result: Record<string, Tag[]> = Object.fromEntries(taskIds.map((taskId) => [taskId, []]));
+      const result: Record<string, DomainTag[]> = Object.fromEntries(taskIds.map((taskId) => [taskId, []]));
       if (taskIds.length === 0) return result;
 
       const links: Array<{ task_id: string; tag_id: string }> = [];
@@ -133,14 +136,14 @@ export class SupabaseTagRepository implements TagRepository {
       }
 
       const tagIds = Array.from(new Set(links.map((link) => link.tag_id)));
-      const tags: Tag[] = [];
+      const tags: SupabaseTagRow[] = [];
       for (let offset = 0; offset < tagIds.length; offset += BATCH_SIZE) {
         const { data, error } = await this.queryClient
           .from("tags")
           .select("*")
           .in("id", tagIds.slice(offset, offset + BATCH_SIZE));
         if (error) throw error;
-        tags.push(...((data ?? []) as Tag[]));
+        tags.push(...((data ?? []) as SupabaseTagRow[]));
       }
 
       const tagsById = new Map(tags.map((tag) => [tag.id, mapTagRow(tag)]));

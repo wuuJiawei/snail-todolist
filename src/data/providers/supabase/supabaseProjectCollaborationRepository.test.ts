@@ -31,10 +31,10 @@ describe("SupabaseProjectCollaborationRepository", () => {
 
     await expect(repository.listMembers("project-1")).resolves.toEqual([{
       id: "member-1",
-      project_id: "project-1",
-      user_id: "user-1",
+      projectId: "project-1",
+      userId: "user-1",
       role: "owner",
-      created_at: undefined,
+      createdAt: undefined,
       profile: { id: "user-1", username: "Owner", avatar_url: null },
     }]);
   });

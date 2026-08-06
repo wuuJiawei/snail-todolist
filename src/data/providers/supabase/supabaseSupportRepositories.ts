@@ -1,12 +1,13 @@
 import type {
   ActivityRepository,
   AppInfoRepository,
+  DataTransferRepository,
   FileRepository,
   ProfileRepository,
   SearchRepository,
 } from "@/data/contracts/supportRepositories";
 import { DataError } from "@/data/contracts/errors";
-import type { AppInfo, SearchOptions, UserProfile, UserSettings } from "@/data/models";
+import { toDomainTask, toLegacyTask, type AppInfo, type SearchOptions, type UserProfile, type UserSettings } from "@/data/models";
 import type { TaskActivity } from "@/types/taskActivity";
 import { searchTasks } from "@/utils/searchUtils";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -242,12 +243,12 @@ export class SupabaseSearchRepository implements SearchRepository {
       const { data, error } = await fallback;
       if (error) throw error;
 
-      const results = searchTasks(((data ?? []) as SupabaseTaskRow[]).map(mapTaskRow), normalized, {
+      const results = searchTasks(((data ?? []) as SupabaseTaskRow[]).map(mapTaskRow).map(toLegacyTask), normalized, {
         minScore: 0.5,
         maxResults: limit,
       });
       return {
-        tasks: results.map((result) => result.task),
+        tasks: results.map((result) => toDomainTask(result.task)),
         totalCount: results.length,
         searchTime: performance.now() - startedAt,
       };
@@ -258,5 +259,16 @@ export class SupabaseSearchRepository implements SearchRepository {
 export class SupabaseAppInfoRepository implements AppInfoRepository {
   get(): Promise<AppInfo> {
     return Promise.resolve({ version: "1.0.0", announcement: undefined, maintenanceMode: false });
+  }
+}
+
+export class SupabaseDataTransferRepository implements DataTransferRepository {
+  constructor(private readonly queryClient: SupabaseClient<Database> = supabase) {}
+
+  async clearOwnedData(): Promise<void> {
+    await withSupabaseError(async () => {
+      const { error } = await this.queryClient.rpc("clear_owned_data");
+      if (error) throw error;
+    }, "无法清除现有数据");
   }
 }

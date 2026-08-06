@@ -11,7 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Project } from "@/types/project";
-import { getDataProvider } from "@/data";
+import {
+  createProjectShare,
+  getProjectMemberProfile,
+  listProjectMembers,
+  removeProjectMember,
+  subscribeToProjectMembers,
+} from "@/data/operations";
 import type { ProjectMemberProfile, ProjectMemberWithProfile } from "@/data/contracts/projectRepository";
 import { useToast } from "@/components/ui/use-toast";
 import { Copy, Check, Users, Link2, X } from "lucide-react";
@@ -59,7 +65,7 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
             });
             return;
           }
-          const active = await getDataProvider().projectCollaboration.getOrCreateShare(project.id, user.id);
+          const active = await createProjectShare(project.id, user.id);
           const code = active.shareCode;
           setShareCode(code);
           setShareLink(code ? shareLinkFor(code) : "");
@@ -87,7 +93,7 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
           setMembersLoading(false);
         } else {
           setMembersLoading(true);
-          getDataProvider().projectCollaboration.listMembers(pid)
+          listProjectMembers(pid)
             .then((list) => {
               setMembers(list);
               membersCacheRef.current[pid] = list;
@@ -98,7 +104,7 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
             .finally(() => setMembersLoading(false));
         }
         if (project.user_id) {
-          getDataProvider().projectCollaboration.getProfile(project.user_id)
+          getProjectMemberProfile(project.user_id)
             .then((p) => setOwnerProfile(p))
             .catch((e) => console.error('load owner profile error', e));
         }
@@ -128,14 +134,14 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
       delete membersCacheRef.current[pid];
       setMembersLoading(true);
       try {
-        const list = await getDataProvider().projectCollaboration.listMembers(pid);
+        const list = await listProjectMembers(pid);
         setMembers(list);
         membersCacheRef.current[pid] = list;
       } finally {
         setMembersLoading(false);
       }
     };
-    return getDataProvider().projectCollaboration.subscribeToMembers(pid, onChange);
+    return subscribeToProjectMembers(pid, onChange);
   }, [open, project]);
 
   const handleCopyToClipboard = () => {
@@ -169,7 +175,7 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
     if (!project) return;
     setMembersLoading(true);
     try {
-      const list = await getDataProvider().projectCollaboration.listMembers(project.id);
+      const list = await listProjectMembers(project.id);
       setMembers(list);
       membersCacheRef.current[project.id] = list;
     } catch (e) {
@@ -189,8 +195,8 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
     if (!ok) return;
     try {
       setRemoving(targetUserId);
-      await getDataProvider().projectCollaboration.removeMember(project.id, targetUserId);
-      const list = await getDataProvider().projectCollaboration.listMembers(project.id);
+      await removeProjectMember(project.id, targetUserId);
+      const list = await listProjectMembers(project.id);
       setMembers(list);
       membersCacheRef.current[project.id] = list;
       toast({ title: isSelf ? "已退出共享" : "已移除成员" });
@@ -308,22 +314,22 @@ const ShareProjectDialog: React.FC<ShareProjectDialogProps> = ({
                       <div className="flex items-center gap-3 min-w-0">
                         <Avatar className="h-7 w-7">
                           <AvatarImage src={m.profile?.avatar_url || ''} />
-                          <AvatarFallback>{(m.profile?.username || m.user_id || '?').slice(0,1)}</AvatarFallback>
+                          <AvatarFallback>{(m.profile?.username || m.userId || '?').slice(0,1)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{m.profile?.username || m.user_id || '-'}</div>
+                          <div className="text-sm font-medium truncate">{m.profile?.username || m.userId || '-'}</div>
                           <div className="text-xs text-gray-500 truncate">{m.role ? `成员（${m.role}）` : '成员'}</div>
                         </div>
                       </div>
-                      {(isOwner || (user && user.id === m.user_id)) && (
+                      {(isOwner || (user && user.id === m.userId)) && (
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7"
-                          onClick={() => handleRemove(m.user_id || '', m.role)}
-                          disabled={removing === (m.user_id || '')}
-                          title={user && user.id === m.user_id ? '退出共享' : '移除成员'}
+                          onClick={() => handleRemove(m.userId, m.role)}
+                          disabled={removing === m.userId}
+                          title={user && user.id === m.userId ? '退出共享' : '移除成员'}
                         >
                           <X className="h-4 w-4" />
                         </Button>

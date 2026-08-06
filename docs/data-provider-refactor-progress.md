@@ -91,6 +91,13 @@
 - [x] M8.9 启动本地 Web 执行认证页、受保护路由和控制台冒烟 — 已完成
 - [x] M8.10 连接真实 Supabase 执行注册、会话与核心 CRUD 回归 — 已完成
 
+### M9：PR 评审整改 — 已完成
+
+- [x] M9.1 将 task/project/tag/member Repository 合同改为 camelCase 领域模型 — 已完成
+- [x] M9.2 将 replace 导入清理改为受 `auth.uid()` 约束的原子 RPC — 已完成
+- [x] M9.3 清除 Component、Page、Context、Query 对 DataProvider 的直接调用 — 已完成
+- [x] M9.4 将标签查询、缓存同步和 CRUD 从 `TaskProvider` 拆到独立 Hook — 已完成
+
 ## 回归记录
 
 | 时间 | 节点 | 受影响测试 | 全量测试 | lint | build | 结论 |
@@ -113,6 +120,7 @@
 | 2026-08-05 | M8.8 最终 legacy/依赖清理 | 12 passed | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | `npm ci` 成功；Adapter、legacy、`uuid` 及空目录全部删除；静态扫描归零 |
 | 2026-08-05 | M8.9 本地 Web 冒烟 | `/auth`、登录/注册切换、`/settings`、`/chat` | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 修复 Query 空数据引用导致的 Provider 无限更新；复测控制台 0 errors |
 | 2026-08-05 | M8.10 真实 Supabase 回归 | 注册/确认/登录/退出/会话恢复；清单、任务、标签、状态流转、垃圾桶、日期、标记、搜索、打卡、番茄钟、导出 | 71 passed | 0 errors / 0 warnings | 通过（Browserslist 与大 chunk 两类基线警告） | 真实 RLS/CRUD 通过；导出 ZIP 含项目、任务、标签和关系数据；搜索弹窗仍有 `origin/main` 已存在的 Radix 无障碍标题告警 |
+| 2026-08-06 | M9 PR 评审整改 | 领域 mapper、partial update、原子清理、Query 边界、标签缓存 | 74 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 四项评审问题已修复；replace 导入在清理失败时停止且不进入写入阶段 |
 
 ## M0 调用盘点
 
@@ -180,14 +188,15 @@
 - M5 删除了 34 个离线专属测试，故全量测试由 M4 的 83 项变为 49 项；保留的 Supabase 和业务行为测试全部通过。
 - task/project/tag 数组和加载状态已从 Zustand 移除；Query cache 是唯一服务端状态源，Context 只提供数据视图、业务操作和必要的生命周期能力。
 - 当前分支已通过仓库外启动脚本连接真实 Supabase，完成邮箱注册确认、登录/退出/会话恢复和核心 RLS/CRUD 回归；环境配置和测试账号均未写入 Git。
+- replace 导入依赖 `sql_migrations/20260806102000_clear_owned_data.sql`；生产发布前必须先应用该迁移。缺少 RPC 时导入会安全失败，不会退回客户端逐条删除。
 
 ## 交付统计
 
-- TypeScript/TSX 总量：33,547 行降至 28,774 行，减少 4,773 行。
-- 生产 TypeScript/TSX：31,064 行降至 26,728 行，减少 4,336 行。
-- 测试 TypeScript/TSX：2,483 行降至 2,046 行；净减少来自删除 1,322 行 IndexedDB/storage 专属测试，同时新增 Repository、工厂、Query 和业务行为测试。
-- 全部文件 diff：新增 4,722 行、删除 9,664 行，净减少 4,942 行；共影响 122 个文件。
-- `TaskProvider.tsx`：1,487 行降至 993 行，减少 494 行。
+- TypeScript/TSX 总量：33,547 行降至 28,685 行，减少 4,862 行。
+- 生产 TypeScript/TSX：31,064 行降至 26,628 行，减少 4,436 行。
+- 测试 TypeScript/TSX：2,483 行降至 2,057 行；净减少来自删除 IndexedDB/storage 专属测试，同时新增 Repository、工厂、Query 和业务行为测试。
+- 全部文件 diff：新增 5,147 行、删除 10,112 行，净减少 4,965 行；共影响 131 个文件。
+- `TaskProvider.tsx`：1,487 行降至 701 行；标签职责位于 152 行的 `useTaskTagActions.ts`。
 - 静态扫描：`src` 内 IndexedDB/离线配置、Adapter/legacy 引用均为 0；Provider 外 Supabase SDK/client 引用为 0；旧 `src/storage` 引用为 0。
 
 ## 最终删除清单
@@ -228,6 +237,7 @@ src/data/
 | `FileRepository` | `SupabaseFileRepository` |
 | `SearchRepository` | `SupabaseSearchRepository` |
 | `ProfileRepository` | `SupabaseProfileRepository` |
+| `DataTransferRepository` | `SupabaseDataTransferRepository` |
 | `AppInfoRepository` | `SupabaseAppInfoRepository` |
 
 数据库 Row 到领域模型统一通过 `mappers.ts`；附件 JSON、旧附件字段、check-in/pomodoro/file/auth 字段转换和 provider 错误不会散落到业务层。

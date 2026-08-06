@@ -1,6 +1,6 @@
 import type { CreateTaskInput, TaskQuery, TaskRepository, UpdateTaskInput } from "@/data/contracts/taskRepository";
 import { DataError } from "@/data/contracts/errors";
-import type { Task } from "@/types/task";
+import type { DomainTask } from "@/data/models";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./client";
 import type { Database } from "./database.types";
@@ -11,56 +11,55 @@ type TaskAccessRow = Pick<SupabaseTaskRow, "id" | "user_id" | "project">;
 type TaskWrite = Record<string, string | number | boolean | null>;
 
 const hasOwn = (value: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(value, key);
+const serializeAttachments = (attachments: DomainTask["attachments"] = []) => JSON.stringify(attachments.map((file) => ({
+  id: file.id, filename: file.filename, original_name: file.originalName, url: file.url,
+  size: file.size, type: file.type, uploaded_at: file.uploadedAt,
+})));
 
 function mapTaskUpdate(input: UpdateTaskInput, normalizeCompletion = true): TaskWrite {
   const updates: TaskWrite = {};
   const nullableStrings = [
-    "date",
-    "project",
-    "description",
-    "icon",
-    "completed_at",
-    "updated_at",
-    "deleted_at",
-    "abandoned_at",
+    ["date", "date"], ["projectId", "project"], ["description", "description"], ["icon", "icon"],
+    ["completedAt", "completed_at"], ["updatedAt", "updated_at"], ["deletedAt", "deleted_at"],
+    ["abandonedAt", "abandoned_at"],
   ] as const;
   const booleans = ["completed", "deleted", "abandoned", "flagged"] as const;
 
   if (input.title !== undefined) updates.title = input.title;
-  if (input.sort_order !== undefined) updates.sort_order = input.sort_order;
-  for (const field of nullableStrings) {
-    if (hasOwn(input, field)) updates[field] = input[field] ?? null;
+  if (input.sortOrder !== undefined) updates.sort_order = input.sortOrder;
+  for (const [field, column] of nullableStrings) {
+    if (hasOwn(input, field)) updates[column] = input[field] ?? null;
   }
   for (const field of booleans) {
     if (input[field] !== undefined) updates[field] = input[field];
   }
   if (hasOwn(input, "attachments")) {
-    updates.attachments = JSON.stringify(input.attachments ?? []);
+    updates.attachments = serializeAttachments(input.attachments);
   }
   if (normalizeCompletion && input.completed === true) updates.completed_at = new Date().toISOString();
   if (normalizeCompletion && input.completed === false) updates.completed_at = null;
   return updates;
 }
 
-function mapTaskForUpsert(task: Task, userId: string): TaskWrite {
+function mapTaskForUpsert(task: DomainTask, userId: string): TaskWrite {
   return {
     id: task.id,
     title: task.title,
     completed: task.completed,
     date: task.date ?? null,
-    project: task.project ?? null,
+    project: task.projectId ?? null,
     description: task.description ?? null,
     icon: task.icon ?? null,
-    completed_at: task.completed_at ?? null,
-    updated_at: task.updated_at ?? null,
+    completed_at: task.completedAt ?? null,
+    updated_at: task.updatedAt ?? null,
     user_id: userId,
-    sort_order: task.sort_order ?? null,
+    sort_order: task.sortOrder ?? null,
     deleted: task.deleted ?? false,
-    deleted_at: task.deleted_at ?? null,
+    deleted_at: task.deletedAt ?? null,
     abandoned: task.abandoned ?? false,
-    abandoned_at: task.abandoned_at ?? null,
+    abandoned_at: task.abandonedAt ?? null,
     flagged: task.flagged ?? false,
-    attachments: JSON.stringify(task.attachments ?? []),
+    attachments: serializeAttachments(task.attachments),
   };
 }
 
@@ -191,14 +190,14 @@ export class SupabaseTaskRepository implements TaskRepository {
   create(input: CreateTaskInput) {
     return withSupabaseError(async () => {
       const userId = await this.requireUserId();
-      if (input.project) await this.assertCanCreateInProject(input.project, userId);
+      if (input.projectId) await this.assertCanCreateInProject(input.projectId, userId);
 
       let orderRequest = this.queryClient
         .from("tasks")
         .select("sort_order")
         .eq("completed", input.completed);
-      orderRequest = input.project
-        ? orderRequest.eq("project", input.project)
+      orderRequest = input.projectId
+        ? orderRequest.eq("project", input.projectId)
         : orderRequest.is("project", null).eq("user_id", userId);
       const { data: orderRows, error: orderError } = await orderRequest
         .order("sort_order", { ascending: true })
@@ -213,14 +212,14 @@ export class SupabaseTaskRepository implements TaskRepository {
         user_id: userId,
         sort_order: minOrder - 1000,
         flagged: input.flagged ?? false,
-        attachments: JSON.stringify(input.attachments ?? []),
+        attachments: serializeAttachments(input.attachments),
       }).select().single();
       if (error) throw error;
       return mapTaskRow(data as SupabaseTaskRow);
     }, "无法创建任务");
   }
 
-  upsert(task: Task) {
+  upsert(task: DomainTask) {
     return withSupabaseError(async () => {
       const userId = await this.requireUserId();
       const { data, error } = await this.queryClient
@@ -265,32 +264,32 @@ export class SupabaseTaskRepository implements TaskRepository {
   }
 
   moveToTrash(id: string) {
-    return this.update(id, { deleted: true, deleted_at: new Date().toISOString() });
+    return this.update(id, { deleted: true, deletedAt: new Date().toISOString() });
   }
 
   restore(id: string) {
-    return this.update(id, { deleted: false, deleted_at: undefined });
+    return this.update(id, { deleted: false, deletedAt: undefined });
   }
 
   abandon(id: string) {
     return this.update(id, {
       abandoned: true,
-      abandoned_at: new Date().toISOString(),
+      abandonedAt: new Date().toISOString(),
       completed: false,
-      completed_at: undefined,
+      completedAt: undefined,
     });
   }
 
   restoreAbandoned(id: string) {
-    return this.update(id, { abandoned: false, abandoned_at: undefined });
+    return this.update(id, { abandoned: false, abandonedAt: undefined });
   }
 
-  async reorder(items: Array<{ id: string; sort_order: number }>) {
+  async reorder(items: Array<{ id: string; order: number }>) {
     await withSupabaseError(async () => {
       if (items.length === 0) return;
       await this.requireUserId();
-      const results = await Promise.all(items.map(({ id, sort_order }) =>
-        this.queryClient.from("tasks").update({ sort_order }).eq("id", id)
+      const results = await Promise.all(items.map(({ id, order }) =>
+        this.queryClient.from("tasks").update({ sort_order: order }).eq("id", id)
       ));
       const failed = results.find((result) => result.error);
       if (failed?.error) throw failed.error;

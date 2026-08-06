@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { getDataProvider } from "@/data";
+import { fetchChatMessages, sendChatMessage, subscribeToChat } from "@/data/operations";
 import type { ChatMessage, ChatPresence } from "@/data/contracts/chatRepository";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -41,7 +41,7 @@ const Chat: React.FC = () => {
 
   useEffect(() => {
     const loadInitial = async () => {
-      const list = await getDataProvider().chat.findRecent(pageSize);
+      const list = await fetchChatMessages(pageSize);
       setMessages(list);
       setHasMore(list.length === pageSize);
       scrollToBottom();
@@ -49,7 +49,7 @@ const Chat: React.FC = () => {
     loadInitial();
 
     const presenceKey = user?.id ?? getOrCreateGuestId();
-    return getDataProvider().chat.subscribe({
+    return subscribeToChat({
       presenceKey,
       userId: user?.id ?? null,
       name: displayName,
@@ -89,7 +89,7 @@ const Chat: React.FC = () => {
     if (loadingMore || messages.length === 0) return;
     setLoadingMore(true);
     const oldest = messages[0];
-    const list = await getDataProvider().chat.findRecent(pageSize, oldest.createdAt);
+    const list = await fetchChatMessages(pageSize, oldest.createdAt);
     setMessages((prev) => [...list, ...prev]);
     setHasMore(list.length === pageSize);
     setLoadingMore(false);
@@ -99,7 +99,7 @@ const Chat: React.FC = () => {
     const content = input.trim();
     if (!content) return;
 
-    await getDataProvider().chat.send({
+    await sendChatMessage({
       content,
       author: { name: displayName, avatarUrl: user?.userMetadata.avatar_url ?? null },
       userId: user && !isGuest ? user.id : null,

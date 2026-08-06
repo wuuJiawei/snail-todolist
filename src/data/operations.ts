@@ -1,7 +1,7 @@
 import { getDataProvider } from "./createDataProvider";
 import type { AuthUser } from "./contracts/authRepository";
 import type { PomodoroSession as DomainPomodoroSession, PomodoroSessionType } from "./contracts/pomodoroRepository";
-import type { AppInfo as DomainAppInfo, FileUploadResult as DomainFileUploadResult, SearchOptions as DomainSearchOptions, UserProfile as DomainUserProfile, UserSettings as DomainUserSettings } from "./models";
+import { toDomainProject, toDomainProjectUpdate, toDomainTag, toDomainTask, toDomainTaskUpdate, toLegacyProject, toLegacyTag, toLegacyTask, type AppInfo as DomainAppInfo, type FileUploadResult as DomainFileUploadResult, type SearchOptions as DomainSearchOptions, type UserProfile as DomainUserProfile, type UserSettings as DomainUserSettings } from "./models";
 import type { Project } from "@/types/project";
 import type { Tag } from "@/types/tag";
 import type { Task } from "@/types/task";
@@ -101,11 +101,11 @@ export interface SearchResult { tasks: Task[]; totalCount: number; searchTime: n
 export function canPerformOperation(user: Pick<AuthUser, "id"> | null): boolean { return Boolean(user); }
 export function requiresAuth(user: Pick<AuthUser, "id"> | null): boolean { return !user; }
 
-export const fetchTasks = (includeDeleted = false) => getDataProvider().tasks.findAll({ includeDeleted });
-export const fetchDeletedTasks = () => getDataProvider().tasks.findAll({ deleted: true, abandoned: false });
-export const fetchAbandonedTasks = () => getDataProvider().tasks.findAll({ abandoned: true });
-export const addTask = (task: Omit<Task, "id">) => getDataProvider().tasks.create(task);
-export const updateTask = (id: string, updates: Partial<Task>) => getDataProvider().tasks.update(id, updates);
+export const fetchTasks = async (includeDeleted = false) => (await getDataProvider().tasks.findAll({ includeDeleted })).map(toLegacyTask);
+export const fetchDeletedTasks = async () => (await getDataProvider().tasks.findAll({ deleted: true, abandoned: false })).map(toLegacyTask);
+export const fetchAbandonedTasks = async () => (await getDataProvider().tasks.findAll({ abandoned: true })).map(toLegacyTask);
+export const addTask = (task: Omit<Task, "id">) => getDataProvider().tasks.create(toDomainTask({ ...task, id: "pending" })).then(toLegacyTask);
+export const updateTask = (id: string, updates: Partial<Task>) => getDataProvider().tasks.update(id, toDomainTaskUpdate(updates)).then(toLegacyTask);
 
 export async function deleteTask(id: string): Promise<boolean> {
   try { await getDataProvider().tasks.remove(id); return true; } catch { return false; }
@@ -123,33 +123,62 @@ export async function restoreAbandonedTask(id: string): Promise<boolean> {
   try { await getDataProvider().tasks.restoreAbandoned(id); return true; } catch { return false; }
 }
 export async function batchUpdateSortOrder(items: Array<{ id: string; sort_order: number }>): Promise<boolean> {
-  try { await getDataProvider().tasks.reorder(items); return true; } catch { return false; }
+  try { await getDataProvider().tasks.reorder(items.map(({ id, sort_order }) => ({ id, order: sort_order }))); return true; } catch { return false; }
 }
 
-export const fetchAllTags = (projectId?: string | null) => getDataProvider().tags.findAll(projectId);
-export const createTag = (name: string, projectId?: string | null) => getDataProvider().tags.create(name, projectId);
+export const fetchAllTags = async (projectId?: string | null) => (await getDataProvider().tags.findAll(projectId)).map(toLegacyTag);
+export const createTag = (name: string, projectId?: string | null) => getDataProvider().tags.create(name, projectId).then(toLegacyTag);
 export async function deleteTagById(id: string): Promise<boolean> {
   try { await getDataProvider().tags.remove(id); return true; } catch { return false; }
 }
-export const getTagsByTaskIds = (taskIds: string[]) => getDataProvider().tags.findByTaskIds(taskIds);
+export const getTagsByTaskIds = async (taskIds: string[]) => Object.fromEntries(Object.entries(await getDataProvider().tags.findByTaskIds(taskIds)).map(([id, tags]) => [id, tags.map(toLegacyTag)]));
 export async function attachTagToTask(taskId: string, tagId: string): Promise<boolean> {
   try { await getDataProvider().tags.attachToTask(taskId, tagId); return true; } catch { return false; }
 }
 export async function detachTagFromTask(taskId: string, tagId: string): Promise<boolean> {
   try { await getDataProvider().tags.detachFromTask(taskId, tagId); return true; } catch { return false; }
 }
-export const updateTag = (id: string, updates: Partial<Tag>) => getDataProvider().tags.update(id, updates);
-export const updateTagProject = (id: string, projectId: string | null) => getDataProvider().tags.update(id, { project_id: projectId });
+export const updateTag = (id: string, updates: Partial<Tag>) => getDataProvider().tags.update(id, { name: updates.name, projectId: updates.project_id }).then(toLegacyTag);
+export const updateTagProject = (id: string, projectId: string | null) => getDataProvider().tags.update(id, { projectId }).then(toLegacyTag);
 
-export const getProjects = () => getDataProvider().projects.findAll();
-export const createProject = (project: Omit<Project, "id" | "count">) => getDataProvider().projects.create(project);
-export const updateProject = (id: string, updates: Partial<Project>) => getDataProvider().projects.update(id, updates);
+export const getProjects = async () => (await getDataProvider().projects.findAll()).map(toLegacyProject);
+export const createProject = (project: Omit<Project, "id" | "count">) => getDataProvider().projects.create(toDomainProject({ ...project, id: "pending", count: 0 })).then(toLegacyProject);
+export const updateProject = (id: string, updates: Partial<Project>) => getDataProvider().projects.update(id, toDomainProjectUpdate(updates)).then(toLegacyProject);
 export async function deleteProject(id: string): Promise<boolean> {
   try { await getDataProvider().projects.remove(id); return true; } catch { return false; }
 }
 export async function batchUpdateProjectSortOrder(items: Array<{ id: string; sort_order: number }>): Promise<boolean> {
-  try { await getDataProvider().projects.reorder(items); return true; } catch { return false; }
+  try { await getDataProvider().projects.reorder(items.map(({ id, sort_order }) => ({ id, order: sort_order }))); return true; } catch { return false; }
 }
+
+export const subscribeToTasks = (userId: string, projectIds: string[], onChange: () => void) =>
+  getDataProvider().tasks.subscribe(userId, projectIds, onChange);
+export const subscribeToProjectMemberships = (userId: string, ownedProjectIds: string[], onChange: () => void) =>
+  getDataProvider().projects.subscribeToMemberships(userId, ownedProjectIds, onChange);
+export const joinSharedProject = (shareCode: string, userId: string) =>
+  getDataProvider().projectCollaboration.joinByCode(shareCode, userId);
+export const createProjectShare = (projectId: string, userId: string) =>
+  getDataProvider().projectCollaboration.getOrCreateShare(projectId, userId);
+export const listProjectMembers = (projectId: string) => getDataProvider().projectCollaboration.listMembers(projectId);
+export const getProjectMemberProfile = (userId: string) => getDataProvider().projectCollaboration.getProfile(userId);
+export const subscribeToProjectMembers = (projectId: string, onChange: () => void) =>
+  getDataProvider().projectCollaboration.subscribeToMembers(projectId, onChange);
+export const removeProjectMember = (projectId: string, userId: string) =>
+  getDataProvider().projectCollaboration.removeMember(projectId, userId);
+export const fetchChatMessages = (limit?: number, before?: string) => getDataProvider().chat.findRecent(limit, before);
+export const subscribeToChat = (presence: Parameters<ReturnType<typeof getDataProvider>["chat"]["subscribe"]>[0], listener: Parameters<ReturnType<typeof getDataProvider>["chat"]["subscribe"]>[1]) =>
+  getDataProvider().chat.subscribe(presence, listener);
+export const sendChatMessage = (input: Parameters<ReturnType<typeof getDataProvider>["chat"]["send"]>[0]) =>
+  getDataProvider().chat.send(input);
+export const getAuthSession = () => getDataProvider().auth.getSession();
+export const setAuthSession = (accessToken: string, refreshToken: string) => getDataProvider().auth.setSession(accessToken, refreshToken);
+export const subscribeToAuth = (listener: Parameters<ReturnType<typeof getDataProvider>["auth"]["onAuthStateChange"]>[0]) => getDataProvider().auth.onAuthStateChange(listener);
+export const getCurrentUser = () => getDataProvider().auth.getCurrentUser();
+export const signInWithPassword = (email: string, password: string) => getDataProvider().auth.signInWithPassword(email, password);
+export const signUp = (email: string, password: string) => getDataProvider().auth.signUp(email, password);
+export const signInWithOAuth = (provider: "github" | "google", redirectTo: string) => getDataProvider().auth.signInWithOAuth(provider, redirectTo);
+export const signOut = () => getDataProvider().auth.signOut();
+export const migrateGuestData = (guestId: string, userId: string) => getDataProvider().auth.migrateGuestData(guestId, userId);
 
 const toPublicSession = (session: DomainPomodoroSession): PomodoroSessionPublic => ({
   id: session.id,
@@ -255,7 +284,8 @@ export async function uploadImage(file: File) { try { return toLegacyFile(await 
 export async function uploadAvatar(file: File) { try { return toLegacyFile(await getDataProvider().files.uploadAvatar(file)); } catch { return null; } }
 export async function searchTasks(query: string, options: SearchOptions = {}): Promise<SearchResult> {
   const mapped: DomainSearchOptions = { ...options, projectId: options.projectFilter };
-  return getDataProvider().search.searchTasks(query, mapped);
+  const result = await getDataProvider().search.searchTasks(query, mapped);
+  return { ...result, tasks: result.tasks.map(toLegacyTask) };
 }
 
 const toDomainSettings = (settings: Partial<UserSettings>): Partial<DomainUserSettings> => ({

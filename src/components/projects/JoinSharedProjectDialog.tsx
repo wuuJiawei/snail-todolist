@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/components/ui/use-toast";
-import { getDataProvider } from "@/data";
+import { joinSharedProject } from "@/data/operations";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { z } from "zod";
@@ -64,7 +64,7 @@ const JoinSharedProjectDialog: React.FC<JoinSharedProjectDialogProps> = ({
 
     setLoading(true);
     try {
-      await getDataProvider().projectCollaboration.joinByCode(data.shareCode, user.id);
+      await joinSharedProject(data.shareCode, user.id);
 
       // Refresh projects to include the newly joined project
       await refreshProjects();

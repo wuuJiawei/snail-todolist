@@ -1,4 +1,4 @@
-import type { Task } from "@/types/task";
+import type { DomainTask } from "@/data/models";
 
 export interface TaskQuery {
   includeDeleted?: boolean;
@@ -9,21 +9,21 @@ export interface TaskQuery {
   projectId?: string;
 }
 
-export type CreateTaskInput = Omit<Task, "id" | "_isPending" | "_tempId">;
-export type UpdateTaskInput = Partial<Omit<Task, "id" | "_isPending" | "_tempId">>;
-export interface TaskOrder { id: string; sort_order: number }
+export type CreateTaskInput = Omit<DomainTask, "id">;
+export type UpdateTaskInput = Partial<Omit<DomainTask, "id">>;
+export interface TaskOrder { id: string; order: number }
 
 export interface TaskRepository {
-  findAll(query?: TaskQuery): Promise<Task[]>;
-  findById(id: string): Promise<Task | null>;
-  create(input: CreateTaskInput): Promise<Task>;
-  upsert(task: Task): Promise<Task>;
-  update(id: string, input: UpdateTaskInput): Promise<Task>;
+  findAll(query?: TaskQuery): Promise<DomainTask[]>;
+  findById(id: string): Promise<DomainTask | null>;
+  create(input: CreateTaskInput): Promise<DomainTask>;
+  upsert(task: DomainTask): Promise<DomainTask>;
+  update(id: string, input: UpdateTaskInput): Promise<DomainTask>;
   remove(id: string): Promise<void>;
-  moveToTrash(id: string): Promise<Task>;
-  restore(id: string): Promise<Task>;
-  abandon(id: string): Promise<Task>;
-  restoreAbandoned(id: string): Promise<Task>;
+  moveToTrash(id: string): Promise<DomainTask>;
+  restore(id: string): Promise<DomainTask>;
+  abandon(id: string): Promise<DomainTask>;
+  restoreAbandoned(id: string): Promise<DomainTask>;
   reorder(items: TaskOrder[]): Promise<void>;
   subscribe(userId: string, projectIds: string[], onChange: () => void): () => void;
 }

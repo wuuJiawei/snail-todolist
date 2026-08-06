@@ -287,6 +287,10 @@ export type Database = {
       }
     }
     Functions: {
+      clear_owned_data: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       join_shared_project: {
         Args: { input_share_code: string; joining_user_id: string }
         Returns: string

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { getDataProvider } from "@/data";
+import { joinSharedProject } from "@/data/operations";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectContext } from "@/contexts/ProjectContext";
 
@@ -37,7 +37,7 @@ const JoinSharedProject: React.FC = () => {
       }
 
       try {
-        await getDataProvider().projectCollaboration.joinByCode(shareCode, user.id);
+        await joinSharedProject(shareCode, user.id);
 
         await refreshProjects();
         toast({ title: "加入成功", description: "已加入共享清单" });

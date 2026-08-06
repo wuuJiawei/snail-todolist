@@ -27,3 +27,7 @@ export interface ProfileRepository {
 export interface AppInfoRepository {
   get(): Promise<AppInfo>;
 }
+
+export interface DataTransferRepository {
+  clearOwnedData(): Promise<void>;
+}

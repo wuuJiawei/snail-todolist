@@ -1,12 +1,12 @@
 import { QueryClient } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDataProvider } from "@/data";
+import { getProjects } from "@/data/operations";
 import { projectQueries } from "./projectQueries";
 import { tagKeys } from "./tagQueries";
 import type { Project } from "@/types/project";
 import type { Tag } from "@/types/tag";
 
-vi.mock("@/data", () => ({ getDataProvider: vi.fn() }));
+vi.mock("@/data/operations", () => ({ getProjects: vi.fn() }));
 
 const project = (id: string, name: string): Project => ({
   id,
@@ -30,7 +30,7 @@ describe("query cache boundaries", () => {
       .fn<() => Promise<Project[]>>()
       .mockResolvedValueOnce([project("p1", "before")])
       .mockResolvedValueOnce([project("p1", "after")]);
-    vi.mocked(getDataProvider).mockReturnValue({ projects: { findAll } } as never);
+    vi.mocked(getProjects).mockImplementation(findAll);
 
     expect(await queryClient.fetchQuery(projectQueries.list())).toEqual([project("p1", "before")]);
     await queryClient.invalidateQueries({ queryKey: projectQueries.list().queryKey });

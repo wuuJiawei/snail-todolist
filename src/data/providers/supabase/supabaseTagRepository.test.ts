@@ -25,9 +25,10 @@ describe("SupabaseTagRepository", () => {
     } as unknown as SupabaseClient<Database>;
     const repository = new SupabaseTagRepository(client);
 
+    const domainTag = { id: "tag-1", name: "Urgent", projectId: null, ownerId: "user-1", createdAt: undefined };
     await expect(repository.findByTaskIds(["task-1", "task-2", "task-3"])).resolves.toEqual({
-      "task-1": [tag],
-      "task-2": [tag],
+      "task-1": [domainTag],
+      "task-2": [domainTag],
       "task-3": [],
     });
   });
@@ -42,7 +43,9 @@ describe("SupabaseTagRepository", () => {
     const client = { from: vi.fn(() => query) } as unknown as SupabaseClient<Database>;
     const repository = new SupabaseTagRepository(client);
 
-    await expect(repository.update("tag-1", { name: " Next ", project_id: "project-2" })).resolves.toEqual(updated);
+    await expect(repository.update("tag-1", { name: " Next ", projectId: "project-2" })).resolves.toEqual({
+      id: "tag-1", name: "Next", projectId: "project-2", ownerId: "user-1", createdAt: undefined,
+    });
     expect(query.update).toHaveBeenCalledWith({ name: "Next", project_id: "project-2" });
   });
 });

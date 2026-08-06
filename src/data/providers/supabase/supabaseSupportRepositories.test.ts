@@ -1,7 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
-import { SupabaseActivityRepository, SupabaseSearchRepository } from "./supabaseSupportRepositories";
+import { SupabaseActivityRepository, SupabaseDataTransferRepository, SupabaseSearchRepository } from "./supabaseSupportRepositories";
+
+describe("SupabaseDataTransferRepository", () => {
+  it("uses the authenticated atomic clear RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    const repository = new SupabaseDataTransferRepository({ rpc } as unknown as SupabaseClient<Database>);
+
+    await expect(repository.clearOwnedData()).resolves.toBeUndefined();
+    expect(rpc).toHaveBeenCalledWith("clear_owned_data");
+  });
+});
 
 describe("SupabaseActivityRepository", () => {
   it("returns the activity row created by Supabase", async () => {

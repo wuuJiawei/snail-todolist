@@ -8,6 +8,7 @@ import { Task } from '@/types/task';
 import { Project } from '@/types/project';
 import { Tag, TaskTagLink } from '@/types/tag';
 import { getDataProvider } from '@/data';
+import { toDomainProject, toDomainTag, toDomainTask, toLegacyProject, toLegacyTag, toLegacyTask } from '@/data/models';
 
 // ============================================
 // Type Definitions
@@ -117,13 +118,13 @@ async function collectAllData(onProgress?: ProgressCallback): Promise<BackupData
   const provider = getDataProvider();
   
   onProgress?.(10, '正在收集清单数据...');
-  const projects = await provider.projects.findAll();
+  const projects = (await provider.projects.findAll()).map(toLegacyProject);
   
   onProgress?.(30, '正在收集任务数据...');
-  const tasks = await provider.tasks.findAll({ includeDeleted: true });
+  const tasks = (await provider.tasks.findAll({ includeDeleted: true })).map(toLegacyTask);
   
   onProgress?.(50, '正在收集标签数据...');
-  const tags = await provider.tags.findAll();
+  const tags = (await provider.tags.findAll()).map(toLegacyTag);
   
   onProgress?.(60, '正在收集标签关联...');
   const taskIds = tasks.map(t => t.id);
@@ -264,25 +265,7 @@ async function clearAllData(onProgress?: ProgressCallback): Promise<void> {
   
   onProgress?.(15, '正在清除现有数据...');
   
-  // Get all existing data
-  const tasks = await provider.tasks.findAll({ includeDeleted: true });
-  const projects = await provider.projects.findAll();
-  const tags = await provider.tags.findAll();
-  
-  // Delete all tasks
-  for (const task of tasks) {
-    await provider.tasks.remove(task.id);
-  }
-  
-  // Delete all projects
-  for (const project of projects) {
-    await provider.projects.remove(project.id);
-  }
-  
-  // Delete all tags
-  for (const tag of tags) {
-    await provider.tags.remove(tag.id);
-  }
+  await provider.dataTransfer.clearOwnedData();
 }
 
 async function importProjects(projects: Project[], mode: 'merge' | 'replace', onProgress?: ProgressCallback): Promise<number> {
@@ -297,12 +280,12 @@ async function importProjects(projects: Project[], mode: 'merge' | 'replace', on
     if (mode === 'merge') {
       const existing = await provider.projects.findById(project.id);
       if (existing) {
-        await provider.projects.upsert(project);
+        await provider.projects.upsert(toDomainProject(project));
       } else {
-        await provider.projects.upsert(project);
+        await provider.projects.upsert(toDomainProject(project));
       }
     } else {
-      await provider.projects.upsert(project);
+      await provider.projects.upsert(toDomainProject(project));
     }
     imported++;
   }
@@ -322,12 +305,12 @@ async function importTasks(tasks: Task[], mode: 'merge' | 'replace', onProgress?
     if (mode === 'merge') {
       const existing = await provider.tasks.findById(task.id);
       if (existing) {
-        await provider.tasks.upsert(task);
+        await provider.tasks.upsert(toDomainTask(task));
       } else {
-        await provider.tasks.upsert(task);
+        await provider.tasks.upsert(toDomainTask(task));
       }
     } else {
-      await provider.tasks.upsert(task);
+      await provider.tasks.upsert(toDomainTask(task));
     }
     imported++;
   }
@@ -348,10 +331,10 @@ async function importTags(tags: Tag[], taskTags: TaskTagLink[], mode: 'merge' | 
     if (mode === 'merge') {
       const existing = await provider.tags.findById(tag.id);
       if (!existing) {
-        await provider.tags.upsert(tag);
+        await provider.tags.upsert(toDomainTag(tag));
       }
     } else {
-      await provider.tags.upsert(tag);
+      await provider.tags.upsert(toDomainTag(tag));
     }
     imported++;
   }

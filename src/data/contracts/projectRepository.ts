@@ -1,9 +1,8 @@
-import type { Project } from "@/types/project";
-import type { ProjectMember } from "@/types/projectMember";
+import type { DomainProject } from "@/data/models";
 
-export type CreateProjectInput = Omit<Project, "id" | "count" | "members">;
-export type UpdateProjectInput = Partial<Omit<Project, "id" | "count" | "members">>;
-export interface ProjectOrder { id: string; sort_order: number }
+export type CreateProjectInput = Omit<DomainProject, "id" | "count">;
+export type UpdateProjectInput = Partial<Omit<DomainProject, "id" | "count">>;
+export interface ProjectOrder { id: string; order: number }
 
 export interface ProjectMemberProfile {
   id: string;
@@ -11,7 +10,12 @@ export interface ProjectMemberProfile {
   avatar_url: string | null;
 }
 
-export interface ProjectMemberWithProfile extends ProjectMember {
+export interface ProjectMemberWithProfile {
+  id: string;
+  projectId: string;
+  userId: string;
+  role: "owner" | "member";
+  createdAt?: string;
   profile: ProjectMemberProfile | null;
 }
 
@@ -23,11 +27,11 @@ export interface ProjectShare {
 }
 
 export interface ProjectRepository {
-  findAll(): Promise<Project[]>;
-  findById(id: string): Promise<Project | null>;
-  create(input: CreateProjectInput): Promise<Project>;
-  upsert(project: Project): Promise<Project>;
-  update(id: string, input: UpdateProjectInput): Promise<Project>;
+  findAll(): Promise<DomainProject[]>;
+  findById(id: string): Promise<DomainProject | null>;
+  create(input: CreateProjectInput): Promise<DomainProject>;
+  upsert(project: DomainProject): Promise<DomainProject>;
+  update(id: string, input: UpdateProjectInput): Promise<DomainProject>;
   remove(id: string): Promise<void>;
   reorder(items: ProjectOrder[]): Promise<void>;
   subscribeToMemberships(userId: string, ownedProjectIds: string[], onChange: () => void): () => void;

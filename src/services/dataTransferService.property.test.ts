@@ -185,6 +185,7 @@ describe('Property 2: Import Data Round-Trip', () => {
 
           const attachToTask = vi.fn().mockResolvedValue(undefined);
           const mockProvider = {
+            dataTransfer: { clearOwnedData: vi.fn().mockResolvedValue(undefined) },
             projects: {
               findAll: vi.fn().mockResolvedValue([]),
               findById: vi.fn().mockResolvedValue(null),
@@ -294,5 +295,26 @@ describe('Property 6: Invalid File Rejection', () => {
       ),
       { numRuns: 5 }
     );
+  });
+
+  it('stops a replace import when the atomic clear fails', async () => {
+    const zip = new JSZip();
+    zip.file('manifest.json', JSON.stringify({
+      version: '1.0', createdAt: new Date().toISOString(), appVersion: '1.0.0',
+      counts: { projects: 0, tasks: 0, tags: 0, taskTags: 0 },
+    }));
+    for (const filename of ['projects.json', 'tasks.json', 'tags.json', 'task_tags.json']) zip.file(filename, '[]');
+    const file = new File([await zip.generateAsync({ type: 'blob' })], 'backup.zip', { type: 'application/zip' });
+    const clearOwnedData = vi.fn().mockRejectedValue(new Error('clear failed'));
+    const projectUpsert = vi.fn();
+    vi.mocked(getDataProvider).mockReturnValue({
+      dataTransfer: { clearOwnedData }, projects: { upsert: projectUpsert },
+    } as unknown as DataProvider);
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await expect(importData(file, { mode: 'replace' })).resolves.toMatchObject({ success: false });
+    consoleError.mockRestore();
+    expect(clearOwnedData).toHaveBeenCalledOnce();
+    expect(projectUpsert).not.toHaveBeenCalled();
   });
 });

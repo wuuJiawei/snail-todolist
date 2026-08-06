@@ -10,7 +10,7 @@ describe("Supabase row mappers", () => {
       attachments: JSON.stringify([{ id: "file-1", filename: "a.txt", original_name: "a.txt", url: "/a", size: 1, type: "text/plain", uploaded_at: "2026-08-05" }]),
     });
     expect(task.attachments).toHaveLength(1);
-    expect(task.attachments?.[0].original_name).toBe("a.txt");
+    expect(task.attachments?.[0].originalName).toBe("a.txt");
   });
 
   it("normalizes legacy attachment fields and nullable task state", () => {
@@ -32,7 +32,7 @@ describe("Supabase row mappers", () => {
         uploaded_at: "2026-08-05",
       }],
     });
-    expect(task).toMatchObject({ sort_order: 1000, deleted: false, abandoned: false, flagged: false });
+    expect(task).toMatchObject({ sortOrder: 1000, deleted: false, abandoned: false, flagged: false });
     expect(task.attachments?.[0]).toMatchObject({ filename: "stored.txt", size: 1, type: "text/plain" });
   });
 

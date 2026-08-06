@@ -1,10 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getDataProvider } from "@/data";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import * as storageOps from "@/data/operations";
-import { canPerformOperation, requiresAuth } from "@/data/operations";
+import { canPerformOperation, requiresAuth, subscribeToProjectMemberships } from "@/data/operations";
 import { projectKeys, projectQueries } from "@/queries/projectQueries";
 import type { Project } from "@/types/project";
 
@@ -67,7 +66,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     if (!user) return;
     const ownedIds = projectRows.filter((project) => project.user_id === user.id).map((project) => project.id);
-    return getDataProvider().projects.subscribeToMemberships(user.id, ownedIds, () => {
+    return subscribeToProjectMemberships(user.id, ownedIds, () => {
       void refreshProjects();
     });
   }, [user, projectRows, refreshProjects]);

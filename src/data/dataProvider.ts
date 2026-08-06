@@ -8,6 +8,7 @@ import type { TaskRepository } from "./contracts/taskRepository";
 import type {
   ActivityRepository,
   AppInfoRepository,
+  DataTransferRepository,
   FileRepository,
   ProfileRepository,
   SearchRepository,
@@ -28,5 +29,6 @@ export interface DataProvider {
   search: SearchRepository;
   profiles: ProfileRepository;
   appInfo: AppInfoRepository;
+  dataTransfer: DataTransferRepository;
   auth: AuthRepository;
 }

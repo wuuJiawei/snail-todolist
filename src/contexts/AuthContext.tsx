@@ -1,7 +1,16 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { AuthSession, AuthUser } from "@/data/contracts/authRepository";
-import { getDataProvider } from "@/data";
+import {
+  getAuthSession,
+  getCurrentUser,
+  migrateGuestData,
+  signInWithOAuth as dataSignInWithOAuth,
+  signInWithPassword,
+  signOut as dataSignOut,
+  signUp,
+  subscribeToAuth,
+} from "@/data/operations";
 import { isTauriRuntime } from "@/utils/runtime";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -45,8 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hasShownLoginToast, setHasShownLoginToast] = useState(false);
 
   useEffect(() => {
-    const auth = getDataProvider().auth;
-    const unsubscribe = auth.onAuthStateChange(
+    const unsubscribe = subscribeToAuth(
       async (event, currentSession) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
@@ -83,7 +91,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // Then check for existing session - only once
-    auth.getSession().then((currentSession) => {
+    // Auth state is owned by the repository; this Context only mirrors its lifecycle.
+    getAuthSession().then((currentSession) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setLoading(false);
@@ -104,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       // 调用服务端函数迁移数据
-      await getDataProvider().auth.migrateGuestData(guestId, userId);
+      await migrateGuestData(guestId, userId);
       
       // 迁移成功后清除游客ID
       clearGuestId();
@@ -127,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign in with email and password
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      await getDataProvider().auth.signInWithPassword(email, password);
+      await signInWithPassword(email, password);
 
       // Show login toast and set flag
       toast({
@@ -138,7 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsGuest(false);
 
       // 如果用户登录时有游客数据，迁移数据
-      const user = await getDataProvider().auth.getCurrentUser();
+      const user = await getCurrentUser();
       const guestId = getGuestId();
       if (guestId && user) {
         await migrateGuestDataToUser(guestId, user.id);
@@ -157,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up with email and password
   const signUpWithEmail = async (email: string, password: string) => {
     try {
-      const createdUser = await getDataProvider().auth.signUp(email, password);
+      const createdUser = await signUp(email, password);
       
       toast({
         title: "注册成功",
@@ -186,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const redirectTo = isTauriRuntime()
         ? "snailtodo://auth-callback"
         : `${window.location.origin}/auth/callback`;
-      await getDataProvider().auth.signInWithOAuth(provider, redirectTo);
+      await dataSignInWithOAuth(provider, redirectTo);
     } catch (error: unknown) {
       toast({
         title: "登录失败",
@@ -226,7 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
-      await getDataProvider().auth.signOut();
+      await dataSignOut();
     } catch (error) {
       toast({
         title: "退出失败",
@@ -239,7 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Refresh user data from Supabase
   const refreshUser = async () => {
     if (isGuest) return;
-    const freshUser = await getDataProvider().auth.getCurrentUser();
+    const freshUser = await getCurrentUser();
     if (freshUser) {
       setUser(freshUser);
     }

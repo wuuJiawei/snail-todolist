@@ -1,4 +1,5 @@
 import type { CreateProjectInput, ProjectRepository, UpdateProjectInput } from "@/data/contracts/projectRepository";
+import type { DomainProject } from "@/data/models";
 import { DataError } from "@/data/contracts/errors";
 import { supabase } from "./client";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -27,11 +28,11 @@ export class SupabaseProjectRepository implements ProjectRepository {
         .select("*").eq("user_id", userId).order("sort_order", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false });
       if (ownedError) throw ownedError;
+      const owned = (ownedRows ?? []) as SupabaseProjectRow[];
       const { data: memberships, error: memberError } = await this.queryClient.from("project_members")
         .select("project:project_id(*)").eq("user_id", userId).order("created_at", { ascending: false });
       if (memberError) throw memberError;
 
-      const owned = (ownedRows ?? []) as SupabaseProjectRow[];
       const ownedIds = owned.map((row) => row.id);
       const sharedOwned = new Set<string>();
       if (ownedIds.length) {
@@ -45,7 +46,7 @@ export class SupabaseProjectRepository implements ProjectRepository {
       }
       const ownedIdSet = new Set(ownedIds);
       const memberProjects = (memberships ?? [])
-        .map((entry) => (entry as { project?: SupabaseProjectRow | null }).project)
+        .map((entry) => (entry as unknown as { project?: SupabaseProjectRow | null }).project)
         .filter((project): project is SupabaseProjectRow => Boolean(project) && !ownedIdSet.has(project!.id));
       return [
         ...owned.map((row) => mapProjectRow({ ...row, is_shared: sharedOwned.has(row.id) })),
@@ -82,7 +83,7 @@ export class SupabaseProjectRepository implements ProjectRepository {
           name: input.name,
           icon: input.icon || "folder",
           color: input.color || "#4CAF50",
-          view_type: input.view_type || "list",
+          view_type: input.viewType || "list",
           created_at: now,
           updated_at: now,
           user_id: userId,
@@ -95,7 +96,7 @@ export class SupabaseProjectRepository implements ProjectRepository {
     });
   }
 
-  upsert(project: import("@/types/project").Project) {
+  upsert(project: DomainProject) {
     return withSupabaseError(async () => {
       const userId = await this.getUserId();
       if (!userId) throw new DataError("AUTH_REQUIRED", "请先登录");
@@ -104,12 +105,12 @@ export class SupabaseProjectRepository implements ProjectRepository {
         name: project.name,
         icon: project.icon,
         color: project.color,
-        view_type: project.view_type,
-        created_at: project.created_at,
-        updated_at: project.updated_at,
-        sort_order: project.sort_order,
-        is_shared: project.is_shared,
-        original_owner_id: project.original_owner_id,
+        view_type: project.viewType,
+        created_at: project.createdAt,
+        updated_at: project.updatedAt,
+        sort_order: project.sortOrder,
+        is_shared: project.isShared,
+        original_owner_id: project.originalOwnerId,
         user_id: userId,
       }).select().single();
       if (error) throw error;
@@ -123,10 +124,10 @@ export class SupabaseProjectRepository implements ProjectRepository {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.icon !== undefined ? { icon: input.icon } : {}),
         ...(input.color !== undefined ? { color: input.color } : {}),
-        ...(input.view_type !== undefined ? { view_type: input.view_type } : {}),
-        ...(input.sort_order !== undefined ? { sort_order: input.sort_order } : {}),
-        ...(input.is_shared !== undefined ? { is_shared: input.is_shared } : {}),
-        ...(input.original_owner_id !== undefined ? { original_owner_id: input.original_owner_id } : {}),
+        ...(input.viewType !== undefined ? { view_type: input.viewType } : {}),
+        ...(input.sortOrder !== undefined ? { sort_order: input.sortOrder } : {}),
+        ...(input.isShared !== undefined ? { is_shared: input.isShared } : {}),
+        ...(input.originalOwnerId !== undefined ? { original_owner_id: input.originalOwnerId } : {}),
         updated_at: new Date().toISOString(),
       };
       const { data, error } = await this.queryClient
@@ -149,10 +150,10 @@ export class SupabaseProjectRepository implements ProjectRepository {
     });
   }
 
-  async reorder(items: Array<{ id: string; sort_order: number }>) {
+  async reorder(items: Array<{ id: string; order: number }>) {
     await withSupabaseError(async () => {
-      const results = await Promise.all(items.map(({ id, sort_order }) =>
-        this.queryClient.from("projects").update({ sort_order }).eq("id", id)
+      const results = await Promise.all(items.map(({ id, order }) =>
+        this.queryClient.from("projects").update({ sort_order: order }).eq("id", id)
       ));
       const failed = results.find((result) => result.error);
       if (failed?.error) throw failed.error;

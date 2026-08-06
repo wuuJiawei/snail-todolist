@@ -52,10 +52,10 @@ export class SupabaseProjectCollaborationRepository implements ProjectCollaborat
         const profile = profiles.get(row.user_id!);
         return {
         id: row.id,
-        project_id: row.project_id!,
-        user_id: row.user_id!,
+        projectId: row.project_id!,
+        userId: row.user_id!,
         role: row.role === "owner" ? "owner" : "member",
-        created_at: row.created_at ?? undefined,
+        createdAt: row.created_at ?? undefined,
         profile: profile ? {
           id: profile.id,
           username: profile.display_name ?? profile.email,

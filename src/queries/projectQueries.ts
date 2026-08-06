@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { getDataProvider } from "@/data";
+import * as storageOps from "@/data/operations";
 import type { Project } from "@/types/project";
 
 export const projectKeys = {
@@ -11,7 +11,7 @@ export const projectQueries = {
   list: () =>
     queryOptions<Project[]>({
       queryKey: projectKeys.list(),
-      queryFn: () => getDataProvider().projects.findAll(),
+      queryFn: storageOps.getProjects,
       staleTime: 5 * 60 * 1000,
       refetchOnReconnect: true,
     }),

@@ -35,8 +35,9 @@ describe("SupabaseProjectRepository", () => {
     const repository = new SupabaseProjectRepository(client);
 
     await expect(repository.create({ name: "Inbox", icon: "folder" })).resolves.toEqual({
-      ...projectRow,
-      count: 0,
+      id: "project-1", name: "Inbox", icon: "folder", color: "#4CAF50", viewType: "list",
+      createdAt: "2026-08-05T00:00:00.000Z", updatedAt: "2026-08-05T00:00:00.000Z",
+      ownerId: "user-1", sortOrder: 3000, isShared: false, count: 0,
     });
     expect(insertQuery.insert).toHaveBeenCalledWith(expect.objectContaining({
       name: "Inbox",
