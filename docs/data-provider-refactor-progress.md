@@ -99,6 +99,8 @@
 - [x] M9.4 将标签查询、缓存同步和 CRUD 从 `TaskProvider` 拆到独立 Hook — 已完成
 - [x] M9.5 固定 Tauri npm API/CLI 2.8 版本，消除 CI 的跨 minor 版本漂移 — 已完成
 - [x] M9.6 在 ESLint flat config 中排除 Tauri 构建产物 — 已完成
+- [x] M9.7 同步 pnpm lockfile 的 Tauri 固定版本，恢复 Cloudflare 冻结安装 — 已完成
+- [x] M9.8 将伪装成 PNG 的 `icon.ico` 重建为标准多尺寸 Windows ICO — 已完成
 
 ## 回归记录
 
@@ -122,7 +124,7 @@
 | 2026-08-05 | M8.8 最终 legacy/依赖清理 | 12 passed | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | `npm ci` 成功；Adapter、legacy、`uuid` 及空目录全部删除；静态扫描归零 |
 | 2026-08-05 | M8.9 本地 Web 冒烟 | `/auth`、登录/注册切换、`/settings`、`/chat` | 71 passed | 0 errors / 0 warnings | 通过（基线警告不变） | 修复 Query 空数据引用导致的 Provider 无限更新；复测控制台 0 errors |
 | 2026-08-05 | M8.10 真实 Supabase 回归 | 注册/确认/登录/退出/会话恢复；清单、任务、标签、状态流转、垃圾桶、日期、标记、搜索、打卡、番茄钟、导出 | 71 passed | 0 errors / 0 warnings | 通过（Browserslist 与大 chunk 两类基线警告） | 真实 RLS/CRUD 通过；导出 ZIP 含项目、任务、标签和关系数据；搜索弹窗仍有 `origin/main` 已存在的 Radix 无障碍标题告警 |
-| 2026-08-06 | M9 PR 评审整改 | 领域 mapper、partial update、原子清理、Query 边界、标签缓存、Tauri aarch64 release | 74 passed | 0 errors / 0 warnings | Web 与 Tauri build 通过（基线警告不变） | 四项评审问题已修复；replace 导入在清理失败时停止且不进入写入阶段；Tauri `.app`/`.dmg` 产物生成成功 |
+| 2026-08-06 | M9 PR 评审整改 | 领域 mapper、partial update、原子清理、Query 边界、标签缓存、npm/pnpm 冻结安装、Tauri aarch64 release | 74 passed | 0 errors / 0 warnings | Web 与 Tauri build 通过（基线警告不变） | 四项评审问题已修复；replace 导入在清理失败时停止；三平台 Tauri CI 通过，Windows 非法 ICO 根因已修复 |
 
 ## M0 调用盘点
 
@@ -184,6 +186,9 @@
 | M8.10 | `7911898` | 记录真实 Supabase 回归结果 |
 | 文档与配置 | `614d82b`、`71680c4`、`e3aa52d`、`bbd0418` | 完成最终报告、README、默认 Provider 和 Agent 指南 |
 | M9.1–M9.4 | `8f780c9` | 修复 PR 评审发现的数据映射、导入安全和职责边界问题 |
+| M9.5–M9.6 | `177877d` | 固定兼容的 Tauri npm 工具链并排除桌面构建产物 |
+| M9.7 | `165e5ca` | 同步 pnpm lockfile 中的 Tauri 固定版本 |
+| M9.8 | `1617d73` | 重建符合 Windows Resource Compiler 要求的应用图标 |
 
 ## 风险与决策记录
 
@@ -201,7 +206,7 @@
 - TypeScript/TSX 总量：33,547 行降至 28,685 行，减少 4,862 行。
 - 生产 TypeScript/TSX：31,064 行降至 26,628 行，减少 4,436 行。
 - 测试 TypeScript/TSX：2,483 行降至 2,057 行；净减少来自删除 IndexedDB/storage 专属测试，同时新增 Repository、工厂、Query 和业务行为测试。
-- 全部文件 diff：新增 5,394 行、删除 10,169 行，净减少 4,775 行；共影响 133 个文件。
+- 全部文件 diff：新增 5,453 行、删除 10,223 行，净减少 4,770 行；共影响 134 个文件。
 - `TaskProvider.tsx`：1,487 行降至 701 行；标签职责位于 152 行的 `useTaskTagActions.ts`。
 - 静态扫描：`src` 内 IndexedDB/离线配置、Adapter/legacy 引用均为 0；Provider 外 Supabase SDK/client 引用为 0；旧 `src/storage` 引用为 0。
 
