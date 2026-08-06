@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon-park";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 import CheckInHistory from "@/components/checkin/CheckInHistory";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -92,6 +92,11 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
       if (onClick) onClick();
     } else {
       setIsAnimating(false);
+      toast({
+        title: "打卡失败",
+        description: "请稍后再试",
+        variant: "destructive",
+      });
       // Refresh status in case of failure too
       await checkStatus();
     }

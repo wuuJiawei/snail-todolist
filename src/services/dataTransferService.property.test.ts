@@ -9,14 +9,14 @@ import JSZip from 'jszip';
 import { Task } from '@/types/task';
 import { Project } from '@/types/project';
 import { Tag } from '@/types/tag';
+import type { DataProvider } from '@/data';
 
 // Mock the storage module
-vi.mock('@/storage', () => ({
-  initializeStorage: vi.fn().mockResolvedValue(undefined),
-  getStorage: vi.fn(),
+vi.mock('@/data', () => ({
+  getDataProvider: vi.fn(),
 }));
 
-import { getStorage } from '@/storage';
+import { getDataProvider } from '@/data';
 import { exportData, importData, validateBackupFile, createBackupBlob } from './dataTransferService';
 
 // ============================================
@@ -38,7 +38,7 @@ const taskArbitrary = fc.record({
   title: fc.string({ minLength: 1, maxLength: 200 }),
   completed: fc.boolean(),
   project: fc.option(fc.uuid(), { nil: undefined }),
-  date: fc.option(fc.date().map(d => d.toISOString()), { nil: undefined }),
+  date: fc.option(fc.date({ noInvalidDate: true }).map(d => d.toISOString()), { nil: undefined }),
   user_id: fc.uuid(),
   sort_order: fc.integer({ min: 0, max: 1000 }),
   deleted: fc.boolean(),
@@ -73,13 +73,15 @@ describe('Property 1: Export Data Completeness', () => {
         fc.array(tagArbitrary, { minLength: 0, maxLength: 10 }),
         async (projects, tasks, tags) => {
           // Setup mock storage
-          const mockStorage = {
-            getProjects: vi.fn().mockResolvedValue(projects),
-            getTasks: vi.fn().mockResolvedValue(tasks),
-            getTags: vi.fn().mockResolvedValue(tags),
-            getTagsByTaskIds: vi.fn().mockResolvedValue({}),
+          const mockProvider = {
+            projects: { findAll: vi.fn().mockResolvedValue(projects) },
+            tasks: { findAll: vi.fn().mockResolvedValue(tasks) },
+            tags: {
+              findAll: vi.fn().mockResolvedValue(tags),
+              findByTaskIds: vi.fn().mockResolvedValue({}),
+            },
           };
-          vi.mocked(getStorage).mockReturnValue(mockStorage as any);
+          vi.mocked(getDataProvider).mockReturnValue(mockProvider as unknown as DataProvider);
 
           // Export data using createBackupBlob (doesn't trigger download)
           const result = await createBackupBlob();
@@ -170,7 +172,8 @@ describe('Property 2: Import Data Round-Trip', () => {
           zip.file('projects.json', JSON.stringify(originalProjects));
           zip.file('tasks.json', JSON.stringify(originalTasks));
           zip.file('tags.json', JSON.stringify(originalTags));
-          zip.file('task_tags.json', JSON.stringify([]));
+          const taskTags = [{ task_id: originalTasks[0].id, tag_id: originalTags[0].id }];
+          zip.file('task_tags.json', JSON.stringify(taskTags));
           
           const blob = await zip.generateAsync({ type: 'blob' });
           const file = new File([blob], 'backup.zip', { type: 'application/zip' });
@@ -180,33 +183,40 @@ describe('Property 2: Import Data Round-Trip', () => {
           const importedTasks: Task[] = [];
           const importedTags: Tag[] = [];
 
-          const mockStorage = {
-            getProjects: vi.fn().mockResolvedValue([]),
-            getTasks: vi.fn().mockResolvedValue([]),
-            getTags: vi.fn().mockResolvedValue([]),
-            getTagsByTaskIds: vi.fn().mockResolvedValue({}),
-            getProjectById: vi.fn().mockResolvedValue(null),
-            getTaskById: vi.fn().mockResolvedValue(null),
-            getTagById: vi.fn().mockResolvedValue(null),
-            createProject: vi.fn().mockImplementation(async (p) => {
-              importedProjects.push(p);
-              return p;
-            }),
-            createTask: vi.fn().mockImplementation(async (t) => {
-              importedTasks.push(t);
-              return t;
-            }),
-            createTag: vi.fn().mockImplementation(async (name, projectId) => {
-              const tag = { id: `tag-${importedTags.length}`, name, project_id: projectId };
-              importedTags.push(tag as Tag);
-              return tag;
-            }),
-            attachTagToTask: vi.fn().mockResolvedValue(undefined),
-            deleteProject: vi.fn().mockResolvedValue(true),
-            deleteTask: vi.fn().mockResolvedValue(true),
-            deleteTag: vi.fn().mockResolvedValue(true),
+          const attachToTask = vi.fn().mockResolvedValue(undefined);
+          const mockProvider = {
+            dataTransfer: { clearOwnedData: vi.fn().mockResolvedValue(undefined) },
+            projects: {
+              findAll: vi.fn().mockResolvedValue([]),
+              findById: vi.fn().mockResolvedValue(null),
+              upsert: vi.fn().mockImplementation(async (project) => {
+                importedProjects.push(project);
+                return project;
+              }),
+              remove: vi.fn().mockResolvedValue(undefined),
+            },
+            tasks: {
+              findAll: vi.fn().mockResolvedValue([]),
+              findById: vi.fn().mockResolvedValue(null),
+              upsert: vi.fn().mockImplementation(async (task) => {
+                importedTasks.push(task);
+                return task;
+              }),
+              remove: vi.fn().mockResolvedValue(undefined),
+            },
+            tags: {
+              findAll: vi.fn().mockResolvedValue([]),
+              findByTaskIds: vi.fn().mockResolvedValue({}),
+              findById: vi.fn().mockResolvedValue(null),
+              upsert: vi.fn().mockImplementation(async (tag) => {
+                importedTags.push(tag);
+                return tag;
+              }),
+              attachToTask,
+              remove: vi.fn().mockResolvedValue(undefined),
+            },
           };
-          vi.mocked(getStorage).mockReturnValue(mockStorage as any);
+          vi.mocked(getDataProvider).mockReturnValue(mockProvider as unknown as DataProvider);
 
           // Import data
           const importResult = await importData(file, { mode: 'replace' });
@@ -219,6 +229,11 @@ describe('Property 2: Import Data Round-Trip', () => {
           // Verify imported data matches original
           expect(importedProjects.length).toBe(originalProjects.length);
           expect(importedTasks.length).toBe(originalTasks.length);
+          expect(importedTags.length).toBe(originalTags.length);
+          expect(new Set(importedProjects.map((item) => item.id))).toEqual(new Set(originalProjects.map((item) => item.id)));
+          expect(new Set(importedTasks.map((item) => item.id))).toEqual(new Set(originalTasks.map((item) => item.id)));
+          expect(new Set(importedTags.map((item) => item.id))).toEqual(new Set(originalTags.map((item) => item.id)));
+          expect(attachToTask).toHaveBeenCalledWith(originalTasks[0].id, originalTags[0].id);
         }
       ),
       { numRuns: 100 }
@@ -280,5 +295,26 @@ describe('Property 6: Invalid File Rejection', () => {
       ),
       { numRuns: 5 }
     );
+  });
+
+  it('stops a replace import when the atomic clear fails', async () => {
+    const zip = new JSZip();
+    zip.file('manifest.json', JSON.stringify({
+      version: '1.0', createdAt: new Date().toISOString(), appVersion: '1.0.0',
+      counts: { projects: 0, tasks: 0, tags: 0, taskTags: 0 },
+    }));
+    for (const filename of ['projects.json', 'tasks.json', 'tags.json', 'task_tags.json']) zip.file(filename, '[]');
+    const file = new File([await zip.generateAsync({ type: 'blob' })], 'backup.zip', { type: 'application/zip' });
+    const clearOwnedData = vi.fn().mockRejectedValue(new Error('clear failed'));
+    const projectUpsert = vi.fn();
+    vi.mocked(getDataProvider).mockReturnValue({
+      dataTransfer: { clearOwnedData }, projects: { upsert: projectUpsert },
+    } as unknown as DataProvider);
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await expect(importData(file, { mode: 'replace' })).resolves.toMatchObject({ success: false });
+    consoleError.mockRestore();
+    expect(clearOwnedData).toHaveBeenCalledOnce();
+    expect(projectUpsert).not.toHaveBeenCalled();
   });
 });

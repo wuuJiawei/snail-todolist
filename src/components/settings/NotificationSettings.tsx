@@ -10,7 +10,7 @@ import { Loader2, Send, Bell } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDeadlineConfig, saveDeadlineConfig, requestNotificationPermission } from "@/services/deadlineService";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 
 type WebhookType = "feishu" | "dingtalk" | "custom";
 

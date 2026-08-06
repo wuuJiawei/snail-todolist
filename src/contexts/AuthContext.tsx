@@ -1,11 +1,19 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import type { AuthSession, AuthUser } from "@/data/contracts/authRepository";
+import {
+  getAuthSession,
+  getCurrentUser,
+  migrateGuestData,
+  signInWithOAuth as dataSignInWithOAuth,
+  signInWithPassword,
+  signOut as dataSignOut,
+  signUp,
+  subscribeToAuth,
+} from "@/data/operations";
 import { isTauriRuntime } from "@/utils/runtime";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { isOfflineMode } from "@/storage";
 
 // 游客ID本地存储key
 const GUEST_ID_KEY = "snail_guest_id";
@@ -21,8 +29,8 @@ const clearGuestId = (): void => {
 };
 
 interface AuthContextType {
-  session: Session | null;
-  user: User | null;
+  session: AuthSession | null;
+  user: AuthUser | null;
   loading: boolean;
   isGuest: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
@@ -36,8 +44,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
   const navigate = useNavigate();
@@ -46,27 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hasShownLoginToast, setHasShownLoginToast] = useState(false);
 
   useEffect(() => {
-    // In offline mode, skip Supabase auth entirely
-    if (isOfflineMode) {
-      // Create a mock offline user
-      const offlineUser = {
-        id: 'offline-user',
-        email: 'offline@local',
-        app_metadata: {},
-        user_metadata: { name: 'Offline User' },
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-      } as User;
-      
-      setUser(offlineUser);
-      setSession(null);
-      setIsGuest(false);
-      setLoading(false);
-      return;
-    }
-
-    // Set up auth state listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const unsubscribe = subscribeToAuth(
       async (event, currentSession) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
@@ -103,14 +91,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // Then check for existing session - only once
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    // Auth state is owned by the repository; this Context only mirrors its lifecycle.
+    getAuthSession().then((currentSession) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setLoading(false);
     });
 
     return () => {
-      subscription.unsubscribe();
+      unsubscribe();
     };
   }, [navigate, hasShownLoginToast]);
 
@@ -118,18 +107,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const migrateGuestDataToUser = async (guestId: string, userId: string) => {
     try {
       // 显示迁移过程提示
-      const migrationToast = toast({
+      toast({
         title: "数据同步中...",
         description: "正在将您的游客数据同步到您的账户",
       });
       
       // 调用服务端函数迁移数据
-      const { error } = await supabase.rpc('migrate_guest_data', {
-        p_guest_id: guestId,
-        p_user_id: userId
-      });
-      
-      if (error) throw error;
+      await migrateGuestData(guestId, userId);
       
       // 迁移成功后清除游客ID
       clearGuestId();
@@ -152,8 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign in with email and password
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      await signInWithPassword(email, password);
 
       // Show login toast and set flag
       toast({
@@ -164,7 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsGuest(false);
 
       // 如果用户登录时有游客数据，迁移数据
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       const guestId = getGuestId();
       if (guestId && user) {
         await migrateGuestDataToUser(guestId, user.id);
@@ -183,8 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up with email and password
   const signUpWithEmail = async (email: string, password: string) => {
     try {
-      const { error, data } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
+      const createdUser = await signUp(email, password);
       
       toast({
         title: "注册成功",
@@ -192,10 +174,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       // 如果注册后立即获得用户且有游客数据，迁移数据
-      if (data.user) {
+      if (createdUser) {
         const guestId = getGuestId();
         if (guestId) {
-          await migrateGuestDataToUser(guestId, data.user.id);
+          await migrateGuestDataToUser(guestId, createdUser.id);
         }
       }
     } catch (error: unknown) {
@@ -213,13 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const redirectTo = isTauriRuntime()
         ? "snailtodo://auth-callback"
         : `${window.location.origin}/auth/callback`;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo,
-        },
-      });
-      if (error) throw error;
+      await dataSignInWithOAuth(provider, redirectTo);
     } catch (error: unknown) {
       toast({
         title: "登录失败",
@@ -258,11 +234,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    try {
+      await dataSignOut();
+    } catch (error) {
       toast({
         title: "退出失败",
-        description: error.message,
+        description: error instanceof Error ? error.message : "请稍后再试",
         variant: "destructive",
       });
     }
@@ -270,9 +247,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Refresh user data from Supabase
   const refreshUser = async () => {
-    if (isOfflineMode || isGuest) return;
-    
-    const { data: { user: freshUser } } = await supabase.auth.getUser();
+    if (isGuest) return;
+    const freshUser = await getCurrentUser();
     if (freshUser) {
       setUser(freshUser);
     }

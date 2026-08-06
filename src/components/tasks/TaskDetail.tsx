@@ -194,7 +194,7 @@ const TaskDetail = () => {
     if (sameTask && !isUserTypingRef.current && !isTitleComposing) {
       setTitle((prev) => (prev !== selectedTask.title ? selectedTask.title : prev));
     }
-  }, [selectedTask?.id, selectedTask?.title, isTitleComposing]);
+  }, [selectedTask, isTitleComposing]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newTitle = e.target.value;

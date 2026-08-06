@@ -7,9 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GoogleIcon, GitHubIcon } from "@/components/ui/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { Label } from "@/components/ui/label";
-import { WifiOff } from "lucide-react";
-import { setStorageMode } from "@/config/storage";
-import { navigateWithReload } from "@/utils/runtime";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -24,14 +21,20 @@ const Auth = () => {
     const params = new URLSearchParams(location.search);
     const redirect = params.get('redirect');
     if (redirect) {
-      try { localStorage.setItem('post_login_redirect', redirect); } catch {}
+      try { localStorage.setItem('post_login_redirect', redirect); } catch {
+        // localStorage may be unavailable in restricted browser contexts.
+      }
     }
     // If user is already logged in, redirect to home or pending redirect
     if (user) {
       let target: string | null = null;
-      try { target = localStorage.getItem('post_login_redirect'); } catch {}
+      try { target = localStorage.getItem('post_login_redirect'); } catch {
+        // Continue with the default route when storage is unavailable.
+      }
       if (target) {
-        try { localStorage.removeItem('post_login_redirect'); } catch {}
+        try { localStorage.removeItem('post_login_redirect'); } catch {
+          // A stale redirect is harmless when storage cannot be updated.
+        }
         navigate(target, { replace: true });
       } else {
         navigate('/', { replace: true });
@@ -45,9 +48,13 @@ const Auth = () => {
     await signInWithEmail(email, password);
     setIsLoading(false);
     let target: string | null = null;
-    try { target = localStorage.getItem('post_login_redirect'); } catch {}
+    try { target = localStorage.getItem('post_login_redirect'); } catch {
+      // Continue without a post-login redirect when storage is unavailable.
+    }
     if (target) {
-      try { localStorage.removeItem('post_login_redirect'); } catch {}
+      try { localStorage.removeItem('post_login_redirect'); } catch {
+        // A stale redirect is harmless when storage cannot be updated.
+      }
       navigate(target, { replace: true });
     }
   };
@@ -63,12 +70,6 @@ const Auth = () => {
     setIsLoading(true);
     await signInWithOAuth(provider);
     setIsLoading(false);
-  };
-
-  const handleOfflineMode = () => {
-    setStorageMode("offline");
-    // Reload the page to reinitialize all contexts with new storage mode
-    navigateWithReload("/");
   };
 
   return (
@@ -147,16 +148,6 @@ const Auth = () => {
               </form>
             </TabsContent>
           </Tabs>
-
-          <Button
-            variant="outline"
-            className="w-full mt-4"
-            onClick={handleOfflineMode}
-            disabled={isLoading}
-          >
-            <WifiOff className="mr-2 h-4 w-4" />
-            离线模式
-          </Button>
 
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">

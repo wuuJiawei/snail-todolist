@@ -6,9 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { isOfflineMode } from "@/storage";
 import { useUserProfileStore } from "@/store/userProfileStore";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 
 const AccountSettings = () => {
   const { user, refreshUser } = useAuth();
@@ -23,11 +22,11 @@ const AccountSettings = () => {
     const loadProfile = async () => {
       const profile = await storageOps.getUserProfile();
       if (profile) {
-        setUsername(profile.username || (isOfflineMode ? "离线用户" : ""));
+        setUsername(profile.username || "");
         setAvatarUrl(profile.avatar_url || "");
-      } else if (!isOfflineMode && user) {
-        setUsername(user.user_metadata?.name || "");
-        setAvatarUrl(user.user_metadata?.avatar_url || "");
+      } else if (user) {
+        setUsername(user.userMetadata.name || "");
+        setAvatarUrl(user.userMetadata.avatar_url || "");
       }
     };
 
@@ -77,10 +76,7 @@ const AccountSettings = () => {
         avatar_url: newAvatarUrl,
       });
 
-      // Refresh user state in online mode
-      if (!isOfflineMode) {
-        await refreshUser();
-      }
+      await refreshUser();
 
       // Update local state
       setAvatarUrl(newAvatarUrl);
@@ -92,7 +88,7 @@ const AccountSettings = () => {
 
       toast({
         title: "账号已更新",
-        description: isOfflineMode ? "您的个人资料已成功保存到本地" : "您的个人资料已成功更新",
+        description: "您的个人资料已成功更新",
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "无法更新个人资料";
@@ -107,7 +103,6 @@ const AccountSettings = () => {
   };
 
   const getUserInitials = () => {
-    if (isOfflineMode) return "离";
     if (!user) return "U";
 
     const email = user.email || "";
@@ -161,8 +156,7 @@ const AccountSettings = () => {
             />
           </div>
 
-          {!isOfflineMode && (
-            <div>
+          <div>
               <Label htmlFor="email" className="block mb-2">电子邮箱</Label>
               <Input
                 id="email"
@@ -174,16 +168,7 @@ const AccountSettings = () => {
               <p className="text-xs text-gray-500 mt-1">
                 邮箱地址无法直接修改
               </p>
-            </div>
-          )}
-
-          {isOfflineMode && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-              <p className="text-sm text-amber-700">
-                离线模式下，您的个人资料将保存在本地设备上。
-              </p>
-            </div>
-          )}
+          </div>
         </div>
 
         <Button type="submit" disabled={isLoading}>

@@ -33,7 +33,7 @@ import { defaultKeymap } from "@codemirror/commands";
 import { keymap } from "@codemirror/view";
 import { $prose } from "@milkdown/kit/utils";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 
 const taskListClickPlugin = $prose(() => {
   return new Plugin({
@@ -302,13 +302,13 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
                 : Promise.resolve([]),
             enableHtmlFileUploader: true,
           }));
-          // @ts-ignore - Type inference issue with tooltip.key
+          // @ts-expect-error - Milkdown plugin key types are incompatible across package boundaries.
           ctx.set(tooltip.key, {
             view: pluginViewFactory({
               component: TooltipView,
             }),
           });
-          // @ts-ignore - Type inference issue with codeBlockConfig.key
+          // @ts-expect-error - Milkdown plugin key types are incompatible across package boundaries.
           ctx.update(codeBlockConfig.key, (defaultConfig) => ({
             ...defaultConfig,
             languages,
@@ -344,7 +344,7 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
             onChangeRef.current(markdown);
           });
         })
-        // @ts-ignore - Type inference issue with nord theme
+        // @ts-expect-error - Milkdown theme types are incompatible across package boundaries.
         .use(nord)
         .use(commonmark)
         .use(gfm)
@@ -352,9 +352,9 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
         .use(cursor)
         .use(listener)
         .use(upload)
-        // @ts-ignore - Type inference issue with tooltip plugin
+        // @ts-expect-error - Milkdown plugin types are incompatible across package boundaries.
         .use(tooltip)
-        // @ts-ignore - Type inference issue with codeBlockComponent
+        // @ts-expect-error - Milkdown plugin types are incompatible across package boundaries.
         .use(codeBlockComponent)
         .use(taskListClickPlugin);
     },
@@ -370,7 +370,7 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
 
     onEditorReadyRef.current?.({
       blocksToMarkdownLossy: async () => {
-        const inst = editor.get();
+        const inst = editorInstance;
         if (!inst) return "";
         return inst.action((ctx) => {
           const serializer = ctx.get(serializerCtx);
@@ -379,7 +379,7 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
         });
       },
       focus: () => {
-        const inst = editor.get();
+        const inst = editorInstance;
         if (!inst) return;
         inst.action((ctx) => {
           const view = ctx.get(editorViewCtx);
@@ -387,7 +387,7 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
         });
       },
       insertImage: (url: string, alt: string) => {
-        const inst = editor.get();
+        const inst = editorInstance;
         if (!inst) return;
         inst.action((ctx) => {
           const view = ctx.get(editorViewCtx);
@@ -430,7 +430,7 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
     lastAppliedTaskIdRef.current = taskIdRef.current;
     isProgrammaticChangeRef.current = true;
     const task = () => {
-      const inst = editor.get();
+      const inst = editorInstance;
       if (!inst) {
         isProgrammaticChangeRef.current = false;
         return;
@@ -460,7 +460,7 @@ const MilkdownEditorInner: React.FC<MilkdownEditorProps> = ({
       return;
     }
     const task = () => {
-      const inst = editor.get();
+      const inst = editorInstance;
       if (!inst) return;
       inst.action((ctx) => {
         const view = ctx.get(editorViewCtx);

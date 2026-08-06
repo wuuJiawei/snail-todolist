@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import * as storageOps from "@/storage/operations";
-import type { PomodoroSessionPublic, PomodoroTodayStats } from "@/storage/operations";
+import * as storageOps from "@/data/operations";
+import type { PomodoroSessionPublic, PomodoroTodayStats } from "@/data/operations";
 
 interface HeatmapDay {
   date: string;
@@ -158,4 +158,3 @@ export const usePomodoroHistory = (
     removeSession,
   };
 };
-

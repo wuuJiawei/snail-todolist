@@ -4,11 +4,9 @@ import { Icon } from "@/components/ui/icon-park";
 import { getAppVersion } from "@/utils/version";
 import { AppInfo, AppVersion } from "@/types/app";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isOfflineMode } from "@/storage";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 
-// Static app info for offline mode
-const OFFLINE_APP_INFO: AppInfo = {
+const DEFAULT_APP_INFO: AppInfo = {
   id: 1,
   app_name: "蜗牛清单",
   app_description: "一款简洁高效的任务管理应用",
@@ -22,7 +20,7 @@ const OFFLINE_APP_INFO: AppInfo = {
     "标记重要任务",
     "番茄钟专注计时",
     "每日签到打卡",
-    "离线模式支持",
+    "多设备数据同步",
   ],
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
@@ -42,7 +40,7 @@ const AboutSettings = () => {
         const info = await storageOps.getAppInfo();
         // Merge with default app info to ensure all fields are present
         setAppInfo({
-          ...OFFLINE_APP_INFO,
+          ...DEFAULT_APP_INFO,
           ...info,
         });
       } catch (err) {
@@ -160,7 +158,7 @@ const AboutSettings = () => {
               <p className="text-sm text-gray-500">{appInfo.developer_name}</p>
             </div>
             
-            {!isOfflineMode && (appInfo.contact_email || appInfo.contact_website) && (
+            {(appInfo.contact_email || appInfo.contact_website) && (
               <div>
                 <h3 className="font-medium">联系我们</h3>
                 <div className="space-y-1">
@@ -189,14 +187,6 @@ const AboutSettings = () => {
                     </p>
                   )}
                 </div>
-              </div>
-            )}
-
-            {isOfflineMode && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-                <p className="text-sm text-amber-700">
-                  当前处于离线模式，数据存储在本地设备上。
-                </p>
               </div>
             )}
           </div>

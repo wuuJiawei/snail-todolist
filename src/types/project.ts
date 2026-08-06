@@ -1,6 +1,4 @@
 
-import { ProjectMember } from './projectMember';
-
 export interface Project {
   id: string;
   name: string;
@@ -15,7 +13,6 @@ export interface Project {
   user_id?: string;
   is_shared?: boolean; // Whether this project is shared
   original_owner_id?: string; // ID of the original owner if this is a shared project
-  members?: ProjectMember[]; // Members of the project (for shared projects)
 }
 
 export interface ProjectFormValues {

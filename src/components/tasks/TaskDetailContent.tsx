@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback } from "react";
 import MilkdownEditor from "./MilkdownEditor";
 import type { TaskAttachment } from "@/types/task";
 import { useToast } from "@/hooks/use-toast";
-import * as storageOps from "@/storage/operations";
+import * as storageOps from "@/data/operations";
 import clsx from "clsx";
 
 export type EditorBridge = {
@@ -114,7 +114,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
         onAttachmentsChange(merged);
       }
     },
-    [taskId, attachments, onAttachmentsChange, onEditorChange, isTaskInTrash, toast]
+    [taskId, attachments, onAttachmentsChange, isTaskInTrash, toast]
   );
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {

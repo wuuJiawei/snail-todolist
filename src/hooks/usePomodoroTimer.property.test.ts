@@ -76,7 +76,9 @@ const clearPersistedFocusTitle = () => {
 
 const focusTitleArbitrary = fc.string({ minLength: 0, maxLength: 200 });
 
-const nonEmptyFocusTitleArbitrary = fc.string({ minLength: 1, maxLength: 200 });
+const nonEmptyFocusTitleArbitrary = fc
+  .string({ minLength: 1, maxLength: 200 })
+  .filter((title) => title.trim().length > 0);
 
 const sessionIdArbitrary = fc.uuid();
 
@@ -388,7 +390,7 @@ describe('Property 5: Title Saved with Session Record', () => {
   it('should trim whitespace from titles', () => {
     fc.assert(
       fc.property(
-        fc.string({ minLength: 1, maxLength: 50 }),
+        fc.string({ minLength: 1, maxLength: 50 }).filter((title) => title.trim().length > 0),
         (baseTitle) => {
           const paddedTitle = `  ${baseTitle}  `;
           const session = createSessionRecord('focus', paddedTitle, true);

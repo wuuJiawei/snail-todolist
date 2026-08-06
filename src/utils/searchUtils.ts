@@ -256,13 +256,13 @@ export function getSearchSuggestions(tasks: Task[], query: string, maxSuggestion
 }
 
 // 防抖函数
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
+export function debounce<TArgs extends unknown[]>(
+  func: (...args: TArgs) => void,
   wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
+): (...args: TArgs) => void {
+  let timeout: ReturnType<typeof setTimeout>;
   
-  return (...args: Parameters<T>) => {
+  return (...args: TArgs) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
   };

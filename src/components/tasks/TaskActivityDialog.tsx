@@ -32,13 +32,17 @@ const formatTimestamp = (iso: string) => {
 };
 
 const describeActivity = (activity: TaskActivity): string => {
-  const metadata = (activity.metadata || {}) as Record<string, any>;
+  const metadata = activity.metadata || {};
+  const text = (key: string, fallback = "") =>
+    typeof metadata[key] === "string" ? metadata[key] : fallback;
+  const count = (key: string) =>
+    typeof metadata[key] === "number" ? metadata[key] : 0;
 
   switch (activity.action) {
     case "task_created":
       return "创建了任务";
     case "title_updated":
-      return `标题从「${metadata.from ?? "未命名"}」修改为「${metadata.to ?? "未命名"}」`;
+      return `标题从「${text("from", "未命名")}」修改为「${text("to", "未命名")}」`;
     case "description_updated":
       return "更新了任务详情";
     case "status_updated": {
@@ -47,15 +51,15 @@ const describeActivity = (activity: TaskActivity): string => {
       return `状态从「${from}」变更为「${to}」`;
     }
     case "due_date_updated":
-      return `截止日期从「${formatDateLabel(metadata.from ?? null)}」变更为「${formatDateLabel(metadata.to ?? null)}」`;
+      return `截止日期从「${formatDateLabel(text("from") || null)}」变更为「${formatDateLabel(text("to") || null)}」`;
     case "project_changed":
       return "更新了所属项目";
     case "attachments_updated":
-      return `更新了附件（${metadata.previousCount ?? 0} → ${metadata.nextCount ?? 0}）`;
+      return `更新了附件（${count("previousCount")} → ${count("nextCount")}）`;
     case "tag_added":
-      return `添加标签 #${metadata.tagName ?? metadata.tagId ?? ""}`;
+      return `添加标签 #${text("tagName") || text("tagId")}`;
     case "tag_removed":
-      return `移除标签 #${metadata.tagName ?? metadata.tagId ?? ""}`;
+      return `移除标签 #${text("tagName") || text("tagId")}`;
     case "task_moved_to_trash":
       return "将任务移入垃圾桶";
     case "task_restored":

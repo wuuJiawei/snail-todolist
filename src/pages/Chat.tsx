@@ -1,33 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+import { fetchChatMessages, sendChatMessage, subscribeToChat } from "@/data/operations";
+import type { ChatMessage, ChatPresence } from "@/data/contracts/chatRepository";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getOrCreateGuestId } from "@/services/taskService";
-import { isOfflineMode } from "@/storage";
-import { WifiOff } from "lucide-react";
-
-type ChatMessage = Tables<"global_chat_messages">;
-
-type NewChatMessage = TablesInsert<"global_chat_messages">;
+import { getOrCreateGuestId } from "@/utils/guestId";
 
 const formatTime = (iso: string) => new Date(iso).toLocaleTimeString();
 
 const Chat: React.FC = () => {
-  // Show offline message if in offline mode
-  if (isOfflineMode) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
-        <WifiOff className="h-16 w-16" />
-        <h2 className="text-xl font-semibold">聊天功能不可用</h2>
-        <p className="text-sm">离线模式下无法使用聊天功能</p>
-      </div>
-    );
-  }
-
   const { user, isGuest } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -36,19 +19,15 @@ const Chat: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const pageSize = 50;
-  const [online, setOnline] = useState<Array<{ key: string; name: string; avatar_url?: string }>>([]);
+  const [online, setOnline] = useState<ChatPresence[]>([]);
   const [showNewTip, setShowNewTip] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const isAtBottomRef = useRef(true);
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const [profileMap, setProfileMap] = useState<Record<string, { display_name?: string; email?: string; avatar_url?: string }>>({});
-  const fetchedProfileIdsRef = useRef<Set<string>>(new Set());
 
   const displayName = useMemo(() => {
     if (user) {
-      const meta: any = user.user_metadata || {};
-      const name = meta.name || meta.full_name || user.email || "用户";
-      return name as string;
+      return user.userMetadata.name || user.userMetadata.full_name || user.email || "用户";
     }
     const gid = getOrCreateGuestId();
     return `游客-${gid.slice(0, 6)}`;
@@ -60,85 +39,33 @@ const Chat: React.FC = () => {
     });
   };
 
-  const fetchProfilesByIds = async (ids: string[]) => {
-    const unique = Array.from(new Set(ids.filter(Boolean)));
-    const pending = unique.filter((id) => !fetchedProfileIdsRef.current.has(id));
-    if (pending.length === 0) return;
-    const { data, error } = await supabase
-      .from('profiles' as any)
-      .select('id, display_name, email, avatar_url' as any)
-      .in('id', pending as any);
-    if (error) return;
-    setProfileMap((prev) => {
-      const next = { ...prev };
-      (data || []).forEach((p: any) => {
-        next[p.id] = { display_name: p.display_name, email: p.email, avatar_url: p.avatar_url };
-        fetchedProfileIdsRef.current.add(p.id);
-      });
-      return next;
-    });
-  };
-
   useEffect(() => {
     const loadInitial = async () => {
-      const { data } = await supabase
-        .from("global_chat_messages")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(pageSize);
-      const list = (data as ChatMessage[]) || [];
-      setMessages([...list].reverse());
+      const list = await fetchChatMessages(pageSize);
+      setMessages(list);
       setHasMore(list.length === pageSize);
       scrollToBottom();
-      const ids = Array.from(new Set(list.map(m => m.user_id).filter(Boolean))) as string[];
-      if (ids.length > 0) await fetchProfilesByIds(ids);
     };
     loadInitial();
 
     const presenceKey = user?.id ?? getOrCreateGuestId();
-    const channel = supabase.channel("chat:global", {
-      config: { presence: { key: presenceKey } },
-    });
-
-    channel
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "global_chat_messages" },
-        (payload) => {
-          const m = payload.new as ChatMessage;
+    return subscribeToChat({
+      presenceKey,
+      userId: user?.id ?? null,
+      name: displayName,
+      avatarUrl: user?.userMetadata.avatar_url ?? null,
+    }, {
+      onMessage: (m) => {
           const auto = isAtBottomRef.current;
           setMessages((prev) => [...prev, m]);
-          if (m.user_id) fetchProfilesByIds([m.user_id]);
           if (auto) {
             scrollToBottom();
           } else {
             setShowNewTip(true);
           }
-        }
-      )
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState() as Record<string, Array<any>>;
-        const members: Array<{ key: string; name: string; avatar_url?: string }> = [];
-        Object.entries(state).forEach(([key, arr]) => {
-          if (Array.isArray(arr) && arr.length > 0) {
-            const last = arr[arr.length - 1];
-            members.push({ key, name: last?.name || key.slice(0, 6), avatar_url: last?.avatar_url || undefined });
-          }
-        });
-        members.sort((a, b) => a.name.localeCompare(b.name));
-        setOnline(members);
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          const name = displayName;
-          const avatar_url = (user?.user_metadata as any)?.avatar_url || null;
-          await channel.track({ name, avatar_url });
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      },
+      onPresence: setOnline,
+    });
   }, [user, displayName]);
 
   useEffect(() => {
@@ -162,40 +89,22 @@ const Chat: React.FC = () => {
     if (loadingMore || messages.length === 0) return;
     setLoadingMore(true);
     const oldest = messages[0];
-    const { data } = await supabase
-      .from("global_chat_messages")
-      .select("*")
-      .lt("created_at", oldest.created_at)
-      .order("created_at", { ascending: false })
-      .limit(pageSize);
-    const list = (data as ChatMessage[]) || [];
-    const prepend = [...list].reverse();
-    setMessages((prev) => [...prepend, ...prev]);
+    const list = await fetchChatMessages(pageSize, oldest.createdAt);
+    setMessages((prev) => [...list, ...prev]);
     setHasMore(list.length === pageSize);
     setLoadingMore(false);
-    const ids = Array.from(new Set(list.map(m => m.user_id).filter(Boolean))) as string[];
-    if (ids.length > 0) await fetchProfilesByIds(ids);
   };
 
   const sendMessage = async () => {
     const content = input.trim();
     if (!content) return;
 
-    const base: NewChatMessage = {
+    await sendChatMessage({
       content,
-      author_name: displayName,
-    };
-
-    if (user && !isGuest) {
-      const payload: NewChatMessage = { ...base, user_id: user.id };
-      await supabase.from("global_chat_messages").insert(payload);
-    } else {
-      const gid = getOrCreateGuestId();
-      const payload: NewChatMessage = { ...base, anonymous_id: gid };
-      await supabase
-        .from("global_chat_messages")
-        .insert(payload as any, { headers: { "x-anonymous-id": gid } } as any);
-    }
+      author: { name: displayName, avatarUrl: user?.userMetadata.avatar_url ?? null },
+      userId: user && !isGuest ? user.id : null,
+      anonymousId: user && !isGuest ? null : getOrCreateGuestId(),
+    });
 
     setInput("");
     if (isAtBottomRef.current) {
@@ -223,7 +132,7 @@ const Chat: React.FC = () => {
                 const items: React.ReactNode[] = [];
                 let lastDate = "";
                 for (const m of messages) {
-                  const d = new Date(m.created_at).toLocaleDateString("zh-CN");
+                  const d = new Date(m.createdAt).toLocaleDateString("zh-CN");
                   if (d !== lastDate) {
                     lastDate = d;
                     items.push(
@@ -234,10 +143,9 @@ const Chat: React.FC = () => {
                       </div>
                     );
                   }
-                  const isSelf = (user && m.user_id === user.id) || (!user && m.anonymous_id && m.anonymous_id === getOrCreateGuestId());
-                  const p = m.user_id ? profileMap[m.user_id] : undefined;
-                  const avatarUrl = p?.avatar_url || (isSelf ? (user?.user_metadata as any)?.avatar_url || "" : "");
-                  const authorName = (p?.display_name || p?.email || m.author_name || (m.user_id ? "用户" : "游客"));
+                  const isSelf = (user && m.userId === user.id) || (!user && m.anonymousId === getOrCreateGuestId());
+                  const avatarUrl = m.author.avatarUrl || (isSelf ? user?.userMetadata.avatar_url || "" : "");
+                  const authorName = m.author.name;
                   items.push(
                     <div key={m.id} className="flex items-start gap-3">
                       <Avatar className="h-8 w-8 border">
@@ -247,7 +155,7 @@ const Chat: React.FC = () => {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 text-sm">
                           <span className="font-medium truncate max-w-[160px]">{authorName}</span>
-                          <span className="text-xs text-muted-foreground">{formatTime(m.created_at)}</span>
+                          <span className="text-xs text-muted-foreground">{formatTime(m.createdAt)}</span>
                         </div>
                         <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
                       </div>
@@ -290,9 +198,9 @@ const Chat: React.FC = () => {
             <div className="text-xs text-muted-foreground">暂无在线用户</div>
           ) : (
             online.map((m) => (
-              <div key={m.key} className="flex items-center gap-2">
+              <div key={m.presenceKey} className="flex items-center gap-2">
                 <Avatar className="h-6 w-6 border">
-                  <AvatarImage src={m.avatar_url || ''} />
+                  <AvatarImage src={m.avatarUrl || ''} />
                   <AvatarFallback>{m.name.slice(0, 1)}</AvatarFallback>
                 </Avatar>
                 <div className="text-sm truncate">{m.name}</div>

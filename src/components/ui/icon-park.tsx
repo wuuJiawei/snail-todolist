@@ -37,7 +37,10 @@ const IconParkComponent: React.FC<IconParkProps> = ({
 
   // Try to find the icon in @icon-park/react
   const pascalCaseName = toPascalCase(icon);
-  const IconComponent = (IconPark as Record<string, any>)[pascalCaseName];
+  const IconComponent = (IconPark as unknown as Record<
+    string,
+    React.ComponentType<Omit<IconParkProps, "icon">>
+  >)[pascalCaseName];
 
   if (IconComponent) {
     return (

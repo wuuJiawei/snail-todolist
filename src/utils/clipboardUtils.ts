@@ -1,5 +1,5 @@
 import { TaskAttachment } from '@/types/task';
-import * as storageOps from '@/storage/operations';
+import * as storageOps from '@/data/operations';
 
 export interface ClipboardImageDetectionOptions {
   userId: string;
