@@ -152,7 +152,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
       setTasks((current) => [newTask, ...current.filter((item) => item.id !== newTask.id)]);
 
-      await recordTaskActivity(newTask.id, "task_created", { title: newTask.title });
+      void recordTaskActivity(newTask.id, "task_created", { title: newTask.title });
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
       console.error("Failed to add task:", error);

@@ -9,7 +9,7 @@ import { Task } from "@/types/task";
 import { Tag } from "@/types/tag";
 import { format, isValid, parseISO, isBefore, startOfDay } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { formatDateText as formatDateTextUtil } from "@/utils/taskUtils";
+import { formatDateText as formatDateTextUtil, getChangedTaskTitle } from "@/utils/taskUtils";
 import { useToast } from "@/hooks/use-toast";
 import {
   ContextMenu,
@@ -41,18 +41,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const isMobile = useIsMobile();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
-  const [localTitle, setLocalTitle] = useState(task.title);
   const inputRef = useRef<HTMLInputElement>(null);
   const isComposingRef = useRef(false);
 
   const { toast } = useToast();
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const { operationState, startOperation } = useTaskOperation();
-
-
-
   useEffect(() => {
-    setLocalTitle(task.title);
     setEditedTitle(task.title);
   }, [task.title]);
 
@@ -61,10 +56,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
       inputRef.current.focus();
     }
   }, [isEditing]);
-
-  // no-op
-
-
 
   const handleTaskSelect = () => {
     if (isMobile) {
@@ -116,29 +107,24 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
     e.stopPropagation();
   };
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditedTitle(e.target.value);
+  const cancelTitleEdit = () => {
+    setEditedTitle(task.title);
+    setIsEditing(false);
   };
 
   const handleTitleSave = async () => {
-    const next = editedTitle.trim();
-    if (next !== "") {
-      try {
-        await startOperation("update", async () => {
-          await updateTask(task.id, { title: next });
-        });
-        setLocalTitle(next);
-        setIsEditing(false);
-      } catch (err) {
-        console.error("Failed to save title:", err);
-        setEditedTitle(task.title);
-        setLocalTitle(task.title);
-        setIsEditing(false);
-      }
-    } else {
-      setEditedTitle(task.title);
-      setLocalTitle(task.title);
+    const nextTitle = getChangedTaskTitle(task.title, editedTitle);
+    if (!nextTitle) {
+      cancelTitleEdit();
+      return;
+    }
+
+    try {
+      await startOperation("update", () => updateTask(task.id, { title: nextTitle }));
       setIsEditing(false);
+    } catch (err) {
+      console.error("Failed to save title:", err);
+      cancelTitleEdit();
     }
   };
 
@@ -151,14 +137,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
       }
       handleTitleSave();
     } else if (e.key === "Escape") {
-      setEditedTitle(task.title);
-      setLocalTitle(task.title);
-      setIsEditing(false);
+      cancelTitleEdit();
     }
-  };
-
-  const handleBlur = () => {
-    handleTitleSave();
   };
 
   const isDeadlineExpired = (dateStr: string) => {
@@ -587,8 +567,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
                   ref={inputRef}
                   type="text"
                   value={editedTitle}
-                  onChange={handleTitleChange}
-                  onBlur={handleBlur}
+                  onChange={(event) => setEditedTitle(event.target.value)}
+                  onBlur={() => void handleTitleSave()}
                   onKeyDown={handleKeyDown}
                   onCompositionStart={() => { isComposingRef.current = true; }}
                   onCompositionEnd={() => { isComposingRef.current = false; }}
@@ -599,7 +579,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
                   "font-medium",
                   task.completed && "line-through text-gray-500 transition-all duration-300"
                 )}>
-                  {localTitle}
+                  {task.title}
                 </span>
               )}
             </div>

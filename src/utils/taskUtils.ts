@@ -13,6 +13,11 @@ export const formatDateText = (date: Date | undefined) => {
   return format(date, "M月d日", { locale: zhCN });
 };
 
+export const getChangedTaskTitle = (currentTitle: string, editedTitle: string): string | null => {
+  const nextTitle = editedTitle.trim();
+  return nextTitle && nextTitle !== currentTitle.trim() ? nextTitle : null;
+};
+
 // Check if a task is expired (past date and not completed)
 export const isTaskExpired = (task: Task) => {
   if (task.completed) return false;
