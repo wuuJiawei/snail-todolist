@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import EmojiPicker from 'emoji-picker-react';
+import EmojiPicker from "emoji-picker-react";
+import { ChevronDown } from "lucide-react";
 
 import {
   Dialog,
@@ -12,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Project, ProjectFormValues } from "@/types/project";
 
 interface EditProjectDialogProps {
@@ -29,7 +29,6 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
   onSave,
 }) => {
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // Initialize the form
   const form = useForm<ProjectFormValues>({
@@ -38,55 +37,6 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
       icon: project?.icon || "📁", // 默认使用文件夹emoji
     },
   });
-
-  // 修复emoji选择器的滚轮事件
-  useEffect(() => {
-    if (emojiPickerOpen && emojiPickerRef.current) {
-      const container = emojiPickerRef.current;
-      
-      const handleWheel = (e: WheelEvent) => {
-        // 查找实际的滚动容器
-        const scrollContainer = container.querySelector('.epr-body') as HTMLElement;
-        if (scrollContainer) {
-          // 阻止默认行为和冒泡
-          e.preventDefault();
-          e.stopPropagation();
-          
-          // 计算新的滚动位置
-          const deltaY = e.deltaY;
-          const currentScrollTop = scrollContainer.scrollTop;
-          const maxScrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
-          
-          // 设置新的滚动位置
-          const newScrollTop = Math.max(0, Math.min(maxScrollTop, currentScrollTop + deltaY));
-          scrollContainer.scrollTop = newScrollTop;
-        }
-      };
-
-      // 添加wheel事件监听器，使用capture模式确保优先处理
-      container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
-
-      // 也为emoji picker内部的所有元素添加事件监听
-      const addWheelToChildren = () => {
-        const emojiPicker = container.querySelector('.EmojiPickerReact');
-        if (emojiPicker) {
-          emojiPicker.addEventListener('wheel', handleWheel, { passive: false, capture: true });
-        }
-      };
-
-      // 延迟添加，确保emoji picker已经渲染
-      const timer = setTimeout(addWheelToChildren, 100);
-
-      return () => {
-        clearTimeout(timer);
-        container.removeEventListener('wheel', handleWheel, { capture: true });
-        const emojiPicker = container.querySelector('.EmojiPickerReact');
-        if (emojiPicker) {
-          emojiPicker.removeEventListener('wheel', handleWheel, { capture: true });
-        }
-      };
-    }
-  }, [emojiPickerOpen]);
 
   // Reset form values when the dialog opens or the project changes
   useEffect(() => {
@@ -145,7 +95,7 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
   }, [form, project, onOpenChange]);
 
   const handleEmojiClick = (emojiData: { emoji: string }) => {
-    form.setValue("icon", emojiData.emoji);
+    form.setValue("icon", emojiData.emoji, { shouldDirty: true });
     setEmojiPickerOpen(false);
   };
 
@@ -155,72 +105,69 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
     <Dialog open={open} onOpenChange={(nextOpen) => {
       if (!form.formState.isSubmitting) handleClose(nextOpen);
     }}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{dialogTitle}</DialogTitle>
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto p-0 sm:max-w-[440px]">
+        <DialogHeader className="border-b px-6 py-5">
+          <DialogTitle className="text-base">{dialogTitle}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
-            <fieldset disabled={form.formState.isSubmitting} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>名称</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="清单名称" />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+            <fieldset disabled={form.formState.isSubmitting}>
+              <div className="space-y-5 px-6 py-5">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>名称</FormLabel>
+                      <FormControl>
+                        <Input {...field} className="h-11" placeholder="清单名称" />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="icon"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>图标</FormLabel>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
-                        <span className="text-2xl">{field.value}</span>
-                      </div>
-                      <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" type="button">
-                            选择表情
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className="w-auto p-0"
-                          side="right"
-                          onWheel={(e) => {
-                            // 让滚轮事件传递到内部的emoji picker
-                            e.stopPropagation();
-                          }}
-                        >
-                          <div ref={emojiPickerRef} className="emoji-picker-container">
-                            <EmojiPicker
-                              onEmojiClick={handleEmojiClick}
-                              width={350}
-                              height={400}
-                              previewConfig={{
-                                defaultEmoji: "1f4c1",
-                                defaultCaption: "选择一个表情作为清单图标"
-                              }}
-                              searchDisabled={false}
-                              skinTonesDisabled={false}
-                              lazyLoadEmojis={true}
-                            />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="icon"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>图标</FormLabel>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-12 w-full justify-between px-3 font-normal"
+                        aria-expanded={emojiPickerOpen}
+                        onClick={() => setEmojiPickerOpen((current) => !current)}
+                      >
+                        <span className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-xl">
+                            {field.value}
+                          </span>
+                          <span className="font-medium">选择图标</span>
+                        </span>
+                        <ChevronDown className={`text-muted-foreground transition-transform ${emojiPickerOpen ? "rotate-180" : ""}`} />
+                      </Button>
 
-              <DialogFooter>
+                      {emojiPickerOpen && (
+                        <div className="overflow-hidden rounded-md border">
+                          <EmojiPicker
+                            onEmojiClick={handleEmojiClick}
+                            width="100%"
+                            height={260}
+                            previewConfig={{ showPreview: false }}
+                            searchPlaceholder="搜索表情"
+                            searchClearButtonLabel="清除搜索"
+                            autoFocusSearch={false}
+                            lazyLoadEmojis
+                          />
+                        </div>
+                      )}
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <DialogFooter className="border-t bg-muted/20 px-6 py-4 sm:space-x-2">
                 <Button type="button" variant="outline" onClick={handleCancel}>
                   取消
                 </Button>
