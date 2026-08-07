@@ -24,48 +24,37 @@ export function useTaskTagActions(tasks: Task[], tagTaskIds: string[], recordTas
 
   const getTaskTags = useCallback((taskId: string): Tag[] => taskIdToTags[taskId] || [], [taskIdToTags]);
   const attachTagToTask = useCallback(async (taskId: string, tagId: string, tagData?: Tag) => {
-    const previousMapping = queryClient.getQueryData<Record<string, Tag[]>>(taskMappingKey) ?? taskIdToTags;
-    const previousTags = previousMapping[taskId] || [];
-    if (previousTags.some((tag) => tag.id === tagId)) return;
+    const currentMapping = queryClient.getQueryData<Record<string, Tag[]>>(taskMappingKey) ?? taskIdToTags;
+    const currentTags = currentMapping[taskId] || [];
+    if (currentTags.some((tag) => tag.id === tagId)) return;
     const cachedLists = queryClient.getQueriesData<Tag[]>({ queryKey: tagKeys.scopes() });
-    const optimisticTag = tagData ?? cachedLists.flatMap(([, list]) => list ?? []).find((tag) => tag.id === tagId);
-    const optimisticTags = optimisticTag ? [...previousTags, optimisticTag] : previousTags;
-    setTaskIdToTags({ ...previousMapping, [taskId]: optimisticTags });
-    incrementTagsVersion();
+    const tag = tagData ?? cachedLists.flatMap(([, list]) => list ?? []).find((item) => item.id === tagId);
     try {
-      await storageOps.attachTagToTask(taskId, tagId);
-      await recordTaskActivity(taskId, "tag_added", { tagId, tagName: optimisticTag?.name ?? "" });
+      if (!await storageOps.attachTagToTask(taskId, tagId)) throw new Error("Attach tag failed");
     } catch (error) {
-      setTaskIdToTags(previousMapping);
-      incrementTagsVersion();
       toast({ title: "关联失败", description: "无法给任务添加标签", variant: "destructive" });
       throw error;
     }
+    setTaskIdToTags({ ...currentMapping, [taskId]: tag ? [...currentTags, tag] : currentTags });
+    incrementTagsVersion();
+    await recordTaskActivity(taskId, "tag_added", { tagId, tagName: tag?.name ?? "" });
   }, [queryClient, taskMappingKey, taskIdToTags, setTaskIdToTags, incrementTagsVersion, recordTaskActivity, toast]);
 
   const detachTagFromTask = useCallback(async (taskId: string, tagId: string) => {
-    const previousMapping = queryClient.getQueryData<Record<string, Tag[]>>(taskMappingKey) ?? taskIdToTags;
-    const previousTags = previousMapping[taskId] || [];
-    const removedTag = previousTags.find((tag) => tag.id === tagId);
-    setTaskIdToTags({ ...previousMapping, [taskId]: previousTags.filter((tag) => tag.id !== tagId) });
-    incrementTagsVersion();
+    const currentMapping = queryClient.getQueryData<Record<string, Tag[]>>(taskMappingKey) ?? taskIdToTags;
+    const currentTags = currentMapping[taskId] || [];
+    const removedTag = currentTags.find((tag) => tag.id === tagId);
     try {
-      await storageOps.detachTagFromTask(taskId, tagId);
-      await recordTaskActivity(taskId, "tag_removed", { tagId, tagName: removedTag?.name ?? "" });
+      if (!await storageOps.detachTagFromTask(taskId, tagId)) throw new Error("Detach tag failed");
     } catch (error) {
-      setTaskIdToTags(previousMapping);
-      incrementTagsVersion();
       toast({ title: "移除失败", description: "无法从任务移除标签", variant: "destructive" });
       throw error;
     }
+    setTaskIdToTags({ ...currentMapping, [taskId]: currentTags.filter((tag) => tag.id !== tagId) });
+    incrementTagsVersion();
+    await recordTaskActivity(taskId, "tag_removed", { tagId, tagName: removedTag?.name ?? "" });
   }, [queryClient, taskMappingKey, taskIdToTags, setTaskIdToTags, incrementTagsVersion, recordTaskActivity, toast]);
 
-  const snapshotTagCache = useCallback(() => queryClient.getQueriesData({ queryKey: tagKeys.all }), [queryClient]);
-  const restoreTagCache = useCallback((snapshot: Array<[readonly unknown[], unknown]>) => {
-    queryClient.removeQueries({ queryKey: tagKeys.all });
-    for (const [key, value] of snapshot) queryClient.setQueryData(key, value);
-    incrementTagsVersion();
-  }, [queryClient, incrementTagsVersion]);
   const syncTagUpdate = useCallback((tagId: string, updates: Partial<Tag>, options?: { removeFromCache?: boolean; oldProjectId?: string | null }) => {
     const updateList = (list: Tag[] | undefined) => (list ?? []).map((tag) => tag.id === tagId ? { ...tag, ...updates } : tag);
     if (options?.removeFromCache) {
@@ -114,29 +103,36 @@ export function useTaskTagActions(tasks: Task[], tagTaskIds: string[], recordTas
     }
   }, [queryClient, incrementTagsVersion, toast]);
   const deleteTagPermanently = useCallback(async (tagId: string) => {
-    const snapshot = snapshotTagCache();
-    syncTagUpdate(tagId, {}, { removeFromCache: true });
-    try { if (!await storageOps.deleteTagById(tagId)) throw new Error("Delete tag failed"); await queryClient.invalidateQueries({ queryKey: tagKeys.all }); return true; }
-    catch { restoreTagCache(snapshot); toast({ title: "删除标签失败", variant: "destructive" }); return false; }
-  }, [queryClient, snapshotTagCache, syncTagUpdate, restoreTagCache, toast]);
+    try {
+      if (!await storageOps.deleteTagById(tagId)) throw new Error("Delete tag failed");
+      syncTagUpdate(tagId, {}, { removeFromCache: true });
+      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
+      return true;
+    } catch {
+      toast({ title: "删除标签失败", variant: "destructive" });
+      return false;
+    }
+  }, [queryClient, syncTagUpdate, toast]);
   const updateTagProject = useCallback(async (tagId: string, projectId: string | null) => {
-    const snapshot = snapshotTagCache();
     const cachedTag = queryClient.getQueriesData<Tag[]>({ queryKey: tagKeys.scopes() }).flatMap(([, list]) => list ?? []).find((tag) => tag.id === tagId);
-    syncTagUpdate(tagId, { project_id: projectId }, { oldProjectId: cachedTag?.project_id ?? null });
     try {
       const updatedTag = await storageOps.updateTagProject(tagId, projectId);
       if (!updatedTag) throw new Error("Update tag project failed");
+      syncTagUpdate(tagId, updatedTag, { oldProjectId: cachedTag?.project_id ?? null });
       await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       toast({ title: "已更新", description: projectId === null ? "标签已设为全局可见" : "已更新标签可见范围" });
       return updatedTag;
-    } catch { restoreTagCache(snapshot); toast({ title: "修改标签范围失败", variant: "destructive" }); return null; }
-  }, [queryClient, snapshotTagCache, syncTagUpdate, restoreTagCache, toast]);
+    } catch { toast({ title: "修改标签范围失败", variant: "destructive" }); return null; }
+  }, [queryClient, syncTagUpdate, toast]);
   const renameTag = useCallback(async (tagId: string, newName: string) => {
-    const snapshot = snapshotTagCache();
-    syncTagUpdate(tagId, { name: newName });
-    try { const updatedTag = await storageOps.updateTag(tagId, { name: newName }); if (!updatedTag) throw new Error("Rename tag failed"); await queryClient.invalidateQueries({ queryKey: tagKeys.all }); return updatedTag; }
-    catch { restoreTagCache(snapshot); toast({ title: "重命名标签失败", variant: "destructive" }); return null; }
-  }, [queryClient, snapshotTagCache, syncTagUpdate, restoreTagCache, toast]);
+    try {
+      const updatedTag = await storageOps.updateTag(tagId, { name: newName });
+      if (!updatedTag) throw new Error("Rename tag failed");
+      syncTagUpdate(tagId, updatedTag);
+      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
+      return updatedTag;
+    } catch { toast({ title: "重命名标签失败", variant: "destructive" }); return null; }
+  }, [queryClient, syncTagUpdate, toast]);
   const getAllTagUsageCounts = useCallback(() => {
     const counts: Record<string, number> = {};
     tasks.filter((task) => !task.completed && !task.abandoned).forEach((task) => (taskIdToTags[task.id] || []).forEach((tag) => { counts[tag.id] = (counts[tag.id] || 0) + 1; }));

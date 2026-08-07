@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Edit, Trash2, GripVertical, Share2 } from "lucide-react";
+import { Edit, Trash2, GripVertical, Share2, Loader2 } from "lucide-react";
 import EditProjectDialog from "@/components/projects/EditProjectDialog"; // 确保路径正确
 import ShareProjectDialog from "@/components/projects/ShareProjectDialog"; // 导入分享对话框
 
@@ -42,6 +42,7 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
   const { editProject, deleteProject } = useProjectContext(); // 不再需要 reorderProjects
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   
   // 用于恢复焦点的ref
@@ -104,6 +105,7 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
   }, []);
 
   const handleDeleteDialogClose = useCallback((open: boolean) => {
+    if (isDeleting) return;
     setDeleteDialogOpen(open);
     if (!open) {
       setTimeout(() => {
@@ -113,9 +115,12 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
         }
       }, 50);
     }
-  }, []);
+  }, [isDeleting]);
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async (event: React.MouseEvent) => {
+    event.preventDefault();
+    if (isDeleting) return;
+    setIsDeleting(true);
     try {
       await deleteProject(project.id);
       setDeleteDialogOpen(false);
@@ -125,6 +130,8 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
       }
     } catch (error) {
       console.error('删除项目失败:', error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -213,9 +220,10 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800">
-                确认删除
+              <AlertDialogCancel disabled={isDeleting}>取消</AlertDialogCancel>
+              <AlertDialogAction disabled={isDeleting} onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800">
+                {isDeleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isDeleting ? "删除中..." : "确认删除"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -258,4 +266,3 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
 };
 
 export default ProjectItem;
-

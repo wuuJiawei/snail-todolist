@@ -106,6 +106,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     } catch (error) {
       console.error("Error creating project:", error);
+      toast({ title: "创建失败", description: "无法创建清单，请稍后再试", variant: "destructive" });
+      throw error;
     }
   }, [user, projectRows.length, setProjects]);
 
@@ -131,6 +133,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     } catch (error) {
       console.error("Error updating project:", error);
+      toast({ title: "更新失败", description: "无法更新清单，请稍后再试", variant: "destructive" });
+      throw error;
     }
   }, [user, setProjects]);
 
@@ -145,11 +149,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      if (await storageOps.deleteProject(id)) {
-        setProjects((current) => current.filter((project) => project.id !== id));
-      }
+      if (!await storageOps.deleteProject(id)) throw new Error("delete project failed");
+      setProjects((current) => current.filter((project) => project.id !== id));
     } catch (error) {
       console.error("Error deleting project:", error);
+      toast({ title: "删除失败", description: "无法删除清单，请稍后再试", variant: "destructive" });
+      throw error;
     }
   }, [user, setProjects]);
 

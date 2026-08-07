@@ -67,11 +67,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
 
 
   const handleTaskSelect = () => {
-    // pending 状态的任务不可选中
-    if (task._isPending) {
-      return;
-    }
-    
     if (isMobile) {
       // On mobile, selecting a task should navigate to the task detail view
       // This will be handled by the parent component
@@ -84,8 +79,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const handleCompletionToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
-    // pending 状态的任务不可操作
-    if (task._isPending) return;
     if (operationState.isActive && operationState.operationType !== "update") return;
 
     const nextCompleted = !task.completed;
@@ -117,11 +110,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   };
 
   const handleTitleClick = (e: React.MouseEvent) => {
-    // pending 状态的任务不可编辑
-    if (task._isPending) {
-      e.stopPropagation();
-      return;
-    }
     // First select the task, then enable editing
     selectTask(task.id);
     setIsEditing(true);
@@ -536,8 +524,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
         className={cn(
           "py-2 px-4 flex items-center gap-3 hover:bg-gray-100 rounded-lg cursor-pointer group transition-opacity duration-300 relative",
           task.completed && "opacity-60",
-          operationState.isActive && operationState.operationType !== "update" && "opacity-60 pointer-events-none",
-          task._isPending && "opacity-70 cursor-default",
+          operationState.isActive && "opacity-60 pointer-events-none",
           selectedTask?.id === task.id && "bg-gray-200",
           isContextMenuOpen && "bg-gray-200",
           isDragging && "bg-gray-100 shadow-md"
@@ -558,14 +545,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
             className={cn(
             "h-5 w-5 flex-shrink-0 border border-gray-300 rounded-full flex items-center justify-center transition-all duration-300",
             "hover:bg-gray-200",
-            task.completed && "border-black bg-black hover:bg-black",
-            task._isPending && "border-gray-200"
+            task.completed && "border-black bg-black hover:bg-black"
           )}
           onClick={handleCompletionToggle}
         >
-            {task._isPending ? (
-              <Loader2 className="h-3 w-3 text-gray-300 animate-spin" />
-            ) : operationState.isActive && operationState.operationType === "complete" ? (
+            {operationState.isActive ? (
               <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
             ) : (
               task.completed && (
@@ -664,7 +648,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   // Wrap with Draggable if needed
   if (isDraggable && typeof index === 'number') {
     return (
-      <Draggable draggableId={task.id} index={index} isDragDisabled={task._isPending}>
+      <Draggable draggableId={task.id} index={index} isDragDisabled={operationState.isActive}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
@@ -673,27 +657,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
               snapshot.isDragging && "z-10"
             )}
           >
-            {task._isPending ? (
-              renderTaskContent(provided.dragHandleProps, snapshot.isDragging)
-            ) : (
-              <ContextMenu onOpenChange={setIsContextMenuOpen}>
-                <ContextMenuTrigger>
-                  {renderTaskContent(provided.dragHandleProps, snapshot.isDragging)}
-                </ContextMenuTrigger>
-                <ContextMenuContent>
-                  {renderContextMenuContent()}
-                </ContextMenuContent>
-              </ContextMenu>
-            )}
+            <ContextMenu onOpenChange={setIsContextMenuOpen}>
+              <ContextMenuTrigger>
+                {renderTaskContent(provided.dragHandleProps, snapshot.isDragging)}
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                {renderContextMenuContent()}
+              </ContextMenuContent>
+            </ContextMenu>
           </div>
         )}
       </Draggable>
     );
-  }
-
-  // Regular non-draggable rendering - pending 任务不显示右键菜单
-  if (task._isPending) {
-    return renderTaskContent();
   }
 
   return (

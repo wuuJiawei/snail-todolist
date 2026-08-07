@@ -152,77 +152,81 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
   const dialogTitle = project ? "修改清单" : "新建清单";
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      if (!form.formState.isSubmitting) handleClose(nextOpen);
+    }}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>名称</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="清单名称" />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <fieldset disabled={form.formState.isSubmitting} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>名称</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="清单名称" />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="icon"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>图标</FormLabel>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
-                      <span className="text-2xl">{field.value}</span>
+              <FormField
+                control={form.control}
+                name="icon"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>图标</FormLabel>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+                        <span className="text-2xl">{field.value}</span>
+                      </div>
+                      <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" type="button">
+                            选择表情
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto p-0"
+                          side="right"
+                          onWheel={(e) => {
+                            // 让滚轮事件传递到内部的emoji picker
+                            e.stopPropagation();
+                          }}
+                        >
+                          <div ref={emojiPickerRef} className="emoji-picker-container">
+                            <EmojiPicker
+                              onEmojiClick={handleEmojiClick}
+                              width={350}
+                              height={400}
+                              previewConfig={{
+                                defaultEmoji: "1f4c1",
+                                defaultCaption: "选择一个表情作为清单图标"
+                              }}
+                              searchDisabled={false}
+                              skinTonesDisabled={false}
+                              lazyLoadEmojis={true}
+                            />
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
-                    <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" type="button">
-                          选择表情
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent 
-                        className="w-auto p-0" 
-                        side="right"
-                        onWheel={(e) => {
-                          // 让滚轮事件传递到内部的emoji picker
-                          e.stopPropagation();
-                        }}
-                      >
-                        <div ref={emojiPickerRef} className="emoji-picker-container">
-                          <EmojiPicker
-                            onEmojiClick={handleEmojiClick}
-                            width={350}
-                            height={400}
-                            previewConfig={{
-                              defaultEmoji: "1f4c1",
-                              defaultCaption: "选择一个表情作为清单图标"
-                            }}
-                            searchDisabled={false}
-                            skinTonesDisabled={false}
-                            lazyLoadEmojis={true}
-                          />
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </FormItem>
-              )}
-            />
+                  </FormItem>
+                )}
+              />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCancel}>
-                取消
-              </Button>
-              <Button type="submit">保存</Button>
-            </DialogFooter>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleCancel}>
+                  取消
+                </Button>
+                <Button type="submit" loading={form.formState.isSubmitting}>保存</Button>
+              </DialogFooter>
+            </fieldset>
           </form>
         </Form>
       </DialogContent>

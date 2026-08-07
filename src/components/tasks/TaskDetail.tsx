@@ -27,7 +27,7 @@ const TaskDetail = () => {
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   const { operationState, startOperation } = useTaskOperation();
-  const isCompletionLoading = operationState.isActive && operationState.operationType === "complete";
+  const isCompletionLoading = operationState.isActive;
 
   // 核心：追踪当前期望显示的任务 ID，用于防止竞态条件
   const expectedTaskIdRef = useRef<string | null>(null);
@@ -253,26 +253,26 @@ const TaskDetail = () => {
   const handleFlagToggle = useCallback(async () => {
     if (!selectedTask || isTaskInTrash) return;
 
-    const previousFlagged = flagged;
-    const nextFlagged = !previousFlagged;
-    setFlagged(nextFlagged);
+    const nextFlagged = !flagged;
 
     try {
-      await updateTask(selectedTask.id, { flagged: nextFlagged });
-      toast({
-        title: nextFlagged ? "任务已标记" : "标记已取消",
-        description: nextFlagged ? "该任务会出现在“标记”清单中" : "该任务已从“标记”清单移除",
+      await startOperation("update", async () => {
+        await updateTask(selectedTask.id, { flagged: nextFlagged });
+        setFlagged(nextFlagged);
+        toast({
+          title: nextFlagged ? "任务已标记" : "标记已取消",
+          description: nextFlagged ? "该任务会出现在“标记”清单中" : "该任务已从“标记”清单移除",
+        });
       });
     } catch (error) {
       console.error("Failed to toggle flag:", error);
-      setFlagged(previousFlagged);
       toast({
         title: "更新标记失败",
         description: "请稍后再试",
         variant: "destructive",
       });
     }
-  }, [flagged, isTaskInTrash, selectedTask, updateTask, toast]);
+  }, [flagged, isTaskInTrash, selectedTask, startOperation, updateTask, toast]);
 
   const handleDateChange = (date: Date | undefined) => {
     setSelectedDate(date);

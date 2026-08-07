@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -37,17 +38,52 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  loading?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
+  ({ className, variant, size, asChild = false, loading = false, disabled, onClick, children, ...props }, ref) => {
+    const [pending, setPending] = React.useState(false)
+    const isLoading = loading || pending
+
+    const handleClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
+      const result = onClick?.(event) as unknown
+      if (result && typeof (result as PromiseLike<unknown>).then === "function") {
+        setPending(true)
+        void Promise.resolve(result).then(
+          () => setPending(false),
+          () => setPending(false),
+        )
+      }
+    }
+
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          onClick={onClick}
+          {...props}
+        >
+          {children}
+        </Slot>
+      )
+    }
+
     return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+      <button
+        className={cn("relative", buttonVariants({ variant, size, className }))}
         ref={ref}
+        disabled={disabled || isLoading}
+        aria-busy={isLoading || undefined}
+        onClick={onClick ? handleClick : undefined}
         {...props}
-      />
+      >
+        <span className={cn("inline-flex items-center gap-2", isLoading && "opacity-0")}>
+          {children}
+        </span>
+        {isLoading && <Loader2 data-loading-spinner className="absolute h-4 w-4 animate-spin" aria-hidden="true" />}
+      </button>
     )
   }
 )
