@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useForm } from "react-hook-form";
 import {
   Dialog,
@@ -33,7 +33,6 @@ const JoinSharedProjectDialog: React.FC<JoinSharedProjectDialogProps> = ({
   open,
   onOpenChange,
 }) => {
-  const [loading, setLoading] = useState<boolean>(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { refreshProjects } = useProjectContext();
@@ -62,7 +61,6 @@ const JoinSharedProjectDialog: React.FC<JoinSharedProjectDialogProps> = ({
       return;
     }
 
-    setLoading(true);
     try {
       await joinSharedProject(data.shareCode, user.id);
 
@@ -82,13 +80,13 @@ const JoinSharedProjectDialog: React.FC<JoinSharedProjectDialogProps> = ({
         description: "无法加入共享清单，请稍后再试",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      if (!form.formState.isSubmitting) onOpenChange(nextOpen);
+    }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>加入共享清单</DialogTitle>
@@ -98,34 +96,33 @@ const JoinSharedProjectDialog: React.FC<JoinSharedProjectDialogProps> = ({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            <FormField
-              control={form.control}
-              name="shareCode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>分享码</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="输入分享码"
-                      disabled={loading}
-                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <fieldset disabled={form.formState.isSubmitting} className="space-y-4 py-4">
+              <FormField
+                control={form.control}
+                name="shareCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>分享码</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="输入分享码"
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-                取消
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "加入中..." : "加入"}
-              </Button>
-            </DialogFooter>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  取消
+                </Button>
+                <Button type="submit" loading={form.formState.isSubmitting}>加入</Button>
+              </DialogFooter>
+            </fieldset>
           </form>
         </Form>
       </DialogContent>

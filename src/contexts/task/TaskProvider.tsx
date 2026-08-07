@@ -51,7 +51,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   } = useQuery({ ...taskQueries.abandoned(), enabled: false });
   const loading = canPerformOperation(user) && isActivePending;
   const tagTaskIds = useMemo(
-    () => tasks.filter((task) => !task.id.startsWith("temp-")).map((task) => task.id),
+    () => tasks.map((task) => task.id),
     [tasks],
   );
 
@@ -139,23 +139,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       return;
     }
 
-    // 生成临时 ID 用于乐观更新
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    
-    // 构建乐观任务对象
-    const optimisticTask: Task = {
-      id: tempId,
-      ...task,
-      user_id: user!.id,
-      completed: task.completed ?? false,
-      attachments: task.attachments ?? [],
-      _isPending: true,
-      _tempId: tempId,
-    };
-
-    // 立即更新 UI（乐观更新）
-    setTasks((current) => [optimisticTask, ...current]);
-
     try {
       const taskWithUserId = {
         ...task,
@@ -167,18 +150,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         throw new Error("add task failed");
       }
 
-      // 用真实任务替换乐观任务
-      setTasks((current) => 
-        current.map((t) => 
-          t.id === tempId ? { ...newTask, _isPending: false } : t
-        )
-      );
+      setTasks((current) => [newTask, ...current.filter((item) => item.id !== newTask.id)]);
 
       await recordTaskActivity(newTask.id, "task_created", { title: newTask.title });
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
-      // 回滚：移除乐观任务
-      setTasks((current) => current.filter((t) => t.id !== tempId));
       console.error("Failed to add task:", error);
       toast({
         title: "添加失败",
@@ -200,61 +176,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         return;
       }
 
-    const previousTasks = getCachedTasks(taskKeys.active());
-    const previousTask = previousTasks.find((task) => task.id === id);
+    const previousTask = getCachedTasks(taskKeys.active()).find((task) => task.id === id);
     const drafts = buildTaskActivityDrafts(previousTask, updatedTask);
-    const isCompletionToggle = Object.prototype.hasOwnProperty.call(updatedTask, "completed");
-
-    // Helper function to perform the actual update
-    const performUpdate = async (): Promise<Task | null> => {
-      return storageOps.updateTask(id, updatedTask);
-    };
-
-    if (isCompletionToggle) {
-      try {
-        const updated = await performUpdate();
-        if (!updated) {
-          throw new Error("update task failed");
-        }
-        setTasks((current) =>
-          current.map((task) => (task.id === id ? { ...task, ...updated } : task))
-        );
-        if (drafts.length && previousTask) {
-          await Promise.all(
-            drafts.map((draft) => recordTaskActivity(id, draft.action, draft.metadata))
-          );
-        }
-        queryClient.invalidateQueries({ queryKey: taskKeys.active() });
-      } catch (error) {
-        console.error("Failed to update task:", error);
-        throw error;
-      }
-      return;
-    }
-
-    const timestamp = new Date().toISOString();
-    const updatedTasks = previousTasks.map((task) => {
-      if (task.id !== id) return task;
-
-      const nextTask: Task = {
-        ...task,
-        ...updatedTask,
-      };
-
-      if (Object.prototype.hasOwnProperty.call(updatedTask, "completed")) {
-        if (updatedTask.completed) {
-          nextTask.completed_at = timestamp;
-        } else {
-          nextTask.completed_at = undefined;
-        }
-      }
-
-      return nextTask;
-    });
-    setTasks(updatedTasks);
 
     try {
-      const updated = await performUpdate();
+      const updated = await storageOps.updateTask(id, updatedTask);
       if (!updated) {
         throw new Error("update task failed");
       }
@@ -268,7 +194,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       }
       queryClient.invalidateQueries({ queryKey: taskKeys.active() });
     } catch (error) {
-      setTasks(previousTasks);
       console.error("Failed to update task:", error);
       throw error;
     }

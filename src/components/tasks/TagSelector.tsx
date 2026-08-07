@@ -104,51 +104,54 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
     refreshAvailableTags();
   }, [tagsVersion, refreshAvailableTags]);
 
-  const handleToggle = (tag: Tag) => {
-    if (readOnly) return;
-    if (selectedIds.has(tag.id)) {
-      detachTagFromTask(taskId, tag.id).catch((error) => {
-        console.error("Failed to detach tag:", error);
-      });
-    } else {
-      attachTagToTask(taskId, tag.id).catch((error) => {
-        console.error("Failed to attach tag:", error);
-      });
+  const handleToggle = async (tag: Tag) => {
+    if (readOnly || loading) return;
+    setLoading(true);
+    try {
+      if (selectedIds.has(tag.id)) {
+        await detachTagFromTask(taskId, tag.id);
+      } else {
+        await attachTagToTask(taskId, tag.id);
+      }
+    } catch (error) {
+      console.error("Failed to update task tag:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCreate = async (name: string) => {
-    if (readOnly) return;
+    if (readOnly || loading) return;
     const trimmed = name.trim();
     if (!trimmed) return;
 
     const scopeForCreation = normalizedProjectId ?? null;
+    setLoading(true);
+    try {
+      const created = await createTag(trimmed, scopeForCreation);
 
-    // Create tag with current project scope
-    const created = await createTag(trimmed, scopeForCreation);
-
-    if (created) {
-      setAvailableTags((prev) => {
-        const exists = prev.some((tag) => tag.id === created.id);
-        if (exists) {
-          return prev.map((tag) => (tag.id === created.id ? created : tag));
+      if (created) {
+        setAvailableTags((prev) => {
+          const exists = prev.some((tag) => tag.id === created.id);
+          if (exists) {
+            return prev.map((tag) => (tag.id === created.id ? created : tag));
+          }
+          return [created, ...prev];
+        });
+        await attachTagToTask(taskId, created.id, created);
+      } else {
+        const cachedTags = getCachedTags(scopeForCreation);
+        const found = cachedTags.find(t => t.name.toLowerCase() === trimmed.toLowerCase());
+        if (found) {
+          await attachTagToTask(taskId, found.id, found);
         }
-        return [created, ...prev];
-      });
-      await attachTagToTask(taskId, created.id, created);
-    } else {
-      // 如果没创建成功（可能是已存在），尝试查找同名标签
-      const cachedTags = getCachedTags(scopeForCreation);
-      const found = cachedTags.find(t => t.name.toLowerCase() === trimmed.toLowerCase());
-      if (found) {
-        await attachTagToTask(taskId, found.id, found);
       }
+
+      await refreshAvailableTags();
+      setQuery("");
+    } finally {
+      setLoading(false);
     }
-
-    await refreshAvailableTags();
-
-    // 清空输入框
-    setQuery("");
   };
   
   const getProjectName = (tag: Tag) => {
@@ -164,6 +167,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
           value={query}
           onValueChange={setQuery}
           placeholder="搜索或创建标签"
+          disabled={loading}
           onKeyDown={async (e) => {
             if (e.key === 'Enter') {
               const name = query.trim();
@@ -192,7 +196,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
           </CommandEmpty>
           <CommandGroup heading="我的标签">
             {filteredTags.map(tag => (
-              <CommandItem key={tag.id} value={tag.name} onSelect={() => handleToggle(tag)} className="flex items-center">
+              <CommandItem key={tag.id} value={tag.name} onSelect={() => handleToggle(tag)} disabled={loading} className="flex items-center">
                 <span className="mr-2 text-xs opacity-60">{selectedIds.has(tag.id) ? "✓" : ""}</span>
                 <span className="flex-1 flex items-center">
                   {tag.name}
@@ -264,7 +268,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
             <Globe className="ml-1 h-3 w-3 opacity-60" aria-label="全局可见" />
           )}
           {!readOnly && (
-            <button className="ml-1 inline-flex" onClick={() => detachTagFromTask(taskId, tag.id)} aria-label="remove tag">
+            <button className="ml-1 inline-flex" onClick={() => handleToggle(tag)} disabled={loading} aria-label="remove tag">
               <X className="h-3 w-3 opacity-60" />
             </button>
           )}
@@ -301,4 +305,3 @@ const TagSelector: React.FC<TagSelectorProps> = ({ taskId, projectId, readOnly =
 };
 
 export default TagSelector;
-
