@@ -40,6 +40,7 @@ export interface PomodoroSession {
   type: 'work' | 'short_break' | 'long_break';
   started_at: string;
   completed_at?: string | null;
+  completed?: boolean;
   created_at: string;
   notes?: string | null;
   title?: string | null;

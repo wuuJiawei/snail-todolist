@@ -493,6 +493,7 @@ export class OnlineStorageAdapter implements StorageAdapter {
       type: this.mapPomodoroType(s.type),
       started_at: s.start_time,
       completed_at: s.end_time || null,
+      completed: s.completed,
       created_at: s.created_at,
       notes: null,
     }));
@@ -544,6 +545,7 @@ export class OnlineStorageAdapter implements StorageAdapter {
         type: this.mapPomodoroType(data.type),
         started_at: data.start_time,
         completed_at: data.end_time || null,
+        completed: data.completed,
         created_at: data.created_at,
         notes: null,
       };
@@ -568,6 +570,7 @@ export class OnlineStorageAdapter implements StorageAdapter {
       type: this.mapPomodoroType(data.type),
       started_at: data.start_time,
       completed_at: data.end_time || null,
+      completed: data.completed,
       created_at: data.created_at,
       notes: null,
     };
@@ -575,9 +578,8 @@ export class OnlineStorageAdapter implements StorageAdapter {
 
   async updatePomodoroSession(id: string, updates: Partial<PomodoroSession>): Promise<PomodoroSession | null> {
     try {
-      // 判断是完成还是取消操作
-      if (updates.completed_at !== undefined) {
-        if (updates.completed_at) {
+      if (updates.completed !== undefined) {
+        if (updates.completed) {
           // 完成会话
           await apiClient.patch(`/pomodoro/sessions/${id}/complete`);
         } else {

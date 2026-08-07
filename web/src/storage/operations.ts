@@ -496,7 +496,7 @@ const mapSessionToPublic = (session: PomodoroSession): PomodoroSessionPublic => 
   end_time: session.completed_at ?? null,
   duration: session.duration,
   type: mapInternalTypeToPublic(session.type),
-  completed: !!session.completed_at,
+  completed: session.completed ?? !!session.completed_at,
   created_at: session.created_at,
   title: session.title ?? null,
 });
@@ -538,6 +538,7 @@ export async function startPomodoroSession(
       type: mapPublicTypeToInternal(sessionType),
       duration: durationMinutes,
       started_at: new Date().toISOString(),
+      completed: false,
       title: title?.trim() || null,
     });
     return mapSessionToPublic(session);
@@ -560,7 +561,8 @@ export async function completePomodoroSession(
     const storage = await ensureStorage();
     const { completed = true, endTime, durationOverride } = options;
     const updates: Partial<PomodoroSession> = {
-      completed_at: completed ? (endTime ?? new Date().toISOString()) : undefined,
+      completed_at: endTime ?? new Date().toISOString(),
+      completed,
     };
     if (typeof durationOverride === 'number') {
       updates.duration = durationOverride;
@@ -611,7 +613,7 @@ export async function fetchPomodoroSessions(
       sessions = sessions.filter(s => internalTypes.includes(s.type));
     }
     if (typeof options.completed === 'boolean') {
-      sessions = sessions.filter(s => !!s.completed_at === options.completed);
+      sessions = sessions.filter(s => (s.completed ?? !!s.completed_at) === options.completed);
     }
 
     sessions.sort((a, b) => {

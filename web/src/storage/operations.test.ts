@@ -6,6 +6,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fc from 'fast-check';
 import { IndexedDBAdapter } from './indexeddb/IndexedDBAdapter';
+import { OnlineStorageAdapter } from './online/OnlineStorageAdapter';
+import { apiClient } from '@/lib/apiClient';
 import { Task } from '@/types/task';
 
 // Mock the storage module to use IndexedDB directly for testing
@@ -276,5 +278,39 @@ describe('Offline Mode Task Operations', () => {
       }),
       { numRuns: 100 }
     );
+  });
+});
+
+describe('Pomodoro Operations', () => {
+  it('ends a cancelled session without marking it completed', async () => {
+    const created = await operations.startPomodoroSession('focus', 25);
+    expect(created).not.toBeNull();
+
+    try {
+      expect(await operations.cancelPomodoroSession(created!.id)).toBe(true);
+      expect(await operations.getActivePomodoroSession()).toBeNull();
+
+      const sessions = await operations.fetchPomodoroSessions({ completed: false });
+      const cancelled = sessions.find((session) => session.id === created!.id);
+      expect(cancelled?.end_time).not.toBeNull();
+      expect(cancelled?.completed).toBe(false);
+    } finally {
+      await operations.deletePomodoroSession(created!.id);
+    }
+  });
+
+  it('sends cancelled sessions to the online cancel endpoint', async () => {
+    const patch = vi.spyOn(apiClient, 'patch').mockResolvedValue(undefined as never);
+    vi.spyOn(apiClient, 'get').mockResolvedValue({ sessions: [] } as never);
+
+    try {
+      await new OnlineStorageAdapter().updatePomodoroSession('session-id', {
+        completed_at: new Date().toISOString(),
+        completed: false,
+      });
+      expect(patch).toHaveBeenCalledWith('/pomodoro/sessions/session-id/cancel');
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 });
