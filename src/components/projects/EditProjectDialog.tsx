@@ -105,14 +105,14 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
     <Dialog open={open} onOpenChange={(nextOpen) => {
       if (!form.formState.isSubmitting) handleClose(nextOpen);
     }}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto p-0 sm:max-w-[440px]">
-        <DialogHeader className="border-b px-6 py-5">
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto gap-0 p-0 sm:max-w-[440px]">
+        <DialogHeader className="border-b px-6 py-4">
           <DialogTitle className="text-base">{dialogTitle}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <fieldset disabled={form.formState.isSubmitting}>
-              <div className="space-y-5 px-6 py-5">
+              <div className="space-y-4 px-6 py-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -120,7 +120,7 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
                     <FormItem>
                       <FormLabel>名称</FormLabel>
                       <FormControl>
-                        <Input {...field} className="h-11" placeholder="清单名称" />
+                        <Input {...field} className="h-10" placeholder="清单名称" />
                       </FormControl>
                     </FormItem>
                   )}
@@ -135,7 +135,7 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-12 w-full justify-between px-3 font-normal"
+                        className="h-11 w-full justify-between px-3 font-normal"
                         aria-expanded={emojiPickerOpen}
                         onClick={() => setEmojiPickerOpen((current) => !current)}
                       >
@@ -153,7 +153,7 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
                           <EmojiPicker
                             onEmojiClick={handleEmojiClick}
                             width="100%"
-                            height={260}
+                            height={360}
                             previewConfig={{ showPreview: false }}
                             searchPlaceholder="搜索表情"
                             searchClearButtonLabel="清除搜索"
@@ -167,7 +167,7 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
                 />
               </div>
 
-              <DialogFooter className="border-t bg-muted/20 px-6 py-4 sm:space-x-2">
+              <DialogFooter className="px-6 pt-1 pb-5 sm:space-x-2">
                 <Button type="button" variant="outline" onClick={handleCancel}>
                   取消
                 </Button>
