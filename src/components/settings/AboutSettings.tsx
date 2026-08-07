@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon-park";
+import { ExternalLink, MessageCircle } from "lucide-react";
+import { GitHubIcon } from "@/components/ui/icons";
 import { getAppVersion } from "@/utils/version";
 import { AppInfo, AppVersion } from "@/types/app";
 import { Skeleton } from "@/components/ui/skeleton";
 import * as storageOps from "@/data/operations";
 
+const GITHUB_REPOSITORY_URL = "https://github.com/wuuJiawei/snail-todolist";
+const GITHUB_ISSUES_URL = `${GITHUB_REPOSITORY_URL}/issues`;
+const GITHUB_LOGO_URL = "https://raw.githubusercontent.com/wuuJiawei/snail-todolist/main/public/logo.png";
+
 const DEFAULT_APP_INFO: AppInfo = {
   id: 1,
   app_name: "蜗牛清单",
-  app_description: "一款简洁高效的任务管理应用",
-  app_logo_url: null,
+  app_description: "面向日常工作与个人事务的任务管理工具",
+  app_logo_url: GITHUB_LOGO_URL,
   developer_name: "SnailTodo Team",
   contact_email: null,
   contact_website: null,
@@ -121,91 +128,112 @@ const AboutSettings = () => {
   }
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">关于</h1>
-      
-      <Card className="mb-6">
-        <CardHeader className="flex flex-row items-center gap-4">
-          <div className="bg-brand-orange bg-opacity-10 p-3 rounded-full">
-            {appInfo.app_logo_url ? (
-              <img 
-                src={appInfo.app_logo_url} 
-                alt="App Logo" 
-                className="w-9 h-9 object-cover rounded-full"
-              />
-            ) : (
-              <Icon 
-                icon="snail" 
-                size={36} 
-                className="text-brand-orange" 
-              />
-            )}
-          </div>
-          <div>
-            <CardTitle className="text-2xl">{appInfo.app_name}</CardTitle>
-            <CardDescription>{appInfo.app_description}</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-medium">版本</h3>
-              <p className="text-sm text-gray-500">{version.version}</p>
-            </div>
-            
-            <div>
-              <h3 className="font-medium">开发者</h3>
-              <p className="text-sm text-gray-500">{appInfo.developer_name}</p>
-            </div>
-            
-            {(appInfo.contact_email || appInfo.contact_website) && (
-              <div>
-                <h3 className="font-medium">联系我们</h3>
-                <div className="space-y-1">
-                  {appInfo.contact_email && (
-                    <p className="text-sm text-gray-500">
-                      邮箱：
-                      <a 
-                        href={`mailto:${appInfo.contact_email}`}
-                        className="text-blue-600 hover:underline ml-1"
-                      >
-                        {appInfo.contact_email}
-                      </a>
-                    </p>
-                  )}
-                  {appInfo.contact_website && (
-                    <p className="text-sm text-gray-500">
-                      网站：
-                      <a 
-                        href={appInfo.contact_website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline ml-1"
-                      >
-                        {appInfo.contact_website}
-                      </a>
-                    </p>
-                  )}
-                </div>
+    <div className="max-w-3xl space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">关于</h1>
+        <p className="mt-1 text-sm text-muted-foreground">了解蜗牛清单，以及项目的开源信息。</p>
+      </div>
+
+      <Card>
+        <CardContent className="p-6 sm:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-brand-orange/10 p-1">
+                <img
+                  src={appInfo.app_logo_url || GITHUB_LOGO_URL}
+                  alt={`${appInfo.app_name} logo`}
+                  className="h-full w-full rounded-xl object-cover"
+                />
               </div>
-            )}
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle className="text-2xl">{appInfo.app_name}</CardTitle>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    v{version.version}
+                  </span>
+                </div>
+                <CardDescription className="mt-2 max-w-xl">{appInfo.app_description}</CardDescription>
+              </div>
+            </div>
+            <Button variant="outline" asChild className="shrink-0">
+              <a href={GITHUB_REPOSITORY_URL} target="_blank" rel="noopener noreferrer">
+                <GitHubIcon className="h-4 w-4" />
+                <span>GitHub 仓库</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </Button>
           </div>
         </CardContent>
       </Card>
-      
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">功能介绍</CardTitle>
+            <CardDescription>把任务、时间和专注安排在一个地方。</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1">
+              {appInfo.features.map((feature, index) => (
+                <li key={index} className="flex items-start gap-2">
+                  <Icon icon="check-one" className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500" />
+                  <span>{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">应用信息</CardTitle>
+            <CardDescription>当前版本与项目维护信息。</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">版本</p>
+              <p className="mt-1 font-medium">{version.version}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">开发者</p>
+              <p className="mt-1 font-medium">{appInfo.developer_name}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">项目地址</p>
+              <a
+                href={GITHUB_REPOSITORY_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-blue-600 hover:underline"
+              >
+                github.com/wuuJiawei/snail-todolist
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
-        <CardHeader>
-          <CardTitle>功能介绍</CardTitle>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">支持与反馈</CardTitle>
+          <CardDescription>发现问题或有改进建议，可以直接在 GitHub 留言。</CardDescription>
         </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm">
-            {appInfo.features.map((feature, index) => (
-              <li key={index} className="flex items-start gap-2">
-                <Icon icon="check-one" className="text-green-500 mt-0.5 flex-shrink-0" />
-                <span>{feature}</span>
-              </li>
-            ))}
-          </ul>
+        <CardContent className="flex flex-col gap-3 sm:flex-row">
+          <Button variant="outline" asChild>
+            <a href={GITHUB_REPOSITORY_URL} target="_blank" rel="noopener noreferrer">
+              <GitHubIcon className="h-4 w-4" />
+              查看项目
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href={GITHUB_ISSUES_URL} target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="h-4 w-4" />
+              问题反馈
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
         </CardContent>
       </Card>
     </div>
