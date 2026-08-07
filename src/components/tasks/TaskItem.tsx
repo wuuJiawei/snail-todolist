@@ -502,33 +502,43 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const renderTaskContent = (dragHandleProps?: React.HTMLAttributes<HTMLDivElement>, isDragging?: boolean) => (
     <div
         className={cn(
-          "py-2 px-4 flex items-center gap-3 hover:bg-gray-100 rounded-lg cursor-pointer group transition-opacity duration-300 relative",
+          "task-item py-2 px-4 flex items-center overflow-hidden hover:bg-gray-100 rounded-lg cursor-pointer group transition-opacity duration-300 relative",
           task.completed && "opacity-60",
           operationState.isActive && "opacity-60 pointer-events-none",
           selectedTask?.id === task.id && "bg-gray-200",
           isContextMenuOpen && "bg-gray-200",
           isDragging && "bg-gray-100 shadow-md"
         )}
+        data-controls-visible={operationState.isActive || isDragging || undefined}
+        data-draggable={isDraggable}
         onClick={handleTaskSelect}
       >
       {/* 任务操作进度条覆盖层 */}
-      
-      {isDraggable && (
-        <div
-          className="h-5 w-5 flex-shrink-0 flex items-center justify-center text-gray-300 group-hover:text-gray-500 transition-colors cursor-grab"
-          {...dragHandleProps}
-        >
-          <Icon icon="drag" size="16" className="h-4 w-4" />
-        </div>
-      )}
-          <div
-            className={cn(
-            "h-5 w-5 flex-shrink-0 border border-gray-300 rounded-full flex items-center justify-center transition-all duration-300",
-            "hover:bg-gray-200",
-            task.completed && "border-black bg-black hover:bg-black"
+
+      <div className="absolute left-4 top-1/2 -translate-y-1/2">
+        <div className="task-item-controls flex items-center gap-3">
+          {isDraggable && (
+            <div
+              className="h-5 w-5 flex-shrink-0 flex items-center justify-center text-gray-300 hover:text-gray-500 transition-colors cursor-grab"
+              {...dragHandleProps}
+            >
+              <Icon icon="drag" size="16" className="h-4 w-4" />
+            </div>
           )}
-          onClick={handleCompletionToggle}
-        >
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={task.completed}
+            aria-busy={operationState.isActive}
+            aria-label={task.completed ? `将「${task.title}」标记为未完成` : `将「${task.title}」标记为完成`}
+            disabled={operationState.isActive}
+            className={cn(
+              "h-5 w-5 flex-shrink-0 border border-gray-300 rounded-full p-0 flex items-center justify-center transition-colors",
+              "hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              task.completed && "border-black bg-black hover:bg-black"
+            )}
+            onClick={handleCompletionToggle}
+          >
             {operationState.isActive ? (
               <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
             ) : (
@@ -545,9 +555,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
                 </svg>
               )
             )}
-          </div>
+          </button>
+        </div>
+      </div>
 
-          <div className="flex-1 truncate">
+          <div className="task-item-body min-w-0 flex-1 truncate">
             <div className="text-sm leading-tight truncate flex items-center gap-2" onClick={handleTitleClick}>
               {task.icon && (
                 <span 
