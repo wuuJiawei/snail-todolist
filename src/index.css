@@ -1,7 +1,5 @@
 /* Import IconPark styles */
 @import '@icon-park/react/styles/index.css';
-/* Import emoji picker styles */
-@import './styles/emoji-picker.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
