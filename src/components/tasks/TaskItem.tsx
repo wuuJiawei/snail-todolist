@@ -40,6 +40,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const { projects } = useProjectContext();
   const isMobile = useIsMobile();
   const [isEditing, setIsEditing] = useState(false);
+  const [isHoverActive, setIsHoverActive] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const inputRef = useRef<HTMLInputElement>(null);
   const isComposingRef = useRef(false);
@@ -509,8 +510,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
           isContextMenuOpen && "bg-gray-200",
           isDragging && "bg-gray-100 shadow-md"
         )}
-        data-controls-visible={operationState.isActive || isDragging || undefined}
+        data-controls-visible={isHoverActive || operationState.isActive || isDragging || undefined}
         data-draggable={isDraggable}
+        onPointerEnter={() => setIsHoverActive(true)}
+        onPointerLeave={() => setIsHoverActive(false)}
+        onClickCapture={() => setIsHoverActive(false)}
         onClick={handleTaskSelect}
       >
       {/* 任务操作进度条覆盖层 */}
