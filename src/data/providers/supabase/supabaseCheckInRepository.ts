@@ -91,16 +91,10 @@ export class SupabaseCheckInRepository implements CheckInRepository {
       const userId = await getSessionUserId(this.client);
       if (!userId) return { records: [], total: 0 };
 
-      const { count, error: countError } = await this.client
-        .from("checkin_records")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId);
-      if (countError) throw countError;
-
       const offset = Math.max(0, page - 1) * Math.max(1, pageSize);
-      const { data, error } = await this.client
+      const { data, count, error } = await this.client
         .from("checkin_records")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("user_id", userId)
         .order("check_in_time", { ascending: false })
         .range(offset, offset + Math.max(1, pageSize) - 1);
