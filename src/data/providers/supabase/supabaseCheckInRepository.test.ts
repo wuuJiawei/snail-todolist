@@ -43,7 +43,7 @@ describe("SupabaseCheckInRepository", () => {
     insertQuery.single.mockResolvedValue({ data: createdRow, error: null });
 
     const client = {
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }) },
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
       from: vi.fn()
         .mockReturnValueOnce(statusQuery)
         .mockReturnValueOnce(insertQuery),
