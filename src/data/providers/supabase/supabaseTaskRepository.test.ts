@@ -15,7 +15,7 @@ const taskRow = {
 };
 
 const authenticatedClient = (from: ReturnType<typeof vi.fn>) => ({
-  auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }) },
+  auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
   from,
 }) as unknown as SupabaseClient<Database>;
 
