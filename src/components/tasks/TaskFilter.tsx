@@ -72,12 +72,9 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
   }, [selectedProject, getCachedTags, ensureTagsLoaded]);
 
   useEffect(() => {
-    syncTags();
-  }, [syncTags, selectedProject]);
-
-  useEffect(() => {
-    syncTags();
-  }, [syncTags, tagsVersion]);
+    if (!open) return;
+    void syncTags();
+  }, [open, syncTags, tagsVersion]);
 
   const handleDeadlineChange = (deadline: string, checked: boolean) => {
     const newDeadline = checked

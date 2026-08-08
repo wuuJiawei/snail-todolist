@@ -5,23 +5,39 @@ import * as storageOps from "@/data/operations";
 import type { Tag } from "@/types/tag";
 import type { Task } from "@/types/task";
 import { tagKeys, tagQueries } from "@/queries/tagQueries";
+import { taskKeys } from "@/queries/taskQueries";
 import { useToast } from "@/hooks/use-toast";
 
 const EMPTY_TASK_TAGS: Record<string, Tag[]> = {};
+
+const getProviderTaskTags = (tasks: Task[]): Record<string, Tag[]> => Object.fromEntries(
+  tasks
+    .filter((task) => task.tags !== undefined)
+    .map((task) => [task.id, task.tags ?? []]),
+);
 
 export function useTaskTagActions(tasks: Task[], tagTaskIds: string[], recordTaskActivity: (taskId: string, action: string, metadata?: Record<string, unknown>) => Promise<void>) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [tagsVersion, setTagsVersion] = useState(0);
   const taskMappingKey = useMemo(() => tagKeys.forTasks(tagTaskIds), [tagTaskIds]);
-  const providerTaskTags = useMemo<Record<string, Tag[]> | undefined>(() => {
-    if (tasks.length === 0 || tasks.some((task) => task.tags === undefined)) return undefined;
-    return Object.fromEntries(tasks.map((task) => [task.id, task.tags ?? []]));
-  }, [tasks]);
+  const providerTaskTags = useMemo(() => getProviderTaskTags(tasks), [tasks]);
+  const missingTaskTagIds = useMemo(
+    () => tagTaskIds.filter((taskId) => !(taskId in providerTaskTags)),
+    [tagTaskIds, providerTaskTags],
+  );
+  const providerHasAllTaskTags = tagTaskIds.length > 0 && missingTaskTagIds.length === 0;
   const { data: taskIdToTags = EMPTY_TASK_TAGS, isPending: taskTagsPending } = useQuery({
     ...tagQueries.forTasks(tagTaskIds),
+    queryFn: async () => {
+      if (missingTaskTagIds.length === 0) return providerTaskTags;
+      return {
+        ...providerTaskTags,
+        ...await storageOps.getTagsByTaskIds(missingTaskTagIds),
+      };
+    },
     enabled: tagTaskIds.length > 0,
-    initialData: providerTaskTags,
+    initialData: providerHasAllTaskTags ? providerTaskTags : undefined,
     placeholderData: (previous) => previous,
   });
   const incrementTagsVersion = useCallback(() => setTagsVersion((version) => version + 1), []);
@@ -86,9 +102,32 @@ export function useTaskTagActions(tasks: Task[], tagTaskIds: string[], recordTas
     return data;
   }, [queryClient]);
   const refreshAllTags = useCallback(async () => {
-    try { await queryClient.invalidateQueries({ queryKey: tagKeys.all, refetchType: "all" }); incrementTagsVersion(); return true; }
-    catch (error) { console.error("Failed to refresh tags:", error); return false; }
-  }, [queryClient, incrementTagsVersion]);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: tagKeys.scopes(), refetchType: "none" }),
+        queryClient.invalidateQueries({ queryKey: tagKeys.allVisible(), refetchType: "none" }),
+      ]);
+
+      if (providerHasAllTaskTags) {
+        await queryClient.invalidateQueries({ queryKey: taskKeys.active(), refetchType: "active" });
+        const refreshedTasks = queryClient.getQueryData<Task[]>(taskKeys.active()) ?? [];
+        if (refreshedTasks.every((task) => task.tags !== undefined)) {
+          const refreshedIds = refreshedTasks.map((task) => task.id);
+          queryClient.setQueryData(tagKeys.forTasks(refreshedIds), getProviderTaskTags(refreshedTasks));
+        } else {
+          await queryClient.invalidateQueries({ queryKey: tagKeys.taskMappings(), refetchType: "active" });
+        }
+      } else {
+        await queryClient.invalidateQueries({ queryKey: tagKeys.taskMappings(), refetchType: "active" });
+      }
+
+      incrementTagsVersion();
+      return true;
+    } catch (error) {
+      console.error("Failed to refresh tags:", error);
+      return false;
+    }
+  }, [queryClient, providerHasAllTaskTags, incrementTagsVersion]);
   const ensureTagsLoaded = useCallback(async (projectId?: string | null) => {
     if (projectId !== null && projectId !== undefined) await queryClient.ensureQueryData(tagQueries.forScope(null));
     await queryClient.ensureQueryData(tagQueries.forScope(projectId ?? null));
@@ -111,20 +150,18 @@ export function useTaskTagActions(tasks: Task[], tagTaskIds: string[], recordTas
     try {
       if (!await storageOps.deleteTagById(tagId)) throw new Error("Delete tag failed");
       syncTagUpdate(tagId, {}, { removeFromCache: true });
-      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       return true;
     } catch {
       toast({ title: "删除标签失败", variant: "destructive" });
       return false;
     }
-  }, [queryClient, syncTagUpdate, toast]);
+  }, [syncTagUpdate, toast]);
   const updateTagProject = useCallback(async (tagId: string, projectId: string | null) => {
     const cachedTag = queryClient.getQueriesData<Tag[]>({ queryKey: tagKeys.scopes() }).flatMap(([, list]) => list ?? []).find((tag) => tag.id === tagId);
     try {
       const updatedTag = await storageOps.updateTagProject(tagId, projectId);
       if (!updatedTag) throw new Error("Update tag project failed");
       syncTagUpdate(tagId, updatedTag, { oldProjectId: cachedTag?.project_id ?? null });
-      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       toast({ title: "已更新", description: projectId === null ? "标签已设为全局可见" : "已更新标签可见范围" });
       return updatedTag;
     } catch { toast({ title: "修改标签范围失败", variant: "destructive" }); return null; }
@@ -134,10 +171,9 @@ export function useTaskTagActions(tasks: Task[], tagTaskIds: string[], recordTas
       const updatedTag = await storageOps.updateTag(tagId, { name: newName });
       if (!updatedTag) throw new Error("Rename tag failed");
       syncTagUpdate(tagId, updatedTag);
-      await queryClient.invalidateQueries({ queryKey: tagKeys.all });
       return updatedTag;
     } catch { toast({ title: "重命名标签失败", variant: "destructive" }); return null; }
-  }, [queryClient, syncTagUpdate, toast]);
+  }, [syncTagUpdate, toast]);
   const getAllTagUsageCounts = useCallback(() => {
     const counts: Record<string, number> = {};
     tasks.filter((task) => !task.completed && !task.abandoned).forEach((task) => (taskIdToTags[task.id] || []).forEach((tag) => { counts[tag.id] = (counts[tag.id] || 0) + 1; }));
