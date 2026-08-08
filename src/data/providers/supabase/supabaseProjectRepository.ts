@@ -8,6 +8,10 @@ import { mapProjectRow, type SupabaseProjectRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";
 import { getSessionUserId } from "./authIdentity";
 
+type SupabaseOwnedProjectRow = SupabaseProjectRow & {
+  members?: Array<{ user_id: string | null }> | null;
+};
+
 export class SupabaseProjectRepository implements ProjectRepository {
   private readonly queryClient: SupabaseClient;
 
@@ -20,25 +24,21 @@ export class SupabaseProjectRepository implements ProjectRepository {
       const userId = await getSessionUserId(this.queryClient);
       if (!userId) return [];
       const { data: ownedRows, error: ownedError } = await this.queryClient.from("projects")
-        .select("*").eq("user_id", userId).order("sort_order", { ascending: true, nullsFirst: false })
+        .select("*, members:project_members(user_id)").eq("user_id", userId)
+        .order("sort_order", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false });
       if (ownedError) throw ownedError;
-      const owned = (ownedRows ?? []) as SupabaseProjectRow[];
+      const owned = (ownedRows ?? []) as SupabaseOwnedProjectRow[];
       const { data: memberships, error: memberError } = await this.queryClient.from("project_members")
         .select("project:project_id(*)").eq("user_id", userId).order("created_at", { ascending: false });
       if (memberError) throw memberError;
 
       const ownedIds = owned.map((row) => row.id);
-      const sharedOwned = new Set<string>();
-      if (ownedIds.length) {
-        const { data: memberRows, error } = await this.queryClient.from("project_members")
-          .select("project_id, user_id").in("project_id", ownedIds);
-        if (error) throw error;
-        const owners = new Map(owned.map((row) => [row.id, row.user_id]));
-        for (const member of (memberRows ?? []) as Array<{ project_id: string | null; user_id: string | null }>) {
-          if (member.project_id && member.user_id && member.user_id !== owners.get(member.project_id)) sharedOwned.add(member.project_id);
-        }
-      }
+      const sharedOwned = new Set(
+        owned
+          .filter((row) => (row.members ?? []).some((member) => member.user_id && member.user_id !== row.user_id))
+          .map((row) => row.id),
+      );
       const ownedIdSet = new Set(ownedIds);
       const memberProjects = (memberships ?? [])
         .map((entry) => (entry as unknown as { project?: SupabaseProjectRow | null }).project)
