@@ -262,7 +262,6 @@
       transition: transform 120ms ease-out;
     }
 
-    .task-item:hover .task-item-controls,
     .task-item:has(.task-item-controls:focus-within) .task-item-controls,
     .task-item[data-controls-visible="true"] .task-item-controls {
       opacity: 1;
@@ -270,7 +269,6 @@
       transform: translateX(0) scale(1);
     }
 
-    .task-item:hover .task-item-body,
     .task-item:has(.task-item-controls:focus-within) .task-item-body,
     .task-item[data-controls-visible="true"] .task-item-body {
       transform: translateX(var(--task-controls-offset));
