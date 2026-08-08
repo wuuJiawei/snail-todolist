@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,12 +7,14 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { endOfMonth, format, startOfMonth } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import type { DayContentProps } from "react-day-picker";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import * as storageOps from "@/data/operations";
 import type { CheckInRecord } from "@/data/operations";
+import type { CheckInRecord as DomainCheckInRecord } from "@/data/contracts/checkInRepository";
+import { getCheckInsByRange } from "@/services/checkInHistoryService";
 import { Icon } from "@/components/ui/icon-park";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,42 +27,82 @@ interface CheckInHistoryProps {
 const toLocalDateKey = (value: Date) =>
   `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 
+const toMonthKey = (value: Date) => `${value.getFullYear()}-${value.getMonth() + 1}`;
+
 const CheckInHistory: React.FC<CheckInHistoryProps> = ({
   open,
   onOpenChange,
 }) => {
   const [loading, setLoading] = useState(true);
-  const [records, setRecords] = useState<CheckInRecord[]>([]);
+  const [monthLoading, setMonthLoading] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date());
+  const [monthRecords, setMonthRecords] = useState<DomainCheckInRecord[]>([]);
   const [streak, setStreak] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [lastCheckIn, setLastCheckIn] = useState<Date | null>(null);
-  const pageSize = 365;
+  const monthCacheRef = useRef(new Map<string, DomainCheckInRecord[]>());
 
-  const fetchHistory = useCallback(async () => {
+  const fetchOverview = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ records: historyRecords, total }, currentStreak] = await Promise.all([
-        storageOps.getCheckInHistory(1, pageSize),
+      const [{ records, total }, currentStreak] = await Promise.all([
+        storageOps.getCheckInHistory(1, 1),
         storageOps.getCheckInStreak(),
       ]);
-      setRecords(historyRecords);
+      const latest: CheckInRecord | undefined = records[0];
       setTotalCount(total);
       setStreak(currentStreak);
-      setLastCheckIn(historyRecords.length > 0 ? new Date(historyRecords[0].check_in_time) : null);
+      setLastCheckIn(latest ? new Date(latest.check_in_time) : null);
     } catch (error) {
-      console.error("Error fetching check-in history:", error);
+      console.error("Error fetching check-in overview:", error);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const fetchMonth = useCallback(async (month: Date) => {
+    const monthKey = toMonthKey(month);
+    const cached = monthCacheRef.current.get(monthKey);
+    if (cached) {
+      setMonthRecords(cached);
+      return;
+    }
+
+    setMonthLoading(true);
+    try {
+      const records = await getCheckInsByRange(
+        startOfMonth(month).toISOString(),
+        endOfMonth(month).toISOString(),
+      );
+      monthCacheRef.current.set(monthKey, records);
+      setMonthRecords(records);
+    } catch (error) {
+      console.error("Error fetching monthly check-in history:", error);
+      setMonthRecords([]);
+    } finally {
+      setMonthLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (open) void fetchHistory();
-  }, [open, fetchHistory]);
+    if (open) void fetchOverview();
+  }, [open, fetchOverview]);
+
+  useEffect(() => {
+    if (open) void fetchMonth(visibleMonth);
+  }, [open, visibleMonth, fetchMonth]);
+
+  useEffect(() => {
+    if (!open) {
+      monthCacheRef.current.clear();
+      setVisibleMonth(new Date());
+      setMonthRecords([]);
+    }
+  }, [open]);
 
   const checkedDateKeys = useMemo(
-    () => new Set(records.map((record) => toLocalDateKey(new Date(record.check_in_time)))),
-    [records],
+    () => new Set(monthRecords.map((record) => toLocalDateKey(new Date(record.checkInTime)))),
+    [monthRecords],
   );
 
   const checkedDates = useMemo(
@@ -115,19 +157,28 @@ const CheckInHistory: React.FC<CheckInHistoryProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              <Calendar
-                mode="single"
-                selected={undefined}
-                onSelect={() => undefined}
-                locale={zhCN}
-                showOutsideDays={false}
-                className="mx-auto rounded-lg border [--cell-size:3.25rem] sm:[--cell-size:3.5rem]"
-                components={{ DayContent: CheckInDayContent }}
-                modifiers={{ checkedIn: checkedDates }}
-                modifiersClassNames={{
-                  checkedIn: "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
-                }}
-              />
+              <div className="relative mx-auto w-fit">
+                <Calendar
+                  mode="single"
+                  selected={undefined}
+                  onSelect={() => undefined}
+                  locale={zhCN}
+                  month={visibleMonth}
+                  onMonthChange={setVisibleMonth}
+                  showOutsideDays={false}
+                  className="rounded-lg border [--cell-size:3.25rem] sm:[--cell-size:3.5rem]"
+                  components={{ DayContent: CheckInDayContent }}
+                  modifiers={{ checkedIn: checkedDates }}
+                  modifiersClassNames={{
+                    checkedIn: "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+                  }}
+                />
+                {monthLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-[1px]">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </div>
 
               <div className="grid gap-3 text-sm text-gray-600 dark:text-gray-300 sm:grid-cols-2">
                 {[
@@ -173,7 +224,7 @@ const CheckInHistory: React.FC<CheckInHistoryProps> = ({
                 ))}
               </div>
 
-              {records.length === 0 && (
+              {totalCount === 0 && (
                 <div className="rounded-md border p-4 text-center text-sm text-gray-500">
                   还没有任何打卡记录
                 </div>
