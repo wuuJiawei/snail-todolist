@@ -24,6 +24,8 @@ Component
 - 组件、Context、Store、Hook 不得直接导入 Supabase client。
 - Repository 返回领域模型和统一错误，不暴露 Query Builder、PostgREST Response 或数据库字段细节。
 - `VITE_DATA_PROVIDER` 缺省时使用 `supabase`；`self-host` 仅为预留实现。
+- Supabase provider 查询已存在外键关系的数据时，优先使用 PostgREST relationship embedding 消除“先查主表、再按 ID 查关联表”的网络瀑布；该实现不得泄漏到通用 Repository 接口。
+- 不要求其他 provider 复刻 Supabase 查询方式；未来 self-host provider 应由后端自行完成关联查询并返回相同领域模型。
 - 当前不支持 IndexedDB 和离线模式，不要新增离线分支、离线身份或模式切换入口。
 
 ## 状态职责
