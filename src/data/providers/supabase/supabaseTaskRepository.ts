@@ -6,6 +6,7 @@ import { supabase } from "./client";
 import type { Database } from "./database.types";
 import { withSupabaseError } from "./mapSupabaseError";
 import { mapTaskRow, type SupabaseTaskRow } from "./mappers";
+import { getSessionUserId, requireSessionUserId } from "./authIdentity";
 
 type TaskAccessRow = Pick<SupabaseTaskRow, "id" | "user_id" | "project">;
 type TaskWrite = Record<string, string | number | boolean | null>;
@@ -70,18 +71,6 @@ export class SupabaseTaskRepository implements TaskRepository {
     this.queryClient = client as unknown as SupabaseClient;
   }
 
-  private async getUserId(): Promise<string | null> {
-    const { data, error } = await this.queryClient.auth.getUser();
-    if (error) throw error;
-    return data.user?.id ?? null;
-  }
-
-  private async requireUserId(): Promise<string> {
-    const userId = await this.getUserId();
-    if (!userId) throw new DataError("AUTH_REQUIRED", "请先登录");
-    return userId;
-  }
-
   private async findAccessRow(id: string): Promise<TaskAccessRow> {
     const { data, error } = await this.queryClient
       .from("tasks")
@@ -133,7 +122,7 @@ export class SupabaseTaskRepository implements TaskRepository {
 
   findAll(query: TaskQuery = {}) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) return [];
 
       const { data: memberships, error: memberError } = await this.queryClient
@@ -189,7 +178,7 @@ export class SupabaseTaskRepository implements TaskRepository {
 
   create(input: CreateTaskInput) {
     return withSupabaseError(async () => {
-      const userId = await this.requireUserId();
+      const userId = await requireSessionUserId(this.queryClient);
       if (input.projectId) await this.assertCanCreateInProject(input.projectId, userId);
 
       let orderRequest = this.queryClient
@@ -221,7 +210,7 @@ export class SupabaseTaskRepository implements TaskRepository {
 
   upsert(task: DomainTask) {
     return withSupabaseError(async () => {
-      const userId = await this.requireUserId();
+      const userId = await requireSessionUserId(this.queryClient);
       const { data, error } = await this.queryClient
         .from("tasks")
         .upsert(mapTaskForUpsert(task, userId))
@@ -234,7 +223,7 @@ export class SupabaseTaskRepository implements TaskRepository {
 
   update(id: string, input: UpdateTaskInput) {
     return withSupabaseError(async () => {
-      const userId = await this.requireUserId();
+      const userId = await requireSessionUserId(this.queryClient);
       await this.assertCanModify(id, userId);
       const { data, error } = await this.queryClient
         .from("tasks")
@@ -250,7 +239,7 @@ export class SupabaseTaskRepository implements TaskRepository {
 
   async remove(id: string) {
     await withSupabaseError(async () => {
-      const userId = await this.requireUserId();
+      const userId = await requireSessionUserId(this.queryClient);
       await this.assertCanModify(id, userId, true);
       const { data, error } = await this.queryClient
         .from("tasks")
@@ -287,7 +276,7 @@ export class SupabaseTaskRepository implements TaskRepository {
   async reorder(items: Array<{ id: string; order: number }>) {
     await withSupabaseError(async () => {
       if (items.length === 0) return;
-      await this.requireUserId();
+      await requireSessionUserId(this.queryClient);
       const results = await Promise.all(items.map(({ id, order }) =>
         this.queryClient.from("tasks").update({ sort_order: order }).eq("id", id)
       ));
