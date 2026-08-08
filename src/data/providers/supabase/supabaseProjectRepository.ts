@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 import { mapProjectRow, type SupabaseProjectRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";
+import { getSessionUserId } from "./authIdentity";
 
 export class SupabaseProjectRepository implements ProjectRepository {
   private readonly queryClient: SupabaseClient;
@@ -14,15 +15,9 @@ export class SupabaseProjectRepository implements ProjectRepository {
     this.queryClient = client as unknown as SupabaseClient;
   }
 
-  private async getUserId(): Promise<string | null> {
-    const { data, error } = await this.queryClient.auth.getUser();
-    if (error) throw error;
-    return data.user?.id ?? null;
-  }
-
   findAll() {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) return [];
       const { data: ownedRows, error: ownedError } = await this.queryClient.from("projects")
         .select("*").eq("user_id", userId).order("sort_order", { ascending: true, nullsFirst: false })
@@ -65,7 +60,7 @@ export class SupabaseProjectRepository implements ProjectRepository {
 
   create(input: CreateProjectInput) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) throw new DataError("AUTH_REQUIRED", "请先登录后再创建清单");
 
       const { data: maxOrderRows, error: orderError } = await this.queryClient
@@ -98,7 +93,7 @@ export class SupabaseProjectRepository implements ProjectRepository {
 
   upsert(project: DomainProject) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) throw new DataError("AUTH_REQUIRED", "请先登录");
       const { data, error } = await this.queryClient.from("projects").upsert({
         id: project.id,
