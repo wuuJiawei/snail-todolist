@@ -18,6 +18,32 @@ const projectRow = {
 };
 
 describe("SupabaseProjectRepository", () => {
+  it("loads owned project membership metadata without a follow-up member query", async () => {
+    const ownedQuery = { select: vi.fn(), eq: vi.fn(), order: vi.fn() };
+    ownedQuery.select.mockReturnValue(ownedQuery);
+    ownedQuery.eq.mockReturnValue(ownedQuery);
+    ownedQuery.order.mockReturnValueOnce(ownedQuery).mockResolvedValueOnce({
+      data: [{ ...projectRow, members: [{ user_id: "user-1" }, { user_id: "user-2" }] }],
+      error: null,
+    });
+    const membershipQuery = { select: vi.fn(), eq: vi.fn(), order: vi.fn() };
+    membershipQuery.select.mockReturnValue(membershipQuery);
+    membershipQuery.eq.mockReturnValue(membershipQuery);
+    membershipQuery.order.mockResolvedValue({ data: [], error: null });
+    const from = vi.fn().mockReturnValueOnce(ownedQuery).mockReturnValueOnce(membershipQuery);
+    const client = {
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
+      from,
+    } as unknown as SupabaseClient<Database>;
+    const repository = new SupabaseProjectRepository(client);
+
+    await expect(repository.findAll()).resolves.toEqual([
+      expect.objectContaining({ id: "project-1", isShared: true }),
+    ]);
+    expect(ownedQuery.select).toHaveBeenCalledWith("*, members:project_members(user_id)");
+    expect(from).toHaveBeenCalledTimes(2);
+  });
+
   it("creates a project after the current maximum sort order", async () => {
     const orderQuery = { select: vi.fn(), eq: vi.fn(), order: vi.fn(), limit: vi.fn() };
     orderQuery.select.mockReturnValue(orderQuery);
