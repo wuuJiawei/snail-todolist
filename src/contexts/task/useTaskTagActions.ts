@@ -14,7 +14,7 @@ export function useTaskTagActions(tasks: Task[], tagTaskIds: string[], recordTas
   const { toast } = useToast();
   const [tagsVersion, setTagsVersion] = useState(0);
   const taskMappingKey = useMemo(() => tagKeys.forTasks(tagTaskIds), [tagTaskIds]);
-  const { data: taskIdToTags = EMPTY_TASK_TAGS } = useQuery({
+  const { data: taskIdToTags = EMPTY_TASK_TAGS, isPending: taskTagsPending } = useQuery({
     ...tagQueries.forTasks(tagTaskIds),
     enabled: tagTaskIds.length > 0,
     placeholderData: (previous) => previous,
@@ -144,5 +144,5 @@ export function useTaskTagActions(tasks: Task[], tagTaskIds: string[], recordTas
     return projectSpecificTags;
   }, [queryClient]);
 
-  return { taskIdToTags, getTaskTags, attachTagToTask, detachTagFromTask, listAllTags, createTag, deleteTagPermanently, updateTagProject, renameTag, refreshAllTags, getAllTagUsageCounts, getCachedTags, ensureTagsLoaded, tagsVersion };
+  return { taskIdToTags, taskTagsPending, getTaskTags, attachTagToTask, detachTagFromTask, listAllTags, createTag, deleteTagPermanently, updateTagProject, renameTag, refreshAllTags, getAllTagUsageCounts, getCachedTags, ensureTagsLoaded, tagsVersion };
 }

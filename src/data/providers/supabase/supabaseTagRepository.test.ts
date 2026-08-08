@@ -9,19 +9,13 @@ describe("SupabaseTagRepository", () => {
     linkQuery.select.mockReturnValue(linkQuery);
     linkQuery.in.mockResolvedValue({
       data: [
-        { task_id: "task-1", tag_id: "tag-1" },
-        { task_id: "task-2", tag_id: "tag-1" },
+        { task_id: "task-1", tag: { id: "tag-1", name: "Urgent", project_id: null, user_id: "user-1" } },
+        { task_id: "task-2", tag: { id: "tag-1", name: "Urgent", project_id: null, user_id: "user-1" } },
       ],
       error: null,
     });
-    const tag = { id: "tag-1", name: "Urgent", project_id: null, user_id: "user-1" };
-    const tagQuery = { select: vi.fn(), in: vi.fn() };
-    tagQuery.select.mockReturnValue(tagQuery);
-    tagQuery.in.mockResolvedValue({ data: [tag], error: null });
     const client = {
-      from: vi.fn()
-        .mockReturnValueOnce(linkQuery)
-        .mockReturnValueOnce(tagQuery),
+      from: vi.fn().mockReturnValue(linkQuery),
     } as unknown as SupabaseClient<Database>;
     const repository = new SupabaseTagRepository(client);
 
@@ -31,6 +25,27 @@ describe("SupabaseTagRepository", () => {
       "task-2": [domainTag],
       "task-3": [],
     });
+    expect(client.from).toHaveBeenCalledTimes(1);
+    expect(client.from).toHaveBeenCalledWith("task_tags");
+    expect(linkQuery.select).toHaveBeenCalledWith("task_id, tag:tags(*)");
+  });
+
+  it("starts task-tag batches in parallel", async () => {
+    const pending: Array<(value: { data: []; error: null }) => void> = [];
+    const query = { select: vi.fn(), in: vi.fn() };
+    query.select.mockReturnValue(query);
+    query.in.mockImplementation(() => new Promise((resolve) => pending.push(resolve)));
+    const client = { from: vi.fn(() => query) } as unknown as SupabaseClient<Database>;
+    const repository = new SupabaseTagRepository(client);
+    const taskIds = Array.from({ length: 201 }, (_, index) => `task-${index}`);
+
+    const resultPromise = repository.findByTaskIds(taskIds);
+    await vi.waitFor(() => expect(query.in).toHaveBeenCalledTimes(3));
+    pending.forEach((resolve) => resolve({ data: [], error: null }));
+
+    const result = await resultPromise;
+    expect(Object.keys(result)).toHaveLength(201);
+    expect(client.from).toHaveBeenCalledTimes(3);
   });
 
   it("updates name and project scope in one request", async () => {
