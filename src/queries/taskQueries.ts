@@ -16,8 +16,6 @@ export const taskQueries = {
       queryFn: () => storageOps.fetchTasks(false),
       staleTime: 5 * 60 * 1000,
       refetchOnReconnect: true,
-      refetchInterval: 60 * 1000,
-      refetchIntervalInBackground: true,
     }),
   trashed: () =>
     queryOptions<Task[]>({
