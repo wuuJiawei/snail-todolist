@@ -1,3 +1,5 @@
+import type { Tag } from "./tag";
+
 export interface Task {
   id: string;
   title: string;
@@ -16,6 +18,7 @@ export interface Task {
   abandoned_at?: string; // ISO string format representing when the task was abandoned
   flagged?: boolean; // Whether the task is flagged for quick access
   attachments?: TaskAttachment[]; // File attachments
+  tags?: Tag[]; // Optional relation data when the active provider can return it with the task query
 }
 
 export interface TaskAttachment {
