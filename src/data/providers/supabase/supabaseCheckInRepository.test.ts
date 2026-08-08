@@ -87,4 +87,34 @@ describe("SupabaseCheckInRepository", () => {
     expect(query.range).toHaveBeenCalledWith(10, 19);
     expect(from).toHaveBeenCalledTimes(1);
   });
+
+  it("loads only check-ins inside the requested calendar range", async () => {
+    const row = {
+      id: "check-in-1",
+      user_id: "user-1",
+      check_in_time: "2026-08-08T04:00:00.000Z",
+      created_at: "2026-08-08T04:00:00.000Z",
+      note: null,
+    };
+    const query = { select: vi.fn(), eq: vi.fn(), gte: vi.fn(), lte: vi.fn(), order: vi.fn() };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.gte.mockReturnValue(query);
+    query.lte.mockReturnValue(query);
+    query.order.mockResolvedValue({ data: [row], error: null });
+    const client = {
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
+      from: vi.fn(() => query),
+    } as unknown as SupabaseClient<Database>;
+    const repository = new SupabaseCheckInRepository(client);
+    const fromIso = "2026-07-31T16:00:00.000Z";
+    const toIso = "2026-08-31T15:59:59.999Z";
+
+    await expect(repository.findByRange(fromIso, toIso)).resolves.toEqual([
+      { id: "check-in-1", checkInTime: row.check_in_time, createdAt: row.created_at, note: null },
+    ]);
+    expect(query.gte).toHaveBeenCalledWith("check_in_time", fromIso);
+    expect(query.lte).toHaveBeenCalledWith("check_in_time", toIso);
+    expect(query.order).toHaveBeenCalledWith("check_in_time", { ascending: true });
+  });
 });
