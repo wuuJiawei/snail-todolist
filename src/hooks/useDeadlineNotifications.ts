@@ -46,8 +46,8 @@ export const useDeadlineNotifications = ({
         
         lastCheckRef.current = now;
         
-        // 检查并发送通知
-        await checkAndNotify(tasks);
+        // 复用本轮已读取的配置，避免再次访问配置存储
+        await checkAndNotify(tasks, config);
         
       } catch (error) {
         console.error("Error checking deadlines:", error);
