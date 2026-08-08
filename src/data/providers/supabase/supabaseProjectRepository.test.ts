@@ -29,7 +29,7 @@ describe("SupabaseProjectRepository", () => {
     insertQuery.select.mockReturnValue(insertQuery);
     insertQuery.single.mockResolvedValue({ data: projectRow, error: null });
     const client = {
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }) },
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
       from: vi.fn().mockReturnValueOnce(orderQuery).mockReturnValueOnce(insertQuery),
     } as unknown as SupabaseClient<Database>;
     const repository = new SupabaseProjectRepository(client);
