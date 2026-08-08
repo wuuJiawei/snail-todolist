@@ -71,7 +71,7 @@ export function toDomainTask(task: Task): DomainTask {
 }
 
 export function toLegacyTask(task: DomainTask): Task {
-  return {
+  const legacy: Task = {
     id: task.id, title: task.title, completed: task.completed, date: task.date,
     project: task.projectId, description: task.description, icon: task.icon,
     completed_at: task.completedAt, updated_at: task.updatedAt, user_id: task.ownerId,
@@ -81,8 +81,9 @@ export function toLegacyTask(task: DomainTask): Task {
       id: file.id, filename: file.filename, original_name: file.originalName, url: file.url,
       size: file.size, type: file.type, uploaded_at: file.uploadedAt,
     })),
-    tags: task.tags?.map(toLegacyTag),
   };
+  if (task.tags !== undefined) legacy.tags = task.tags.map(toLegacyTag);
+  return legacy;
 }
 
 export function toDomainTaskUpdate(task: Partial<Task>): Partial<Omit<DomainTask, "id">> {
