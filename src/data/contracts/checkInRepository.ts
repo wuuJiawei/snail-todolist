@@ -14,5 +14,6 @@ export interface CheckInRepository {
   hasCheckedInToday(): Promise<boolean>;
   create(note?: string): Promise<CheckInRecord>;
   findHistory(page?: number, pageSize?: number): Promise<CheckInPage>;
+  findByRange(fromIso: string, toIso: string): Promise<CheckInRecord[]>;
   getStreak(): Promise<number>;
 }
