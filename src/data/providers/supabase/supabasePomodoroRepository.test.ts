@@ -28,7 +28,7 @@ describe("SupabasePomodoroRepository", () => {
     query.order.mockReturnValue(query);
     query.limit.mockResolvedValue({ data: [row], error: null });
     const client = {
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }) },
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
       from: vi.fn(() => query),
     } as unknown as SupabaseClient<Database>;
     const repository = new SupabasePomodoroRepository(client);
@@ -63,7 +63,7 @@ describe("SupabasePomodoroRepository", () => {
     query.select.mockReturnValue(query);
     query.maybeSingle.mockResolvedValue({ data: { ...row, completed: false }, error: null });
     const client = {
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }) },
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
       from: vi.fn(() => query),
     } as unknown as SupabaseClient<Database>;
     const repository = new SupabasePomodoroRepository(client);
