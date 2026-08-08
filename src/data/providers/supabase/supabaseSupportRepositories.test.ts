@@ -29,7 +29,7 @@ describe("SupabaseActivityRepository", () => {
     query.select.mockReturnValue(query);
     query.single.mockResolvedValue({ data: activity, error: null });
     const client = {
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }) },
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
       from: vi.fn(() => query),
     } as unknown as SupabaseClient<Database>;
     const repository = new SupabaseActivityRepository(client);
