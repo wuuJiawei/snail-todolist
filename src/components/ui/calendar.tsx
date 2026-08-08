@@ -1,4 +1,3 @@
-
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
@@ -17,28 +16,28 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("w-full p-3 pointer-events-auto [--cell-size:2.25rem]", className)}
+      className={cn("p-3 pointer-events-auto [--cell-size:2.5rem]", className)}
       classNames={{
-        months: "flex w-full flex-col gap-4",
-        month: "w-full space-y-4",
-        caption: "flex items-center justify-between pt-1",
+        months: "flex flex-col gap-4 sm:flex-row",
+        month: "space-y-4",
+        caption: "relative flex h-[var(--cell-size)] items-center justify-center px-[var(--cell-size)]",
         caption_label: "text-sm font-medium",
-        nav: "flex items-center gap-2",
+        nav: "absolute inset-x-0 top-0 flex h-[var(--cell-size)] items-center justify-between",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "h-[var(--cell-size)] w-[var(--cell-size)] bg-transparent p-0 opacity-60 hover:opacity-100"
         ),
         nav_button_previous: "",
         nav_button_next: "",
-        table: "w-full border-collapse space-y-1",
+        table: "w-full border-collapse",
         head_row: "flex",
         head_cell:
-          "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
-        row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+          "w-[var(--cell-size)] rounded-md text-center text-[0.8rem] font-normal text-muted-foreground",
+        row: "mt-2 flex w-full",
+        cell: "relative h-[var(--cell-size)] w-[var(--cell-size)] p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100"
+          "h-[var(--cell-size)] w-[var(--cell-size)] p-0 font-normal aria-selected:opacity-100"
         ),
         day_range_end: "day-range-end",
         day_selected:
@@ -53,8 +52,8 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
+        IconLeft: () => <ChevronLeft className="h-4 w-4" />,
+        IconRight: () => <ChevronRight className="h-4 w-4" />,
       }}
       {...props}
     />
