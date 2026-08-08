@@ -14,9 +14,14 @@ export function useTaskTagActions(tasks: Task[], tagTaskIds: string[], recordTas
   const { toast } = useToast();
   const [tagsVersion, setTagsVersion] = useState(0);
   const taskMappingKey = useMemo(() => tagKeys.forTasks(tagTaskIds), [tagTaskIds]);
+  const providerTaskTags = useMemo<Record<string, Tag[]> | undefined>(() => {
+    if (tasks.length === 0 || tasks.some((task) => task.tags === undefined)) return undefined;
+    return Object.fromEntries(tasks.map((task) => [task.id, task.tags ?? []]));
+  }, [tasks]);
   const { data: taskIdToTags = EMPTY_TASK_TAGS, isPending: taskTagsPending } = useQuery({
     ...tagQueries.forTasks(tagTaskIds),
     enabled: tagTaskIds.length > 0,
+    initialData: providerTaskTags,
     placeholderData: (previous) => previous,
   });
   const incrementTagsVersion = useCallback(() => setTagsVersion((version) => version + 1), []);

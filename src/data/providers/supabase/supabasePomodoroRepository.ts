@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./client";
 import type { Database } from "./database.types";
 import { withSupabaseError } from "./mapSupabaseError";
+import { getSessionUserId } from "./authIdentity";
 
 interface PomodoroRow {
   id: string;
@@ -71,15 +72,9 @@ export class SupabasePomodoroRepository implements PomodoroRepository {
     this.queryClient = client as unknown as SupabaseClient;
   }
 
-  private async getUserId(): Promise<string | null> {
-    const { data, error } = await this.queryClient.auth.getUser();
-    if (error) throw error;
-    return data.user?.id ?? null;
-  }
-
   findAll(query: PomodoroQuery = {}) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) return [];
 
       let request = this.queryClient
@@ -100,7 +95,7 @@ export class SupabasePomodoroRepository implements PomodoroRepository {
 
   findActive() {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) return null;
       const { data, error } = await this.queryClient
         .from("pomodoro_sessions")
@@ -117,7 +112,7 @@ export class SupabasePomodoroRepository implements PomodoroRepository {
 
   start(type: PomodoroSessionType, duration: number, title?: string) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) throw new DataError("AUTH_REQUIRED", "登录后才能使用番茄钟功能");
       const { data, error } = await this.queryClient
         .from("pomodoro_sessions")
@@ -138,7 +133,7 @@ export class SupabasePomodoroRepository implements PomodoroRepository {
 
   complete(id: string, options: { completed?: boolean; endTime?: string; duration?: number } = {}) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) throw new DataError("AUTH_REQUIRED", "登录后才能使用番茄钟功能");
       const updates: Record<string, unknown> = {
         completed: options.completed ?? true,
@@ -161,7 +156,7 @@ export class SupabasePomodoroRepository implements PomodoroRepository {
 
   async remove(id: string) {
     await withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) throw new DataError("AUTH_REQUIRED", "登录后才能使用番茄钟功能");
       const { error } = await this.queryClient
         .from("pomodoro_sessions")

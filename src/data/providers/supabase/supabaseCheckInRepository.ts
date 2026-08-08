@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./client";
 import type { Database } from "./database.types";
 import { withSupabaseError } from "./mapSupabaseError";
+import { getSessionUserId } from "./authIdentity";
 
 type CheckInRow = Database["public"]["Tables"]["checkin_records"]["Row"];
 
@@ -49,12 +50,6 @@ const mapRow = (row: CheckInRow): CheckInRecord => {
 export class SupabaseCheckInRepository implements CheckInRepository {
   constructor(private readonly client: SupabaseClient<Database> = supabase) {}
 
-  private async getUserId(): Promise<string | null> {
-    const { data, error } = await this.client.auth.getUser();
-    if (error) throw error;
-    return data.user?.id ?? null;
-  }
-
   private async hasCheckedIn(userId: string, now = new Date()): Promise<boolean> {
     const { startIso, endIso } = getTodayBounds(now);
     const { data, error } = await this.client
@@ -69,14 +64,14 @@ export class SupabaseCheckInRepository implements CheckInRepository {
 
   hasCheckedInToday() {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.client);
       return userId ? this.hasCheckedIn(userId) : false;
     });
   }
 
   create(note?: string) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.client);
       if (!userId) throw new DataError("AUTH_REQUIRED", "请先登录后再打卡");
       if (await this.hasCheckedIn(userId)) throw new DataError("CONFLICT", "今天已经打过卡了");
 
@@ -93,19 +88,13 @@ export class SupabaseCheckInRepository implements CheckInRepository {
 
   findHistory(page = 1, pageSize = 10) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.client);
       if (!userId) return { records: [], total: 0 };
 
-      const { count, error: countError } = await this.client
-        .from("checkin_records")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId);
-      if (countError) throw countError;
-
       const offset = Math.max(0, page - 1) * Math.max(1, pageSize);
-      const { data, error } = await this.client
+      const { data, count, error } = await this.client
         .from("checkin_records")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("user_id", userId)
         .order("check_in_time", { ascending: false })
         .range(offset, offset + Math.max(1, pageSize) - 1);
@@ -116,7 +105,7 @@ export class SupabaseCheckInRepository implements CheckInRepository {
 
   getStreak() {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.client);
       if (!userId) return 0;
       const { data, error } = await this.client
         .from("checkin_records")

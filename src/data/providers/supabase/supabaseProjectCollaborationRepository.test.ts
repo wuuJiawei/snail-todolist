@@ -4,7 +4,7 @@ import type { Database } from "./database.types";
 import { SupabaseProjectCollaborationRepository } from "./supabaseProjectCollaborationRepository";
 
 describe("SupabaseProjectCollaborationRepository", () => {
-  it("maps member profiles without exposing Supabase rows", async () => {
+  it("maps member profiles from one embedded relation query", async () => {
     const memberQuery = {
       select: vi.fn(),
       eq: vi.fn(),
@@ -13,20 +13,18 @@ describe("SupabaseProjectCollaborationRepository", () => {
     memberQuery.select.mockReturnValue(memberQuery);
     memberQuery.eq.mockReturnValue(memberQuery);
     memberQuery.order.mockResolvedValue({
-      data: [{ id: "member-1", project_id: "project-1", user_id: "user-1", role: "owner", created_at: null }],
+      data: [{
+        id: "member-1",
+        project_id: "project-1",
+        user_id: "user-1",
+        role: "owner",
+        created_at: null,
+        profile: { id: "user-1", email: "owner@example.com", display_name: "Owner", avatar_url: null },
+      }],
       error: null,
     });
 
-    const profileQuery = { select: vi.fn(), in: vi.fn() };
-    profileQuery.select.mockReturnValue(profileQuery);
-    profileQuery.in.mockResolvedValue({
-      data: [{ id: "user-1", email: "owner@example.com", display_name: "Owner", avatar_url: null }],
-      error: null,
-    });
-
-    const client = {
-      from: vi.fn((table: string) => table === "project_members" ? memberQuery : profileQuery),
-    } as unknown as SupabaseClient<Database>;
+    const client = { from: vi.fn(() => memberQuery) } as unknown as SupabaseClient<Database>;
     const repository = new SupabaseProjectCollaborationRepository(client);
 
     await expect(repository.listMembers("project-1")).resolves.toEqual([{
@@ -37,6 +35,10 @@ describe("SupabaseProjectCollaborationRepository", () => {
       createdAt: undefined,
       profile: { id: "user-1", username: "Owner", avatar_url: null },
     }]);
+    expect(memberQuery.select).toHaveBeenCalledWith(
+      "id, project_id, user_id, role, created_at, profile:profiles!project_members_user_id_fkey(id, email, display_name, avatar_url)",
+    );
+    expect(client.from).toHaveBeenCalledTimes(1);
   });
 
   it("reuses a non-expired active share", async () => {

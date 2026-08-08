@@ -15,12 +15,12 @@ const taskRow = {
 };
 
 const authenticatedClient = (from: ReturnType<typeof vi.fn>) => ({
-  auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }) },
+  auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
   from,
 }) as unknown as SupabaseClient<Database>;
 
 describe("SupabaseTaskRepository", () => {
-  it("loads owned and shared-project tasks through one access query", async () => {
+  it("loads active tasks and their tags through the task query", async () => {
     const membershipQuery = { select: vi.fn(), eq: vi.fn() };
     membershipQuery.select.mockReturnValue(membershipQuery);
     membershipQuery.eq.mockResolvedValue({ data: [{ project_id: "project-2" }], error: null });
@@ -28,11 +28,24 @@ describe("SupabaseTaskRepository", () => {
     taskQuery.select.mockReturnValue(taskQuery);
     taskQuery.or.mockReturnValue(taskQuery);
     taskQuery.eq.mockReturnValue(taskQuery);
-    taskQuery.order.mockReturnValueOnce(taskQuery).mockResolvedValueOnce({ data: [taskRow], error: null });
+    taskQuery.order.mockReturnValueOnce(taskQuery).mockResolvedValueOnce({
+      data: [{
+        ...taskRow,
+        task_tags: [{ tag: { id: "tag-1", name: "Urgent", user_id: "user-1", project_id: null } }],
+      }],
+      error: null,
+    });
     const from = vi.fn().mockReturnValueOnce(membershipQuery).mockReturnValueOnce(taskQuery);
     const repository = new SupabaseTaskRepository(authenticatedClient(from));
 
-    await expect(repository.findAll()).resolves.toEqual([expect.objectContaining({ id: "task-1", attachments: [] })]);
+    await expect(repository.findAll()).resolves.toEqual([
+      expect.objectContaining({
+        id: "task-1",
+        attachments: [],
+        tags: [expect.objectContaining({ id: "tag-1", name: "Urgent" })],
+      }),
+    ]);
+    expect(taskQuery.select).toHaveBeenCalledWith("*, task_tags(tag:tags(*))");
     expect(taskQuery.or).toHaveBeenCalledWith("user_id.eq.user-1,project.in.(project-2)");
     expect(taskQuery.eq).toHaveBeenCalledWith("deleted", false);
     expect(taskQuery.eq).toHaveBeenCalledWith("abandoned", false);

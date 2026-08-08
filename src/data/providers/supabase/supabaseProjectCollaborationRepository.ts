@@ -11,6 +11,15 @@ interface ProfileRow {
   avatar_url: string | null;
 }
 
+interface ProjectMemberProfileRow {
+  id: string;
+  project_id: string | null;
+  user_id: string | null;
+  role: string;
+  created_at: string | null;
+  profile: ProfileRow | ProfileRow[] | null;
+}
+
 const SHARE_CODE_LENGTH = 8;
 const SHARE_CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
@@ -28,41 +37,30 @@ export class SupabaseProjectCollaborationRepository implements ProjectCollaborat
 
   listMembers(projectId: string) {
     return withSupabaseError(async () => {
-      const { data, error } = await this.client
+      const { data, error } = await this.untypedClient
         .from("project_members")
-        .select("id, project_id, user_id, role, created_at")
+        .select("id, project_id, user_id, role, created_at, profile:profiles!project_members_user_id_fkey(id, email, display_name, avatar_url)")
         .eq("project_id", projectId)
         .order("created_at", { ascending: true });
       if (error) throw error;
 
-      const rows = data ?? [];
-      const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter(Boolean))) as string[];
-      const profiles = new Map<string, ProfileRow>();
-      if (userIds.length > 0) {
-        const { data: profileRows, error: profileError } = await this.untypedClient
-          .from("profiles")
-          .select("id, email, display_name, avatar_url")
-          .in("id", userIds);
-        if (!profileError) {
-          for (const profile of (profileRows ?? []) as ProfileRow[]) profiles.set(profile.id, profile);
-        }
-      }
-
-      return rows.filter((row) => row.project_id && row.user_id).map((row): ProjectMemberWithProfile => {
-        const profile = profiles.get(row.user_id!);
-        return {
-        id: row.id,
-        projectId: row.project_id!,
-        userId: row.user_id!,
-        role: row.role === "owner" ? "owner" : "member",
-        createdAt: row.created_at ?? undefined,
-        profile: profile ? {
-          id: profile.id,
-          username: profile.display_name ?? profile.email,
-          avatar_url: profile.avatar_url,
-        } : null,
-        };
-      });
+      return ((data ?? []) as ProjectMemberProfileRow[])
+        .filter((row) => row.project_id && row.user_id)
+        .map((row): ProjectMemberWithProfile => {
+          const profile = Array.isArray(row.profile) ? row.profile[0] : row.profile;
+          return {
+            id: row.id,
+            projectId: row.project_id!,
+            userId: row.user_id!,
+            role: row.role === "owner" ? "owner" : "member",
+            createdAt: row.created_at ?? undefined,
+            profile: profile ? {
+              id: profile.id,
+              username: profile.display_name ?? profile.email,
+              avatar_url: profile.avatar_url,
+            } : null,
+          };
+        });
     });
   }
 

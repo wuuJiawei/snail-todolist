@@ -18,6 +18,7 @@ export interface DomainTask {
   abandonedAt?: string;
   flagged?: boolean;
   attachments?: DomainTaskAttachment[];
+  tags?: DomainTag[];
 }
 
 export interface DomainTaskAttachment {
@@ -65,6 +66,7 @@ export function toDomainTask(task: Task): DomainTask {
       id: file.id, filename: file.filename, originalName: file.original_name, url: file.url,
       size: file.size, type: file.type, uploadedAt: file.uploaded_at,
     })),
+    tags: task.tags?.map(toDomainTag),
   };
 }
 
@@ -79,6 +81,7 @@ export function toLegacyTask(task: DomainTask): Task {
       id: file.id, filename: file.filename, original_name: file.originalName, url: file.url,
       size: file.size, type: file.type, uploaded_at: file.uploadedAt,
     })),
+    tags: task.tags?.map(toLegacyTag),
   };
 }
 

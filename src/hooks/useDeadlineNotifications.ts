@@ -31,23 +31,19 @@ export const useDeadlineNotifications = ({
 
     const checkDeadlines = async () => {
       try {
+        const now = Date.now();
+        if (now - lastCheckRef.current < 5 * 60 * 1000) {
+          return;
+        }
+        lastCheckRef.current = now;
+
         const config = await getDeadlineConfig();
-        
         if (!config.enabled) {
           return;
         }
 
-        const now = Date.now();
-        
-        // 避免频繁检查，每5分钟最多检查一次
-        if (now - lastCheckRef.current < 5 * 60 * 1000) {
-          return;
-        }
-        
-        lastCheckRef.current = now;
-        
-        // 检查并发送通知
-        await checkAndNotify(tasks);
+        // 复用本轮已读取的配置，避免再次访问配置存储
+        await checkAndNotify(tasks, config);
         
       } catch (error) {
         console.error("Error checking deadlines:", error);

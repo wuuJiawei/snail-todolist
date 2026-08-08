@@ -16,6 +16,7 @@ import { supabase } from "./client";
 import type { Database } from "./database.types";
 import { mapFileRow, mapTaskRow, type SupabaseTaskRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";
+import { getSessionUserId, requireSessionUserId } from "./authIdentity";
 
 const toDomainSettings = (settings: Record<string, unknown>): UserSettings => ({
   deadlineNotificationEnabled: settings.deadline_notification_enabled as boolean | undefined,
@@ -65,10 +66,9 @@ export class SupabaseActivityRepository implements ActivityRepository {
 
   create(taskId: string, action: string, metadata?: Record<string, unknown>) {
     return withSupabaseError(async () => {
-      const { data: auth, error: authError } = await this.queryClient.auth.getUser();
-      if (authError) throw authError;
-      const identity = auth.user
-        ? { user_id: auth.user.id }
+      const userId = await getSessionUserId(this.queryClient);
+      const identity = userId
+        ? { user_id: userId }
         : { anonymous_id: getOrCreateGuestId() };
       const { data, error } = await this.queryClient
         .from("task_activities")
@@ -88,11 +88,8 @@ export class SupabaseFileRepository implements FileRepository {
     this.queryClient = client;
   }
 
-  private async requireUserId(): Promise<string> {
-    const { data, error } = await this.queryClient.auth.getUser();
-    if (error) throw error;
-    if (!data.user) throw new DataError("AUTH_REQUIRED", "请先登录");
-    return data.user.id;
+  private requireUserId(): Promise<string> {
+    return requireSessionUserId(this.queryClient);
   }
 
   private async upload(bucket: string, path: string, file: File) {

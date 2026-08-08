@@ -43,7 +43,7 @@ describe("SupabaseCheckInRepository", () => {
     insertQuery.single.mockResolvedValue({ data: createdRow, error: null });
 
     const client = {
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }) },
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
       from: vi.fn()
         .mockReturnValueOnce(statusQuery)
         .mockReturnValueOnce(insertQuery),
@@ -57,5 +57,34 @@ describe("SupabaseCheckInRepository", () => {
       note: "Ready",
     });
     expect(insertQuery.insert).toHaveBeenCalledWith(expect.objectContaining({ note: "Ready", user_id: "user-1" }));
+  });
+
+  it("loads paged history and exact total in one data query", async () => {
+    const row = {
+      id: "check-in-1",
+      user_id: "user-1",
+      check_in_time: "2026-08-05T04:00:00.000Z",
+      created_at: "2026-08-05T04:00:00.000Z",
+      note: null,
+    };
+    const query = { select: vi.fn(), eq: vi.fn(), order: vi.fn(), range: vi.fn() };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.order.mockReturnValue(query);
+    query.range.mockResolvedValue({ data: [row], count: 12, error: null });
+    const from = vi.fn(() => query);
+    const client = {
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null }) },
+      from,
+    } as unknown as SupabaseClient<Database>;
+    const repository = new SupabaseCheckInRepository(client);
+
+    await expect(repository.findHistory(2, 10)).resolves.toEqual({
+      records: [{ id: "check-in-1", checkInTime: row.check_in_time, createdAt: row.created_at, note: null }],
+      total: 12,
+    });
+    expect(query.select).toHaveBeenCalledWith("*", { count: "exact" });
+    expect(query.range).toHaveBeenCalledWith(10, 19);
+    expect(from).toHaveBeenCalledTimes(1);
   });
 });
