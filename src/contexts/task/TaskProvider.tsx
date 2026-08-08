@@ -16,6 +16,7 @@ import { canPerformOperation, requiresAuth, subscribeToTasks } from "@/data/oper
 import { buildTaskActivityDrafts, useTaskActivityRecorder } from "./useTaskActivityRecorder";
 import { useTaskReorder } from "./useTaskReorder";
 import { useTaskTagActions } from "./useTaskTagActions";
+import { isTaskListInitiallyLoading } from "./taskLoadingState";
 
 interface TaskProviderProps {
   children: ReactNode;
@@ -49,7 +50,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     isFetching: abandonedLoading,
     isFetched: abandonedLoaded,
   } = useQuery({ ...taskQueries.abandoned(), enabled: false });
-  const loading = canPerformOperation(user) && isActivePending;
   const tagTaskIds = useMemo(
     () => tasks.map((task) => task.id),
     [tasks],
@@ -116,10 +116,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const recordTaskActivity = useTaskActivityRecorder();
   const tagActions = useTaskTagActions(tasks, tagTaskIds, recordTaskActivity);
   const {
+    taskTagsPending,
     getTaskTags, attachTagToTask, detachTagFromTask, listAllTags, createTag,
     deleteTagPermanently, updateTagProject, renameTag, refreshAllTags,
     getAllTagUsageCounts, getCachedTags, ensureTagsLoaded, tagsVersion,
   } = tagActions;
+  const loading = isTaskListInitiallyLoading(
+    canPerformOperation(user),
+    isActivePending,
+    tasks.length,
+    taskTagsPending,
+  );
 
   useEffect(() => {
     if (canPerformOperation(user)) return;
