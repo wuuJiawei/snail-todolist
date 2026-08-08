@@ -7,8 +7,13 @@ import type { Database } from "./database.types";
 import { mapTagRow, type SupabaseTagRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 100;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type SupabaseTaskTagWithTagRow = {
+  task_id: string;
+  tag: SupabaseTagRow | SupabaseTagRow[] | null;
+};
 
 const hasErrorCode = (error: unknown, code: string): boolean =>
   typeof error === "object" && error !== null && "code" in error && error.code === code;
@@ -122,34 +127,27 @@ export class SupabaseTagRepository implements TagRepository {
 
   findByTaskIds(taskIds: string[]) {
     return withSupabaseError(async () => {
-      const result: Record<string, DomainTag[]> = Object.fromEntries(taskIds.map((taskId) => [taskId, []]));
-      if (taskIds.length === 0) return result;
+      const uniqueTaskIds = Array.from(new Set(taskIds));
+      const result: Record<string, DomainTag[]> = Object.fromEntries(uniqueTaskIds.map((taskId) => [taskId, []]));
+      if (uniqueTaskIds.length === 0) return result;
 
-      const links: Array<{ task_id: string; tag_id: string }> = [];
-      for (let offset = 0; offset < taskIds.length; offset += BATCH_SIZE) {
-        const { data, error } = await this.queryClient
+      const batches = Array.from(
+        { length: Math.ceil(uniqueTaskIds.length / BATCH_SIZE) },
+        (_, index) => uniqueTaskIds.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE),
+      );
+      const responses = await Promise.all(batches.map((batch) =>
+        this.queryClient
           .from("task_tags")
-          .select("task_id, tag_id")
-          .in("task_id", taskIds.slice(offset, offset + BATCH_SIZE));
-        if (error) throw error;
-        links.push(...((data ?? []) as Array<{ task_id: string; tag_id: string }>));
-      }
+          .select("task_id, tag:tags(*)")
+          .in("task_id", batch)
+      ));
 
-      const tagIds = Array.from(new Set(links.map((link) => link.tag_id)));
-      const tags: SupabaseTagRow[] = [];
-      for (let offset = 0; offset < tagIds.length; offset += BATCH_SIZE) {
-        const { data, error } = await this.queryClient
-          .from("tags")
-          .select("*")
-          .in("id", tagIds.slice(offset, offset + BATCH_SIZE));
+      for (const { data, error } of responses) {
         if (error) throw error;
-        tags.push(...((data ?? []) as SupabaseTagRow[]));
-      }
-
-      const tagsById = new Map(tags.map((tag) => [tag.id, mapTagRow(tag)]));
-      for (const link of links) {
-        const tag = tagsById.get(link.tag_id);
-        if (tag && result[link.task_id]) result[link.task_id].push(tag);
+        for (const row of (data ?? []) as SupabaseTaskTagWithTagRow[]) {
+          const relatedTags = Array.isArray(row.tag) ? row.tag : row.tag ? [row.tag] : [];
+          if (result[row.task_id]) result[row.task_id].push(...relatedTags.map(mapTagRow));
+        }
       }
       return result;
     });
