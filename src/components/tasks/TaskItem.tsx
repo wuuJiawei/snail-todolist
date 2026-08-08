@@ -4,7 +4,6 @@ import { useProjectContext } from "@/contexts/ProjectContext";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/components/ui/icon-park";
 import ProjectIcon from "@/components/ui/project-icon";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { Task } from "@/types/task";
 import { Tag } from "@/types/tag";
 import { format, isValid, parseISO, isBefore, startOfDay } from "date-fns";
@@ -38,7 +37,6 @@ interface TaskItemProps {
 const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectName, index, isDraggable = false }) => {
   const { selectTask, updateTask, moveToTrash, selectedTask, addTask, abandonTask, restoreAbandonedTask, getTaskTags, listAllTags, attachTagToTask, detachTagFromTask, createTag } = useTaskContext();
   const { projects } = useProjectContext();
-  const isMobile = useIsMobile();
   const [isEditing, setIsEditing] = useState(false);
   const [isHoverActive, setIsHoverActive] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
@@ -58,14 +56,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
     }
   }, [isEditing]);
 
-  const handleTaskSelect = () => {
-    if (isMobile) {
-      // On mobile, selecting a task should navigate to the task detail view
-      // This will be handled by the parent component
-    } else {
-      // On desktop, just select the task for the detail pane
-      selectTask(task.id);
-    }
+  const handleTaskClick = () => {
+    selectTask(task.id);
+    setIsEditing(true);
   };
 
   const handleCompletionToggle = async (e: React.MouseEvent) => {
@@ -99,13 +92,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
         variant: "destructive",
       });
     }
-  };
-
-  const handleTitleClick = (e: React.MouseEvent) => {
-    // First select the task, then enable editing
-    selectTask(task.id);
-    setIsEditing(true);
-    e.stopPropagation();
   };
 
   const cancelTitleEdit = () => {
@@ -515,12 +501,15 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
         onPointerEnter={() => setIsHoverActive(true)}
         onPointerLeave={() => setIsHoverActive(false)}
         onClickCapture={() => setIsHoverActive(false)}
-        onClick={handleTaskSelect}
+        onClick={handleTaskClick}
       >
       {/* 任务操作进度条覆盖层 */}
 
       <div className="absolute left-4 top-1/2 -translate-y-1/2">
-        <div className="task-item-controls flex items-center gap-3">
+        <div
+          className="task-item-controls flex items-center gap-3"
+          onClick={(event) => event.stopPropagation()}
+        >
           {isDraggable && (
             <div
               className="h-5 w-5 flex-shrink-0 flex items-center justify-center text-gray-300 hover:text-gray-500 transition-colors cursor-grab"
@@ -564,7 +553,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
       </div>
 
           <div className="task-item-body min-w-0 flex-1 truncate">
-            <div className="text-sm leading-tight truncate flex items-center gap-2" onClick={handleTitleClick}>
+            <div className="text-sm leading-tight truncate flex items-center gap-2">
               {task.icon && (
                 <span 
                   className="text-sm flex-shrink-0"
