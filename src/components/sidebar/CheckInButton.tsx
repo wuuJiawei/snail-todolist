@@ -7,8 +7,7 @@ import * as storageOps from "@/data/operations";
 import CheckInHistory from "@/components/checkin/CheckInHistory";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Add this configuration flag at the top of the file
-const IS_CHECK_IN_FEATURE_ENABLED = true; // Feature flag for check-in
+const IS_CHECK_IN_FEATURE_ENABLED = true;
 
 interface CheckInButtonProps {
   onClick?: () => void;
@@ -26,35 +25,51 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Function to check status that can be called from other functions
   const checkStatus = useCallback(async () => {
-    if (user) {
-      setLoading(true);
-      try {
-        const checked = await storageOps.hasCheckedInToday();
-        setCheckedInToday(checked);
-      } catch (error) {
-        console.error("Error checking check-in status:", error);
-      } finally {
-        setLoading(false);
-      }
+    if (!user) {
+      setCheckedInToday(false);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const checked = await storageOps.hasCheckedInToday();
+      setCheckedInToday(checked);
+    } catch (error) {
+      console.error("Error checking check-in status:", error);
+    } finally {
+      setLoading(false);
     }
   }, [user]);
 
-  // Check status on component mount and when user changes
   useEffect(() => {
-    // Initial check
-    checkStatus();
+    void checkStatus();
 
-    // Set up an interval to check status every minute
-    const intervalId = setInterval(checkStatus, 60000);
+    let midnightTimer: number | undefined;
+    const scheduleMidnightRefresh = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24, 0, 1, 0);
+      midnightTimer = window.setTimeout(async () => {
+        await checkStatus();
+        scheduleMidnightRefresh();
+      }, Math.max(1000, nextMidnight.getTime() - now.getTime()));
+    };
+    scheduleMidnightRefresh();
 
-    // Clean up the interval when component unmounts
-    return () => clearInterval(intervalId);
-  }, [user, checkStatus]);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void checkStatus();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (midnightTimer !== undefined) window.clearTimeout(midnightTimer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [checkStatus]);
 
   const handleClick = async () => {
-    // Double-check current status before proceeding
     await checkStatus();
 
     if (checkedInToday) {
@@ -68,7 +83,6 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
 
     setIsAnimating(true);
 
-    // Create check-in record via storageOps
     const result = await storageOps.createCheckIn();
 
     if (result) {
@@ -77,18 +91,13 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
         description: "今天又是充满活力的一天！",
         variant: "default",
       });
-      // Immediately update state
       setCheckedInToday(true);
-
-      // Also refresh the status from server to be sure
       await checkStatus();
 
-      // Reset animation after 3 seconds
       setTimeout(() => {
         setIsAnimating(false);
       }, 3000);
 
-      // Call the provided onClick handler if it exists
       if (onClick) onClick();
     } else {
       setIsAnimating(false);
@@ -97,7 +106,6 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
         description: "请稍后再试",
         variant: "destructive",
       });
-      // Refresh status in case of failure too
       await checkStatus();
     }
   };
@@ -107,14 +115,12 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
     setHistoryOpen(true);
   };
 
-  // If the feature is not enabled, render nothing
   if (!IS_CHECK_IN_FEATURE_ENABLED) {
     return null;
   }
 
   return (
     <div className={cn("flex flex-col items-center mt-auto mb-4", className)}>
-      {/* Animated snail */}
       <div className="relative h-8 w-full flex justify-center mb-1 overflow-hidden">
         <div
           className={cn(
@@ -133,7 +139,6 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
         </div>
       </div>
 
-      {/* Check-in button and history button */}
       <div className="flex w-full gap-2">
         <Button
           onClick={handleClick}
@@ -159,7 +164,6 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
         </Button>
       </div>
 
-      {/* Check-in history dialog */}
       <CheckInHistory
         open={historyOpen}
         onOpenChange={setHistoryOpen}
