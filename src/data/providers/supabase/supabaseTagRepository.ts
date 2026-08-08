@@ -6,6 +6,7 @@ import { supabase } from "./client";
 import type { Database } from "./database.types";
 import { mapTagRow, type SupabaseTagRow } from "./mappers";
 import { withSupabaseError } from "./mapSupabaseError";
+import { getSessionUserId } from "./authIdentity";
 
 const BATCH_SIZE = 100;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,16 +26,10 @@ export class SupabaseTagRepository implements TagRepository {
     this.queryClient = client as unknown as SupabaseClient;
   }
 
-  private async getUserId(): Promise<string | null> {
-    const { data, error } = await this.queryClient.auth.getUser();
-    if (error) throw error;
-    return data.user?.id ?? null;
-  }
-
   findAll(projectId?: string | null) {
     return withSupabaseError(async () => {
       if (typeof projectId === "string" && !UUID_PATTERN.test(projectId)) return [];
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) return [];
 
       let request = this.queryClient
@@ -53,7 +48,7 @@ export class SupabaseTagRepository implements TagRepository {
 
   findById(id: string) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) return null;
       const { data, error } = await this.queryClient
         .from("tags")
@@ -68,7 +63,7 @@ export class SupabaseTagRepository implements TagRepository {
 
   create(name: string, projectId?: string | null) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) throw new DataError("AUTH_REQUIRED", "请先登录后再创建标签");
       const { data, error } = await this.queryClient
         .from("tags")
@@ -82,7 +77,7 @@ export class SupabaseTagRepository implements TagRepository {
 
   upsert(tag: DomainTag) {
     return withSupabaseError(async () => {
-      const userId = await this.getUserId();
+      const userId = await getSessionUserId(this.queryClient);
       if (!userId) throw new DataError("AUTH_REQUIRED", "请先登录");
       const { data, error } = await this.queryClient
         .from("tags")
