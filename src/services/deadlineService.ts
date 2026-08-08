@@ -134,9 +134,12 @@ export const formatTimeUntilDeadline = (deadline: string): string => {
 };
 
 // 批量检查并发送通知
-export const checkAndNotify = async (tasks: Task[]): Promise<void> => {
+export const checkAndNotify = async (
+  tasks: Task[],
+  configOverride?: DeadlineNotificationConfig,
+): Promise<void> => {
   try {
-    const config = await getDeadlineConfig();
+    const config = configOverride ?? await getDeadlineConfig();
     
     if (!config.enabled) {
       return;
