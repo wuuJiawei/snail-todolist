@@ -103,6 +103,23 @@ export class SupabaseCheckInRepository implements CheckInRepository {
     });
   }
 
+  findByRange(fromIso: string, toIso: string) {
+    return withSupabaseError(async () => {
+      const userId = await getSessionUserId(this.client);
+      if (!userId) return [];
+
+      const { data, error } = await this.client
+        .from("checkin_records")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("check_in_time", fromIso)
+        .lte("check_in_time", toIso)
+        .order("check_in_time", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map(mapRow);
+    });
+  }
+
   getStreak() {
     return withSupabaseError(async () => {
       const userId = await getSessionUserId(this.client);
