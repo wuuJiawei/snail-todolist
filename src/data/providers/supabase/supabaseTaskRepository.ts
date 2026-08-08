@@ -5,17 +5,31 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./client";
 import type { Database } from "./database.types";
 import { withSupabaseError } from "./mapSupabaseError";
-import { mapTaskRow, type SupabaseTaskRow } from "./mappers";
+import { mapTagRow, mapTaskRow, type SupabaseTagRow, type SupabaseTaskRow } from "./mappers";
 import { getSessionUserId, requireSessionUserId } from "./authIdentity";
 
 type TaskAccessRow = Pick<SupabaseTaskRow, "id" | "user_id" | "project">;
 type TaskWrite = Record<string, string | number | boolean | null>;
+type SupabaseTaskTagRelationRow = { tag: SupabaseTagRow | SupabaseTagRow[] | null };
+type SupabaseTaskWithTagsRow = SupabaseTaskRow & { task_tags?: SupabaseTaskTagRelationRow[] | null };
 
 const hasOwn = (value: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(value, key);
 const serializeAttachments = (attachments: DomainTask["attachments"] = []) => JSON.stringify(attachments.map((file) => ({
   id: file.id, filename: file.filename, original_name: file.originalName, url: file.url,
   size: file.size, type: file.type, uploaded_at: file.uploadedAt,
 })));
+
+const shouldLoadTags = (query: TaskQuery): boolean =>
+  !query.includeDeleted && query.deleted !== true && query.abandoned !== true;
+
+function mapTaskWithTags(row: SupabaseTaskWithTagsRow): DomainTask {
+  const task = mapTaskRow(row);
+  task.tags = (row.task_tags ?? []).flatMap(({ tag }) => {
+    const tags = Array.isArray(tag) ? tag : tag ? [tag] : [];
+    return tags.map(mapTagRow);
+  });
+  return task;
+}
 
 function mapTaskUpdate(input: UpdateTaskInput, normalizeCompletion = true): TaskWrite {
   const updates: TaskWrite = {};
@@ -134,7 +148,10 @@ export class SupabaseTaskRepository implements TaskRepository {
         .map((membership) => membership.project_id as string | null)
         .filter((projectId): projectId is string => Boolean(projectId));
 
-      let request = this.queryClient.from("tasks").select("*");
+      const includeTags = shouldLoadTags(query);
+      let request = this.queryClient.from("tasks").select(
+        includeTags ? "*, task_tags(tag:tags(*))" : "*",
+      );
       request = projectIds.length
         ? request.or(`user_id.eq.${userId},project.in.(${projectIds.join(",")})`)
         : request.eq("user_id", userId);
@@ -164,7 +181,9 @@ export class SupabaseTaskRepository implements TaskRepository {
 
       const { data, error } = await request;
       if (error) throw error;
-      return ((data ?? []) as SupabaseTaskRow[]).map(mapTaskRow);
+      return includeTags
+        ? ((data ?? []) as SupabaseTaskWithTagsRow[]).map(mapTaskWithTags)
+        : ((data ?? []) as SupabaseTaskRow[]).map(mapTaskRow);
     }, "无法加载任务");
   }
 
