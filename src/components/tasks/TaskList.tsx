@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { SearchX } from "lucide-react";
 import { useTaskContext } from "@/contexts/task";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { Task } from "@/types/task";
@@ -12,9 +13,11 @@ import ProjectSelector from "@/components/tasks/ProjectSelector";
 import { TODAY_TASKS_FILTERS_KEY, RECENT_TASKS_FILTERS_KEY, FLAGGED_TASKS_FILTERS_KEY } from "@/constants/storage-keys";
 import TaskFilter, { TaskFilterOptions } from "@/components/tasks/TaskFilter";
 import TaskListSkeleton from "@/components/tasks/TaskListSkeleton";
+import { Button } from "@/components/ui/button";
+import { filterTasksBySearch } from "@/utils/taskSearch";
 
-// Import the extracted components
 import TaskHeader from "./TaskHeader";
+import TaskSearch from "./TaskSearch";
 import AddTaskForm from "./AddTaskForm";
 import TasksExpired from "./TasksExpired";
 import TasksByDate from "./TasksByDate";
@@ -24,22 +27,33 @@ import AbandonedTasksCollapsible from "./AbandonedTasksCollapsible";
 import EmptyStateGuide from "./EmptyStateGuide";
 import EditProjectDialog from "@/components/projects/EditProjectDialog";
 
+const createEmptyFilters = (): TaskFilterOptions => ({
+  status: [],
+  deadline: [],
+  hasAttachments: null,
+  tags: [],
+});
+
 const TaskList: React.FC = () => {
-  const { tasks, loading, selectedProject, addTask, reorderTasks } = useTaskContext();
+  const {
+    tasks,
+    abandonedTasks,
+    abandonedLoaded,
+    loading,
+    selectedProject,
+    addTask,
+    reorderTasks,
+  } = useTaskContext();
   const { projects, createProject } = useProjectContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { collapsed, setCollapsed } = useSidebar();
   const [filteredProjects, setFilteredProjects] = useState<string[]>([]);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
-  
-  // 任务筛选状态
-  const [taskFilters, setTaskFilters] = useState<TaskFilterOptions>({
-    status: [],
-    deadline: [],
-    hasAttachments: null,
-  });
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // 根据当前视图选择合适的存储键
+  const [taskFilters, setTaskFilters] = useState<TaskFilterOptions>(createEmptyFilters);
+
   const getStorageKey = () => {
     if (selectedProject === "today") return TODAY_TASKS_FILTERS_KEY;
     if (selectedProject === "recent") return RECENT_TASKS_FILTERS_KEY;
@@ -47,13 +61,12 @@ const TaskList: React.FC = () => {
     return null;
   };
 
-  // 当视图切换时重置筛选条件
   useEffect(() => {
-    // 清空筛选条件，让存储键决定是否加载保存的选择
     setFilteredProjects([]);
+    setSearchQuery("");
+    setSearchOpen(false);
   }, [selectedProject]);
 
-  // Use the hook to filter and group tasks
   const {
     expiredTasks,
     pendingTasksByDate,
@@ -62,32 +75,70 @@ const TaskList: React.FC = () => {
     isSpecialView
   } = useTasksFilter(tasks, selectedProject, filteredProjects);
 
-  // 应用任务筛选
   const { filteredTasks: rawFilteredPendingTasks, activeFilterCount } = useTaskFilter(pendingTasks || [], taskFilters);
   const { filteredTasks: rawFilteredCompletedTasks } = useTaskFilter(completedTasks || [], taskFilters);
   const { filteredTasks: rawFilteredExpiredTasks } = useTaskFilter(expiredTasks || [], taskFilters);
-  const { filteredTasks: filteredPendingTasksByDate } = useTaskFilter(pendingTasksByDate || {}, taskFilters);
+  const { filteredTasks: rawFilteredPendingTasksByDate } = useTaskFilter(pendingTasksByDate || {}, taskFilters);
 
-  // 类型断言：数组输入返回数组
-  const filteredPendingTasks = rawFilteredPendingTasks as Task[];
-  const filteredCompletedTasks = rawFilteredCompletedTasks as Task[];
-  const filteredExpiredTasks = rawFilteredExpiredTasks as Task[];
+  const searchActive = searchQuery.trim().length > 0;
+  const filteredPendingTasks = filterTasksBySearch(rawFilteredPendingTasks as Task[], searchQuery);
+  const filteredCompletedTasks = filterTasksBySearch(rawFilteredCompletedTasks as Task[], searchQuery);
+  const filteredExpiredTasks = filterTasksBySearch(rawFilteredExpiredTasks as Task[], searchQuery);
 
-  // Find the project and its details corresponding to the selected project ID
+  const filteredPendingTasksByDate = useMemo(() => {
+    const groupedTasks = rawFilteredPendingTasksByDate as { [key: string]: Task[] };
+    if (!searchActive) return groupedTasks;
+
+    return Object.entries(groupedTasks).reduce<{ [key: string]: Task[] }>((result, [dateKey, dateTasks]) => {
+      const matchingTasks = filterTasksBySearch(dateTasks, searchQuery);
+      if (matchingTasks.length > 0) {
+        result[dateKey] = matchingTasks;
+      }
+      return result;
+    }, {});
+  }, [rawFilteredPendingTasksByDate, searchActive, searchQuery]);
+
+  const matchingCompletedCount = useMemo(() => {
+    if (isSpecialView) return 0;
+    return filterTasksBySearch(
+      (completedTasks || []).filter(task => !task.deleted && !task.abandoned),
+      searchQuery,
+    ).length;
+  }, [completedTasks, isSpecialView, searchQuery]);
+
+  const matchingAbandonedCount = useMemo(() => {
+    if (isSpecialView) return 0;
+    const projectAbandonedTasks = abandonedTasks.filter(task =>
+      task.project === selectedProject && task.abandoned && !task.deleted
+    );
+    return filterTasksBySearch(projectAbandonedTasks, searchQuery).length;
+  }, [abandonedTasks, isSpecialView, searchQuery, selectedProject]);
+
+  const searchResultCount = filteredPendingTasks.length + matchingCompletedCount + matchingAbandonedCount;
+  const showSearchEmpty = !isSpecialView && searchActive && abandonedLoaded && searchResultCount === 0;
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchOpen(false);
+  };
+
+  const clearTaskFilters = () => {
+    setTaskFilters(createEmptyFilters());
+  };
+
   const projectDetails = (() => {
-    // 首先检查是否是固定项目
     if (selectedProject === "recent") {
       return {
         name: "最近7天",
         icon: "calendar",
-        color: "#2196F3" // 使用蓝色作为默认颜色
+        color: "#2196F3"
       };
     }
     if (selectedProject === "today") {
       return {
         name: "今天",
         icon: "calendar-days",
-        color: "#4CAF50" // 使用绿色作为默认颜色
+        color: "#4CAF50"
       };
     }
     if (selectedProject === "flagged") {
@@ -98,7 +149,6 @@ const TaskList: React.FC = () => {
       };
     }
 
-    // 然后查找自定义项目
     const project = projects.find(project => project.id === selectedProject);
     if (project) {
       return {
@@ -115,7 +165,6 @@ const TaskList: React.FC = () => {
     };
   })();
 
-  // Function to get project name from project ID
   const getProjectName = (projectId: string | undefined) => {
     if (!projectId) return "";
 
@@ -144,7 +193,6 @@ const TaskList: React.FC = () => {
     }
   };
 
-  // Check if the current project allows task sorting
   const allowSorting = !isSpecialView && selectedProject !== "completed" && selectedProject !== "today" && selectedProject !== "recent";
 
   const handleDragEnd = (result: DropResult) => {
@@ -153,17 +201,12 @@ const TaskList: React.FC = () => {
     const sourceIndex = result.source.index;
     const destinationIndex = result.destination.index;
 
-    // Only reorder tasks if:
-    // 1. We have a valid destination
-    // 2. Source and destination are the same droppable area (pending or completed)
-    // 3. The current project allows sorting
     if (result.destination.droppableId === result.source.droppableId && allowSorting) {
       const isCompletedArea = result.source.droppableId === "completed-tasks";
       reorderTasks(selectedProject, sourceIndex, destinationIndex, isCompletedArea);
     }
   };
 
-  // Custom task renderer to show project name for special views
   const renderTask = (task: Task, index?: number, isDraggable = false) => (
     <TaskItem
       key={task.id}
@@ -188,15 +231,25 @@ const TaskList: React.FC = () => {
         icon={projectDetails.icon}
         iconColor={projectDetails.color}
         actions={
-          <TaskFilter
-            filters={taskFilters}
-            onFiltersChange={setTaskFilters}
-            activeCount={activeFilterCount}
-          />
+          <div className="flex items-center gap-1">
+            {!isSpecialView && (
+              <TaskSearch
+                value={searchQuery}
+                open={searchOpen}
+                onChange={setSearchQuery}
+                onOpenChange={setSearchOpen}
+                onClear={clearSearch}
+              />
+            )}
+            <TaskFilter
+              filters={taskFilters}
+              onFiltersChange={setTaskFilters}
+              activeCount={activeFilterCount}
+            />
+          </div>
         }
       />
 
-      {/* 在"今天"和"最迗7天"视图中添加项目选择器 */}
       {(selectedProject === "today" || selectedProject === "recent" || selectedProject === "flagged") && (
         <div className="px-4 py-3 border-b border-border/30">
           <div className="flex items-center mb-1">
@@ -212,7 +265,6 @@ const TaskList: React.FC = () => {
         </div>
       )}
 
-      {/* 只在手动添加的清单中显示添加任务表单 */}
       {!isSpecialView && (
         <AddTaskForm
           onAddTask={handleAddTask}
@@ -220,15 +272,35 @@ const TaskList: React.FC = () => {
         />
       )}
 
-      {/* 主要内容区域 - 减少底部边距为固定底部列表留空间 */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex-1 overflow-y-auto custom-scrollbar pb-4">
-            {isSpecialView ? (
+            {showSearchEmpty ? (
+              <div className="flex min-h-[280px] items-center justify-center px-6 py-10 text-center">
+                <div className="flex max-w-sm flex-col items-center">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                    <SearchX className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-sm font-medium text-foreground">没有搜索结果</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    当前清单中没有匹配“{searchQuery.trim()}”的进行中、已完成或已放弃任务
+                  </p>
+                  <div className="mt-4 flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={clearSearch}>
+                      清空搜索
+                    </Button>
+                    {activeFilterCount > 0 && (
+                      <Button variant="ghost" size="sm" onClick={clearTaskFilters}>
+                        清空筛选
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : isSpecialView ? (
               <>
-                {/* 检查特殊视图是否完全为空（无过期、无待办、无已完成任务） */}
-                {filteredExpiredTasks.length === 0 && 
-                 Object.keys(filteredPendingTasksByDate as { [key: string]: Task[] }).length === 0 && 
+                {filteredExpiredTasks.length === 0 &&
+                 Object.keys(filteredPendingTasksByDate).length === 0 &&
                  filteredCompletedTasks.length === 0 &&
                  activeFilterCount === 0 ? (
                   <EmptyStateGuide
@@ -244,12 +316,11 @@ const TaskList: React.FC = () => {
                     />
 
                     <TasksByDate
-                      tasksByDate={filteredPendingTasksByDate as { [key: string]: Task[] }}
+                      tasksByDate={filteredPendingTasksByDate}
                       renderTask={renderTask}
                       showEmptyMessage={filteredExpiredTasks.length === 0 && activeFilterCount > 0}
                     />
-                    
-                    {/* 特殊视图中显示已完成任务的旧样式 */}
+
                     {filteredCompletedTasks.length > 0 && (
                       <div className="mt-4">
                         <TasksCompleted
@@ -264,7 +335,7 @@ const TaskList: React.FC = () => {
               </>
             ) : (
               <>
-                {filteredPendingTasks && filteredPendingTasks.length > 0 ? (
+                {filteredPendingTasks.length > 0 ? (
                   <Droppable droppableId="pending-tasks" isDropDisabled={!allowSorting}>
                     {(provided, snapshot) => (
                       <div
@@ -286,7 +357,11 @@ const TaskList: React.FC = () => {
                   </Droppable>
                 ) : (
                   <div className="text-center p-4 text-gray-500">
-                    {activeFilterCount > 0 ? "没有符合筛选条件的任务" : "暂无待办任务"}
+                    {searchActive
+                      ? "没有匹配的进行中任务"
+                      : activeFilterCount > 0
+                        ? "没有符合筛选条件的任务"
+                        : "暂无待办任务"}
                   </div>
                 )}
               </>
@@ -294,16 +369,17 @@ const TaskList: React.FC = () => {
           </div>
         </DragDropContext>
 
-        {/* 固定在底部的已完成和已放弃任务列表 - 只在非特殊视图中显示 */}
-        {!isSpecialView && (
+        {!isSpecialView && !showSearchEmpty && (
           <div className="flex-shrink-0">
-            <CompletedTasksCollapsible 
+            <CompletedTasksCollapsible
               projectId={selectedProject}
               showProject={isSpecialView}
+              searchQuery={searchQuery}
             />
-            <AbandonedTasksCollapsible 
-              projectId={selectedProject} 
+            <AbandonedTasksCollapsible
+              projectId={selectedProject}
               showProject={isSpecialView}
+              searchQuery={searchQuery}
             />
           </div>
         )}
