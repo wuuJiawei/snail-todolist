@@ -148,11 +148,11 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
   const todayKey = toLocalDateKey(new Date());
 
   return (
-    <div className={cn("mt-auto mb-4 w-full rounded-xl border bg-card p-3 shadow-sm", className)}>
-      <div className="mb-3 flex items-start justify-between gap-2">
+    <div className={cn("mx-3 mt-5 mb-5 w-auto rounded-xl border bg-card p-4 shadow-sm", className)}>
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-foreground">每日签到</div>
-          <div className="mt-0.5 text-[11px] text-muted-foreground">
+          <div className="text-[15px] font-semibold leading-5 text-foreground">每日签到</div>
+          <div className="mt-1 text-xs leading-4 text-muted-foreground">
             {loading ? "正在读取签到状态" : `连续签到 ${streak} 天`}
           </div>
         </div>
@@ -160,23 +160,23 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
           onClick={handleHistoryClick}
           variant="ghost"
           size="icon"
-          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+          className="-mr-1 -mt-1 h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
           title="查看签到记录"
         >
-          <Icon icon="calendar-thirty" size={16} />
+          <Icon icon="calendar-thirty" size={17} />
         </Button>
       </div>
 
-      <div className="mb-3 grid grid-cols-7 gap-1">
+      <div className="mb-4 grid grid-cols-7 gap-2">
         {weekDays.map((day, index) => {
           const dateKey = toLocalDateKey(day);
           const checked = weekCheckInDates.has(dateKey);
           const isToday = dateKey === todayKey;
           return (
-            <div key={dateKey} className="flex min-w-0 flex-col items-center gap-1">
+            <div key={dateKey} className="flex min-w-0 flex-col items-center gap-1.5">
               <div
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors",
+                  "flex h-8 w-8 items-center justify-center rounded-full border text-xs transition-colors",
                   checked
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-background text-muted-foreground",
@@ -184,11 +184,11 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
                 )}
                 aria-label={`${dateKey}${checked ? " 已签到" : " 未签到"}`}
               >
-                {checked ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : null}
+                {checked ? <Check className="h-4 w-4" strokeWidth={2.5} /> : null}
               </div>
               <span
                 className={cn(
-                  "text-[10px] leading-none text-muted-foreground",
+                  "text-[11px] leading-none text-muted-foreground",
                   isToday && "font-medium text-foreground",
                 )}
               >
@@ -203,7 +203,7 @@ const CheckInButton: React.FC<CheckInButtonProps> = ({
         onClick={handleClick}
         disabled={loading || submitting || checkedInToday}
         variant={checkedInToday ? "secondary" : "default"}
-        className="h-8 w-full text-xs font-medium"
+        className="h-9 w-full text-sm font-medium"
       >
         {loading ? "加载中..." : submitting ? "签到中..." : checkedInToday ? "今日已签到" : "立即签到"}
       </Button>
