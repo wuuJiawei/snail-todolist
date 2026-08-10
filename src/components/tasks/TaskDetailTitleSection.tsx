@@ -70,12 +70,11 @@ const TaskDetailTitleSection: React.FC<TaskDetailTitleSectionProps> = ({
         {/* 勾选框 */}
         <div className="pt-1 flex-shrink-0">
           {isCompletionLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : (
             <Checkbox
               checked={completed}
               onCheckedChange={onCompletedChange}
-              className="rounded-full h-5 w-5"
               disabled={isTaskInTrash}
             />
           )}
