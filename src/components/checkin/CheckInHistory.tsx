@@ -105,40 +105,52 @@ const CheckInHistory: React.FC<CheckInHistoryProps> = ({
     [monthRecords],
   );
 
-  const checkedDates = useMemo(
-    () => Array.from(checkedDateKeys).map((dateKey) => {
-      const [year, month, day] = dateKey.split("-").map(Number);
-      return new Date(year, month - 1, day);
-    }),
-    [checkedDateKeys],
-  );
-
   const CheckInDayContent = useCallback(({ date }: DayContentProps) => {
     const checked = checkedDateKeys.has(toLocalDateKey(date));
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 leading-none">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1 leading-none">
         <span className="text-sm font-medium">{date.getDate()}</span>
         {checked ? (
-          <span className="flex items-center gap-0.5 text-[10px] font-medium text-primary">
-            <CheckCircle2 className="h-2.5 w-2.5" />
-            已打卡
-          </span>
+          <CheckCircle2 className="h-3.5 w-3.5 text-foreground/70" aria-label="已打卡" />
         ) : (
-          <span className="h-2.5 text-[10px] opacity-0" aria-hidden="true">已打卡</span>
+          <span className="h-3.5" aria-hidden="true" />
         )}
       </div>
     );
   }, [checkedDateKeys]);
 
+  const stats = [
+    {
+      label: "最近一次打卡",
+      value: lastCheckIn ? format(lastCheckIn, "yyyy年MM月dd日 HH:mm", { locale: zhCN }) : "无",
+      icon: "clock" as const,
+    },
+    {
+      label: "累计打卡",
+      value: `${totalCount} 次`,
+      icon: "increase" as const,
+    },
+    {
+      label: "当前连续",
+      value: `${streak} 天`,
+      icon: "fire" as const,
+    },
+    {
+      label: "打卡提醒",
+      value: "坚持就是胜利，明天继续加油！",
+      icon: "light" as const,
+    },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[640px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[720px]">
+        <DialogHeader className="space-y-2">
           <DialogTitle className="flex items-center">
             <Icon icon="calendar-thirty" className="mr-2 text-gray-700 dark:text-gray-300" />
             打卡记录
             {streak > 0 && (
-              <Badge variant="outline" className="ml-2 bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+              <Badge variant="secondary" className="ml-2 font-medium">
                 连续打卡 {streak} 天
               </Badge>
             )}
@@ -146,18 +158,20 @@ const CheckInHistory: React.FC<CheckInHistoryProps> = ({
           <DialogDescription>查看您的打卡历史记录</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="mt-2 space-y-5">
           {loading ? (
-            <div className="grid gap-3">
-              <Skeleton className="mx-auto h-[390px] w-full max-w-[500px] rounded-lg" />
+            <div className="grid gap-4">
+              <Skeleton className="h-[410px] w-full rounded-xl" />
               <div className="grid gap-3 sm:grid-cols-2">
+                <Skeleton className="h-24 rounded-xl" />
+                <Skeleton className="h-24 rounded-xl" />
                 <Skeleton className="h-24 rounded-xl" />
                 <Skeleton className="h-24 rounded-xl" />
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="relative mx-auto w-fit">
+            <>
+              <div className="relative w-full">
                 <Calendar
                   mode="single"
                   selected={undefined}
@@ -166,70 +180,52 @@ const CheckInHistory: React.FC<CheckInHistoryProps> = ({
                   month={visibleMonth}
                   onMonthChange={setVisibleMonth}
                   showOutsideDays={false}
-                  className="rounded-lg border [--cell-size:3.25rem] sm:[--cell-size:3.5rem]"
-                  components={{ DayContent: CheckInDayContent }}
-                  modifiers={{ checkedIn: checkedDates }}
-                  modifiersClassNames={{
-                    checkedIn: "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+                  className="w-full rounded-xl border p-4 [--cell-size:2.5rem]"
+                  classNames={{
+                    months: "w-full",
+                    month: "w-full space-y-4",
+                    table: "w-full border-collapse",
+                    head_row: "grid grid-cols-7",
+                    head_cell: "w-full text-center text-xs font-normal text-muted-foreground",
+                    row: "mt-2 grid grid-cols-7",
+                    cell: "relative h-14 w-full p-0 text-center text-sm focus-within:z-20",
+                    day: "h-14 w-full rounded-md p-0 font-normal hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                    day_today: "font-semibold text-foreground",
                   }}
+                  components={{ DayContent: CheckInDayContent }}
                 />
                 {monthLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-[1px]">
+                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/60 backdrop-blur-[1px]">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 )}
               </div>
 
-              <div className="grid gap-3 text-sm text-gray-600 dark:text-gray-300 sm:grid-cols-2">
-                {[
-                  {
-                    label: "最近一次打卡",
-                    value: lastCheckIn ? format(lastCheckIn, "yyyy年MM月dd日 HH:mm", { locale: zhCN }) : "无",
-                    icon: "clock" as const,
-                    gradient: "from-primary/15 via-primary/5 to-transparent",
-                  },
-                  {
-                    label: "累计打卡",
-                    value: `${totalCount} 次`,
-                    icon: "increase" as const,
-                    gradient: "from-blue-200/30 via-blue-100/20 to-transparent dark:from-blue-500/10 dark:via-blue-400/10 dark:to-transparent",
-                  },
-                  {
-                    label: "当前连续",
-                    value: `${streak} 天`,
-                    icon: "fire" as const,
-                    gradient: "from-amber-200/30 via-amber-100/20 to-transparent dark:from-amber-500/10 dark:via-amber-400/10 dark:to-transparent",
-                  },
-                  {
-                    label: "打卡提醒",
-                    value: "坚持就是胜利，明天继续加油！",
-                    icon: "light" as const,
-                    gradient: "from-muted/60 via-muted/40 to-transparent dark:from-muted/30 dark:via-muted/20 dark:to-transparent",
-                  },
-                ].map((stat) => (
+              <div className="grid gap-3 text-sm sm:grid-cols-2">
+                {stats.map((stat) => (
                   <div
                     key={stat.label}
-                    className={`rounded-xl border border-border/60 bg-gradient-to-br ${stat.gradient} p-4`}
+                    className="rounded-xl border bg-card p-4"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-xs uppercase tracking-wide text-muted-foreground">{stat.label}</div>
-                        <div className="mt-2 text-base font-semibold leading-tight text-foreground">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-xs tracking-wide text-muted-foreground">{stat.label}</div>
+                        <div className="mt-2 text-base font-semibold leading-snug text-foreground">
                           {stat.value}
                         </div>
                       </div>
-                      <Icon icon={stat.icon} className="h-7 w-7 text-muted-foreground/70" />
+                      <Icon icon={stat.icon} className="h-6 w-6 shrink-0 text-muted-foreground/70" />
                     </div>
                   </div>
                 ))}
               </div>
 
               {totalCount === 0 && (
-                <div className="rounded-md border p-4 text-center text-sm text-gray-500">
+                <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
                   还没有任何打卡记录
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </DialogContent>
