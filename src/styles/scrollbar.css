@@ -1,16 +1,14 @@
-@layer utilities {
-  /*
-   * 隐藏滚动条，但保留滚轮、触控板、触摸和键盘滚动能力。
-   * 作为统一工具类使用，避免各组件分别写浏览器私有选择器。
-   */
-  .scrollbar-hidden {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+/*
+ * 隐藏滚动条，但保留滚轮、触控板、触摸和键盘滚动能力。
+ * 作为统一工具类使用，避免各组件分别写浏览器私有选择器。
+ */
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
-  .scrollbar-hidden::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
-  }
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
