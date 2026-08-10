@@ -102,14 +102,14 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
 
       if (newProject) {
-        setProjects((current) => [newProject, ...current.filter((project) => project.id !== newProject.id)]);
+        await refreshProjects();
       }
     } catch (error) {
       console.error("Error creating project:", error);
       toast({ title: "创建失败", description: "无法创建清单，请稍后再试", variant: "destructive" });
       throw error;
     }
-  }, [user, projectRows.length, setProjects]);
+  }, [user, projectRows.length, refreshProjects]);
 
   const editProject = useCallback(async (id: string, data: Partial<Project>) => {
     try {
