@@ -38,7 +38,6 @@ const AbandonedTasksCollapsible: React.FC<AbandonedTasksCollapsibleProps> = ({
     }
   }, [abandonedLoaded, abandonedLoading, loadAbandonedTasks]);
 
-  // 筛选并排序已放弃任务；搜索只作用于当前清单。
   const filteredAbandonedTasks = useMemo(() => {
     const projectAbandonedTasks = abandonedTasks.filter(task => {
       const matchesProject = projectId === task.project;
@@ -95,6 +94,7 @@ const AbandonedTasksCollapsible: React.FC<AbandonedTasksCollapsibleProps> = ({
       hasMore={hasMore}
       isLoading={isLoading}
       displayedCount={displayCount}
+      autoExpand={searchQuery.trim().length > 0}
     >
       {displayedTasks.map(renderTask)}
     </CollapsibleTaskSection>
