@@ -25,7 +25,6 @@ const CompletedTasksCollapsible: React.FC<CompletedTasksCollapsibleProps> = ({
   const [displayCount, setDisplayCount] = useState(TASKS_PER_PAGE);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 筛选并排序已完成任务；搜索只作用于当前清单。
   const completedTasks = useMemo(() => {
     const projectCompletedTasks = tasks.filter(task => {
       const matchesProject = projectId === task.project;
@@ -82,6 +81,7 @@ const CompletedTasksCollapsible: React.FC<CompletedTasksCollapsibleProps> = ({
       hasMore={hasMore}
       isLoading={isLoading}
       displayedCount={displayCount}
+      autoExpand={searchQuery.trim().length > 0}
     >
       {displayedTasks.map(renderTask)}
     </CollapsibleTaskSection>
