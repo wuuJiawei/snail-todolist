@@ -142,7 +142,7 @@ const Sidebar: React.FC = () => {
   return (
     <div
       className={cn(
-        "h-screen overflow-y-auto custom-scrollbar flex flex-col transition-all duration-300 dark:bg-gray-900",
+        "h-screen overflow-y-auto scrollbar-hidden flex flex-col transition-all duration-300 dark:bg-gray-900",
         collapsed ? "w-0 opacity-0 p-0" : "w-full p-2"
       )}
     >
@@ -206,7 +206,7 @@ const Sidebar: React.FC = () => {
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className={cn(
-                    "space-y-1 px-2 pb-2 pt-1 flex-grow overflow-y-auto custom-scrollbar-thin",
+                    "space-y-1 px-2 pb-2 pt-1 flex-grow overflow-y-auto scrollbar-hidden",
                     snapshot.isDraggingOver && "bg-gray-100 dark:bg-gray-800 rounded-md"
                   )}
                 >
