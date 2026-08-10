@@ -3,6 +3,7 @@ import { useTaskContext } from "@/contexts/task";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/components/ui/icon-park";
+import { Checkbox } from "@/components/ui/checkbox";
 import ProjectIcon from "@/components/ui/project-icon";
 import { Task } from "@/types/task";
 import { Tag } from "@/types/tag";
@@ -518,37 +519,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
               <Icon icon="drag" size="16" className="h-4 w-4" />
             </div>
           )}
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={task.completed}
-            aria-busy={operationState.isActive}
-            aria-label={task.completed ? `将「${task.title}」标记为未完成` : `将「${task.title}」标记为完成`}
-            disabled={operationState.isActive}
-            className={cn(
-              "h-5 w-5 flex-shrink-0 border border-gray-300 rounded-full p-0 flex items-center justify-center transition-colors",
-              "hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              task.completed && "border-black bg-black hover:bg-black"
-            )}
-            onClick={handleCompletionToggle}
-          >
-            {operationState.isActive ? (
-              <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
-            ) : (
-              task.completed && (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="white"
-                  width="12"
-                  height="12"
-                  className="transition-transform duration-300"
-                >
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                </svg>
-              )
-            )}
-          </button>
+          {operationState.isActive ? (
+            <Loader2
+              className="h-4 w-4 shrink-0 animate-spin text-muted-foreground"
+              aria-label="正在更新任务完成状态"
+            />
+          ) : (
+            <Checkbox
+              checked={task.completed}
+              aria-label={task.completed ? `将「${task.title}」标记为未完成` : `将「${task.title}」标记为完成`}
+              onClick={handleCompletionToggle}
+            />
+          )}
         </div>
       </div>
 
