@@ -5,7 +5,6 @@ import { useProjectContext } from "@/contexts/ProjectContext";
 import { Task } from "@/types/task";
 import TaskItem from "@/components/tasks/TaskItem";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
-import { useSidebar } from "@/contexts/SidebarContext";
 import { useTasksFilter } from "@/hooks/useTasksFilter";
 import { useTaskFilter } from "@/hooks/useTaskFilter";
 import { cn } from "@/lib/utils";
@@ -46,7 +45,6 @@ const TaskList: React.FC = () => {
   } = useTaskContext();
   const { projects, createProject } = useProjectContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { collapsed, setCollapsed } = useSidebar();
   const [filteredProjects, setFilteredProjects] = useState<string[]>([]);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -226,8 +224,6 @@ const TaskList: React.FC = () => {
     <div className="flex-1 flex flex-col overflow-hidden h-screen">
       <TaskHeader
         projectName={projectDetails.name}
-        collapsed={collapsed}
-        setCollapsed={setCollapsed}
         icon={projectDetails.icon}
         iconColor={projectDetails.color}
         actions={

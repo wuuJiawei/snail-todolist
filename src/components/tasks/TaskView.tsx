@@ -6,7 +6,6 @@ import TaskList from "./TaskList";
 import CompletedTasksView from "./CompletedTasksView";
 import AbandonedTasksView from "./AbandonedTasksView";
 import TrashView from "./TrashView";
-import { useSidebar } from "@/contexts/SidebarContext";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon-park";
@@ -39,7 +38,6 @@ const TaskView: React.FC = () => {
     trashedLoaded,
     abandonedLoaded,
   } = useTaskContext();
-  const { collapsed, setCollapsed } = useSidebar();
   const [showTopHeader, setShowTopHeader] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
@@ -177,8 +175,6 @@ const TaskView: React.FC = () => {
         <TaskHeader
           projectName={viewInfo.name}
           icon={viewInfo.icon}
-          collapsed={collapsed}
-          setCollapsed={setCollapsed}
           actions={renderHeaderActions()}
         />
       )}
