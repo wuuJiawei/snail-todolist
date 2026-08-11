@@ -86,7 +86,6 @@ const TaskView: React.FC = () => {
     }
   };
 
-  // 获取当前视图的标题和图标
   const getViewInfo = () => {
     switch (selectedProject) {
       case "recent":
@@ -108,9 +107,7 @@ const TaskView: React.FC = () => {
 
   const viewInfo = getViewInfo();
 
-  // Handle empty trash action
   const handleEmptyTrash = async () => {
-    // Delete all tasks in trash
     if (!trashedLoaded || trashedLoading) {
       return;
     }
@@ -121,7 +118,6 @@ const TaskView: React.FC = () => {
     setConfirmDeleteAll(false);
   };
 
-  // Render the appropriate actions for each view
   const renderHeaderActions = () => {
     if (selectedProject === "completed") {
       return (
@@ -132,11 +128,7 @@ const TaskView: React.FC = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => {
-              // Get the CompletedTasksView component instance and call its export function
-              // This is a placeholder - we'll need to implement a better way to handle this
-              setExportDialogOpen(true);
-            }}>
+            <DropdownMenuItem onClick={() => setExportDialogOpen(true)}>
               <Icon icon="markdown" size="16" className="mr-2 h-4 w-4" />
               <span>导出筛选结果为 Markdown</span>
             </DropdownMenuItem>
@@ -172,7 +164,7 @@ const TaskView: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {showTopHeader && (
         <TaskHeader
           projectName={viewInfo.name}
@@ -186,7 +178,6 @@ const TaskView: React.FC = () => {
         {renderContent()}
       </div>
 
-      {/* Confirm Empty Trash Dialog */}
       <AlertDialog open={confirmDeleteAll} onOpenChange={setConfirmDeleteAll}>
         <AlertDialogContent>
           <AlertDialogHeader>
