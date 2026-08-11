@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Icon } from "@/components/ui/icon-park";
 import { useTaskContext } from "@/contexts/task";
+import type { Project } from "@/types/project";
 
 export interface TaskFilterOptions {
   status: string[];
@@ -22,12 +23,19 @@ export interface TaskFilterProps {
   filters: TaskFilterOptions;
   onFiltersChange: (filters: TaskFilterOptions) => void;
   activeCount: number;
+  projectFilter?: {
+    projects: Project[];
+    selectedProjects: string[];
+    onChange: (selectedProjects: string[]) => void;
+    storageKey: string | null;
+  };
 }
 
 const TaskFilter: React.FC<TaskFilterProps> = ({
   filters,
   onFiltersChange,
   activeCount,
+  projectFilter,
 }) => {
   const [open, setOpen] = useState(false);
   const { selectedProject, getAllTagUsageCounts, getCachedTags, ensureTagsLoaded, tagsVersion } = useTaskContext();
@@ -35,6 +43,10 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
   const [loadingTags, setLoadingTags] = useState(false);
   const usageCounts = getAllTagUsageCounts();
   const loadedScopesRef = useRef<Map<string | null, boolean>>(new Map());
+  const projectFilterProjects = projectFilter?.projects;
+  const selectedProjectIds = projectFilter?.selectedProjects;
+  const onProjectFilterChange = projectFilter?.onChange;
+  const projectFilterStorageKey = projectFilter?.storageKey;
 
   const syncTags = useCallback(async () => {
     const isSystemList = selectedProject === "today" || selectedProject === "recent" || selectedProject === "flagged";
@@ -76,6 +88,44 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
     void syncTags();
   }, [open, syncTags, tagsVersion]);
 
+  useEffect(() => {
+    if (!projectFilterStorageKey || !projectFilterProjects || !onProjectFilterChange || (selectedProjectIds?.length ?? 0) > 0) return;
+
+    const savedSelections = localStorage.getItem(projectFilterStorageKey);
+    if (!savedSelections) return;
+
+    try {
+      const parsedSelections: unknown = JSON.parse(savedSelections);
+      if (!Array.isArray(parsedSelections)) return;
+
+      const validProjectIds = new Set(projectFilterProjects.map((project) => project.id));
+      const validSelections = parsedSelections.filter(
+        (projectId): projectId is string => typeof projectId === "string" && validProjectIds.has(projectId),
+      );
+      onProjectFilterChange(validSelections);
+    } catch (error) {
+      console.error("Error parsing saved project selections:", error);
+    }
+  }, [onProjectFilterChange, projectFilterProjects, projectFilterStorageKey, selectedProjectIds?.length]);
+
+  const updateProjectSelection = (selectedProjects: string[]) => {
+    if (!projectFilter) return;
+
+    projectFilter.onChange(selectedProjects);
+    if (projectFilter.storageKey) {
+      localStorage.setItem(projectFilter.storageKey, JSON.stringify(selectedProjects));
+    }
+  };
+
+  const handleProjectChange = (projectId: string, checked: boolean) => {
+    if (!projectFilter) return;
+
+    const selectedProjects = checked
+      ? [...projectFilter.selectedProjects, projectId]
+      : projectFilter.selectedProjects.filter((id) => id !== projectId);
+    updateProjectSelection(selectedProjects);
+  };
+
   const handleDeadlineChange = (deadline: string, checked: boolean) => {
     const newDeadline = checked
       ? [...filters.deadline, deadline]
@@ -101,12 +151,15 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
       hasAttachments: null,
       tags: [],
     });
+    updateProjectSelection([]);
   };
 
   const hasActiveFilters = 
     filters.deadline.length > 0 ||
     filters.hasAttachments !== null ||
-    (filters.tags && filters.tags.length > 0);
+    (filters.tags && filters.tags.length > 0) ||
+    Boolean(projectFilter?.selectedProjects.length);
+  const totalActiveCount = activeCount + (projectFilter?.selectedProjects.length ? 1 : 0);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -117,9 +170,9 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
           className="h-8 px-2 relative"
         >
           <Icon icon="filter" size="16" className="h-4 w-4" />
-          {activeCount > 0 && (
+          {totalActiveCount > 0 && (
             <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
-              {activeCount}
+              {totalActiveCount}
             </span>
           )}
         </Button>
@@ -141,6 +194,32 @@ const TaskFilter: React.FC<TaskFilterProps> = ({
           </div>
 
           <Separator />
+
+          {projectFilter && (
+            <>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">清单</Label>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar-thin">
+                  {projectFilter.projects.length > 0 ? projectFilter.projects.map((project) => (
+                    <div key={project.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`project-${project.id}`}
+                        checked={projectFilter.selectedProjects.includes(project.id)}
+                        onCheckedChange={(checked) => handleProjectChange(project.id, checked === true)}
+                      />
+                      <Label htmlFor={`project-${project.id}`} className="text-sm truncate">
+                        {project.name}
+                      </Label>
+                    </div>
+                  )) : (
+                    <div className="text-xs text-muted-foreground">暂无清单</div>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+            </>
+          )}
 
           {/* 截止时间 */}
           <div className="space-y-2">

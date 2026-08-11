@@ -8,7 +8,6 @@ import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { useTasksFilter } from "@/hooks/useTasksFilter";
 import { useTaskFilter } from "@/hooks/useTaskFilter";
 import { cn } from "@/lib/utils";
-import ProjectSelector from "@/components/tasks/ProjectSelector";
 import { TODAY_TASKS_FILTERS_KEY, RECENT_TASKS_FILTERS_KEY, FLAGGED_TASKS_FILTERS_KEY } from "@/constants/storage-keys";
 import TaskFilter, { TaskFilterOptions } from "@/components/tasks/TaskFilter";
 import TaskListSkeleton from "@/components/tasks/TaskListSkeleton";
@@ -78,6 +77,7 @@ const TaskList: React.FC = () => {
   const { filteredTasks: rawFilteredCompletedTasks } = useTaskFilter(completedTasks || [], taskFilters);
   const { filteredTasks: rawFilteredExpiredTasks } = useTaskFilter(expiredTasks || [], taskFilters);
   const { filteredTasks: rawFilteredPendingTasksByDate } = useTaskFilter(pendingTasksByDate || {}, taskFilters);
+  const totalActiveFilterCount = activeFilterCount + (filteredProjects.length > 0 ? 1 : 0);
 
   const searchActive = searchQuery.trim().length > 0;
   const filteredPendingTasks = filterTasksBySearch(rawFilteredPendingTasks as Task[], searchQuery);
@@ -123,6 +123,12 @@ const TaskList: React.FC = () => {
 
   const clearTaskFilters = () => {
     setTaskFilters(createEmptyFilters());
+    setFilteredProjects([]);
+
+    const storageKey = getStorageKey();
+    if (storageKey) {
+      localStorage.setItem(storageKey, JSON.stringify([]));
+    }
   };
 
   const projectDetails = (() => {
@@ -243,25 +249,16 @@ const TaskList: React.FC = () => {
               filters={taskFilters}
               onFiltersChange={setTaskFilters}
               activeCount={activeFilterCount}
+              projectFilter={(selectedProject === "today" || selectedProject === "recent" || selectedProject === "flagged") ? {
+                projects,
+                selectedProjects: filteredProjects,
+                onChange: setFilteredProjects,
+                storageKey: getStorageKey(),
+              } : undefined}
             />
           </div>
         }
       />
-
-      {(selectedProject === "today" || selectedProject === "recent" || selectedProject === "flagged") && (
-        <div className="px-4 py-3 border-b border-border/30">
-          <div className="flex items-center mb-1">
-            <span className="text-xs text-muted-foreground">按清单筛选：</span>
-          </div>
-          <ProjectSelector
-            projects={projects}
-            selectedProjects={filteredProjects}
-            onChange={setFilteredProjects}
-            storageKey={getStorageKey()}
-            className="w-full max-w-full"
-          />
-        </div>
-      )}
 
       {!isSpecialView && (
         <AddTaskForm
@@ -287,7 +284,7 @@ const TaskList: React.FC = () => {
                     <Button variant="outline" size="sm" onClick={clearSearch}>
                       清空搜索
                     </Button>
-                    {activeFilterCount > 0 && (
+                    {totalActiveFilterCount > 0 && (
                       <Button variant="ghost" size="sm" onClick={clearTaskFilters}>
                         清空筛选
                       </Button>
@@ -298,7 +295,7 @@ const TaskList: React.FC = () => {
             ) : selectedProject === "recent" ? (
               filteredPendingTasks.length === 0 &&
               filteredCompletedTasks.length === 0 &&
-              activeFilterCount === 0 ? (
+              totalActiveFilterCount === 0 ? (
                 <EmptyStateGuide
                   viewType="recent"
                   onCreateProject={() => setNewProjectDialogOpen(true)}
@@ -309,7 +306,7 @@ const TaskList: React.FC = () => {
                   <RecentTasksTimeline
                     tasks={filteredPendingTasks}
                     renderTask={renderTask}
-                    emptyMessage={activeFilterCount > 0 ? "没有符合筛选条件的待办任务" : undefined}
+                    emptyMessage={totalActiveFilterCount > 0 ? "没有符合筛选条件的待办任务" : undefined}
                   />
 
                   {filteredCompletedTasks.length > 0 && (
@@ -328,7 +325,7 @@ const TaskList: React.FC = () => {
                 {filteredExpiredTasks.length === 0 &&
                  Object.keys(filteredPendingTasksByDate).length === 0 &&
                  filteredCompletedTasks.length === 0 &&
-                 activeFilterCount === 0 ? (
+                 totalActiveFilterCount === 0 ? (
                   <EmptyStateGuide
                     viewType={selectedProject as "today" | "recent" | "flagged"}
                     onCreateProject={() => setNewProjectDialogOpen(true)}
@@ -344,7 +341,7 @@ const TaskList: React.FC = () => {
                     <TasksByDate
                       tasksByDate={filteredPendingTasksByDate}
                       renderTask={renderTask}
-                      showEmptyMessage={filteredExpiredTasks.length === 0 && activeFilterCount > 0}
+                      showEmptyMessage={filteredExpiredTasks.length === 0 && totalActiveFilterCount > 0}
                     />
 
                     {filteredCompletedTasks.length > 0 && (
