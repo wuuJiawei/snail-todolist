@@ -16,7 +16,7 @@ import {
 import { useTaskContext } from "@/contexts/task";
 import { useToast } from "@/hooks/use-toast";
 
-const TRASH_HERO_URL = "/images/trash-hero.webp?v=20260811-4";
+const TRASH_HERO_URL = "/images/trash-hero.webp";
 
 const TrashView: React.FC = () => {
   const {
