@@ -109,6 +109,9 @@ const ArchiveTaskPage: React.FC<ArchiveTaskPageProps> = ({
           src={heroImage}
           alt=""
           aria-hidden="true"
+          loading="eager"
+          decoding="sync"
+          fetchPriority="high"
           className="pointer-events-none absolute inset-0 h-full w-full max-w-none object-cover object-right"
         />
 
