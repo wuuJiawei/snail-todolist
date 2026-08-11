@@ -9,7 +9,11 @@ import { Check, Clock, ArrowLeft, Loader2 } from "lucide-react";
 import { Task } from "@/types/task";
 import { cn } from "@/lib/utils";
 import { highlightText } from "@/utils/searchUtils";
-import ResizablePanels from "@/components/ui/resizable-panels";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import TaskDetail from "@/components/tasks/TaskDetail";
 import { Input } from "@/components/ui/input";
 
@@ -288,18 +292,21 @@ const SearchResults: React.FC = () => {
     </div>
   );
 
-  const rightPanel = <TaskDetail />;
-
   return (
     <div className="h-full w-full overflow-hidden">
-      <ResizablePanels
-        leftPanel={leftPanel}
-        rightPanel={rightPanel}
-        defaultLeftWidth={33}
-        minLeftWidth={25}
-        minRightWidth={30}
-        className="flex-1"
-      />
+      <ResizablePanelGroup direction="horizontal">
+        <ResizablePanel defaultSize={33} minSize={25} className="overflow-hidden">
+          {leftPanel}
+        </ResizablePanel>
+        <ResizableHandle
+          withHandle
+          aria-label="调整搜索结果与任务详情宽度"
+          title="拖动调整搜索结果与任务详情宽度"
+        />
+        <ResizablePanel defaultSize={67} minSize={30} className="overflow-hidden">
+          <TaskDetail />
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 };
