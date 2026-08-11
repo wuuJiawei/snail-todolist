@@ -146,7 +146,7 @@ const TrashView: React.FC = () => {
 
   if (trashedLoading && !trashedLoaded && trashedTasks.length === 0) {
     return (
-      <div className="flex h-full flex-1 items-center justify-center text-muted-foreground">
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         正在加载垃圾桶...
       </div>
@@ -154,16 +154,17 @@ const TrashView: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <section className="relative shrink-0 overflow-hidden border-b bg-muted/20">
-        <div
-          className="pointer-events-none absolute inset-0 bg-cover bg-right bg-no-repeat opacity-75 dark:opacity-25"
-          style={{ backgroundImage: "url('/images/trash-hero.webp')" }}
+    <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-background scrollbar-hidden">
+      <section className="relative overflow-hidden border-b bg-muted/20">
+        <img
+          src="/images/trash-hero.webp"
+          alt=""
           aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-right opacity-100 dark:opacity-25"
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/95 to-background/20" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/75 to-transparent" />
 
-        <div className="relative flex min-h-[245px] flex-col justify-between px-8 py-8 lg:px-10">
+        <div className="relative flex min-h-[238px] flex-col justify-between px-8 py-7 lg:px-10">
           <div className="max-w-xl">
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">垃圾桶</h1>
             <p className="mt-5 text-sm leading-6 text-muted-foreground">
@@ -238,52 +239,50 @@ const TrashView: React.FC = () => {
         </div>
       </section>
 
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-hidden">
-        {trashedTasks.length === 0 ? (
-          <div className="flex min-h-[360px] flex-col items-center justify-center px-6 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              <Trash2 className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <h2 className="text-base font-medium text-foreground">垃圾桶为空</h2>
-            <p className="mt-1 text-sm text-muted-foreground">删除的任务会显示在这里，并保留 30 天。</p>
+      {trashedTasks.length === 0 ? (
+        <div className="flex min-h-[360px] flex-col items-center justify-center px-6 text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Trash2 className="h-5 w-5 text-muted-foreground" />
           </div>
-        ) : (
-          <div className="px-8 py-7 lg:px-10">
-            <div className="relative max-w-5xl">
-              {groupedTasks.map(({ date, tasks }, groupIndex) => (
-                <section key={date} className="relative pb-7 last:pb-3">
-                  <div
-                    className={cn(
-                      "absolute bottom-0 left-[5px] top-5 w-px bg-border",
-                      groupIndex === groupedTasks.length - 1 && "bottom-6",
-                    )}
-                    aria-hidden="true"
-                  />
+          <h2 className="text-base font-medium text-foreground">垃圾桶为空</h2>
+          <p className="mt-1 text-sm text-muted-foreground">删除的任务会显示在这里，并保留 30 天。</p>
+        </div>
+      ) : (
+        <div className="px-8 py-6 lg:px-10">
+          <div className="relative max-w-5xl">
+            {groupedTasks.map(({ date, tasks }, groupIndex) => (
+              <section key={date} className="relative pb-4 last:pb-2">
+                <div
+                  className={cn(
+                    "absolute bottom-0 left-[5px] top-5 w-px bg-border",
+                    groupIndex === groupedTasks.length - 1 && "bottom-5",
+                  )}
+                  aria-hidden="true"
+                />
 
-                  <div className="relative flex items-center gap-4">
-                    <span className="relative z-10 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-background bg-foreground shadow-[0_0_0_1px_hsl(var(--border))]" />
-                    <h2 className="text-sm font-medium text-muted-foreground">{formatDateHeader(date)}</h2>
-                  </div>
+                <div className="relative flex items-center gap-4">
+                  <span className="relative z-10 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-background bg-foreground shadow-[0_0_0_1px_hsl(var(--border))]" />
+                  <h2 className="text-sm font-medium text-muted-foreground">{formatDateHeader(date)}</h2>
+                </div>
 
-                  <div className="ml-7 mt-2 space-y-1">
-                    {tasks.map((task) => (
-                      <TrashTaskRow
-                        key={task.id}
-                        task={task}
-                        projectName={projectNameMap.get(task.project)}
-                        isRestoring={restoringTaskId === task.id}
-                        disabled={isBusy || restoringTaskId !== null}
-                        onRestore={() => handleRestoreTask(task.id)}
-                        onSelect={() => selectTask(task.id)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
+                <div className="ml-7 mt-1.5 space-y-0.5">
+                  {tasks.map((task) => (
+                    <TrashTaskRow
+                      key={task.id}
+                      task={task}
+                      projectName={task.project ? projectNameMap.get(task.project) : undefined}
+                      isRestoring={restoringTaskId === task.id}
+                      disabled={isBusy || restoringTaskId !== null}
+                      onRestore={() => handleRestoreTask(task.id)}
+                      onSelect={() => selectTask(task.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -333,7 +332,7 @@ const TrashTaskRow: React.FC<TrashTaskRowProps> = ({
 
   return (
     <div
-      className="group flex min-h-[72px] cursor-pointer items-center gap-4 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
+      className="group flex cursor-pointer items-center gap-4 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/50"
       onClick={onSelect}
     >
       <div className="min-w-0 flex-1">
@@ -349,7 +348,7 @@ const TrashTaskRow: React.FC<TrashTaskRowProps> = ({
         {deadlineText && (
           <p
             className={cn(
-              "mt-1.5 text-xs",
+              "mt-1 text-xs",
               deadlineExpired ? "text-destructive" : "text-muted-foreground",
             )}
           >
@@ -358,7 +357,7 @@ const TrashTaskRow: React.FC<TrashTaskRowProps> = ({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-3" onClick={(event) => event.stopPropagation()}>
+      <div className="flex shrink-0 items-center gap-2.5" onClick={(event) => event.stopPropagation()}>
         <span className="hidden text-xs text-muted-foreground sm:inline">{deletedText} 删除</span>
         <Button
           variant="ghost"
