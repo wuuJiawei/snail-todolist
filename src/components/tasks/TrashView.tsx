@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Task } from "@/types/task";
 
+const TRASH_HERO_URL = "/images/trash-hero.webp?v=20260811-2";
+
 const TrashView: React.FC = () => {
   const {
     trashedTasks,
@@ -155,16 +157,22 @@ const TrashView: React.FC = () => {
 
   return (
     <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-background scrollbar-hidden">
-      <section className="relative overflow-hidden border-b bg-muted/20">
-        <img
-          src="/images/trash-hero.webp"
-          alt=""
+      <section className="relative isolate overflow-hidden border-b bg-background">
+        <div
+          className="pointer-events-none absolute inset-0 z-0 bg-no-repeat"
+          style={{
+            backgroundImage: `url(${TRASH_HERO_URL})`,
+            backgroundPosition: "right center",
+            backgroundSize: "cover",
+          }}
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-right opacity-100 dark:opacity-25"
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/75 to-transparent" />
+        <div
+          className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-r from-background via-background/50 to-background/5 dark:via-background/80 dark:to-background/35"
+          aria-hidden="true"
+        />
 
-        <div className="relative flex min-h-[238px] flex-col justify-between px-8 py-7 lg:px-10">
+        <div className="relative z-10 flex min-h-[230px] flex-col justify-between px-8 py-7 lg:px-10">
           <div className="max-w-xl">
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">垃圾桶</h1>
             <p className="mt-5 text-sm leading-6 text-muted-foreground">
@@ -248,24 +256,24 @@ const TrashView: React.FC = () => {
           <p className="mt-1 text-sm text-muted-foreground">删除的任务会显示在这里，并保留 30 天。</p>
         </div>
       ) : (
-        <div className="px-8 py-6 lg:px-10">
+        <div className="px-8 py-5 lg:px-10">
           <div className="relative max-w-5xl">
             {groupedTasks.map(({ date, tasks }, groupIndex) => (
-              <section key={date} className="relative pb-4 last:pb-2">
+              <section key={date} className="relative pb-3 last:pb-1">
                 <div
                   className={cn(
-                    "absolute bottom-0 left-[5px] top-5 w-px bg-border",
-                    groupIndex === groupedTasks.length - 1 && "bottom-5",
+                    "absolute bottom-0 left-[5px] top-[18px] w-px bg-border",
+                    groupIndex === groupedTasks.length - 1 && "bottom-4",
                   )}
                   aria-hidden="true"
                 />
 
-                <div className="relative flex items-center gap-4">
+                <div className="relative flex items-center gap-3">
                   <span className="relative z-10 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-background bg-foreground shadow-[0_0_0_1px_hsl(var(--border))]" />
-                  <h2 className="text-sm font-medium text-muted-foreground">{formatDateHeader(date)}</h2>
+                  <h2 className="text-sm font-medium leading-5 text-muted-foreground">{formatDateHeader(date)}</h2>
                 </div>
 
-                <div className="ml-7 mt-1.5 space-y-0.5">
+                <div className="ml-6 mt-1 space-y-0">
                   {tasks.map((task) => (
                     <TrashTaskRow
                       key={task.id}
@@ -332,12 +340,12 @@ const TrashTaskRow: React.FC<TrashTaskRowProps> = ({
 
   return (
     <div
-      className="group flex cursor-pointer items-center gap-4 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/50"
+      className="group flex min-h-[42px] cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50"
       onClick={onSelect}
     >
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="max-w-full truncate text-[15px] font-medium text-foreground">{task.title}</span>
+          <span className="max-w-full truncate text-sm font-medium leading-5 text-foreground">{task.title}</span>
           {projectName && (
             <Badge variant="secondary" className="h-5 rounded-full px-2 text-[11px] font-normal text-muted-foreground">
               {projectName}
@@ -348,7 +356,7 @@ const TrashTaskRow: React.FC<TrashTaskRowProps> = ({
         {deadlineText && (
           <p
             className={cn(
-              "mt-1 text-xs",
+              "mt-0.5 text-xs leading-4",
               deadlineExpired ? "text-destructive" : "text-muted-foreground",
             )}
           >
@@ -357,14 +365,14 @@ const TrashTaskRow: React.FC<TrashTaskRowProps> = ({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-2.5" onClick={(event) => event.stopPropagation()}>
-        <span className="hidden text-xs text-muted-foreground sm:inline">{deletedText} 删除</span>
+      <div className="flex shrink-0 items-center gap-2" onClick={(event) => event.stopPropagation()}>
+        <span className="hidden text-xs leading-5 text-muted-foreground sm:inline">{deletedText} 删除</span>
         <Button
           variant="ghost"
           size="icon"
           disabled={disabled}
           onClick={onRestore}
-          className="h-8 w-8 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="h-7 w-7 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
           title="恢复任务"
         >
           {isRestoring ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
