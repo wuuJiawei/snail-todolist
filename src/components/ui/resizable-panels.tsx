@@ -41,7 +41,6 @@ const ResizablePanels: React.FC<ResizablePanelsProps> = ({
       const deltaPercentage = (deltaX / containerWidth) * 100;
       const newLeftWidth = startLeftWidth + deltaPercentage;
 
-      // 确保不超过最小/最大宽度限制
       const clampedLeftWidth = Math.max(
         minLeftWidth,
         Math.min(100 - minRightWidth, newLeftWidth)
@@ -54,12 +53,10 @@ const ResizablePanels: React.FC<ResizablePanelsProps> = ({
       setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      // 移除禁用文本选择的样式
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     };
 
-    // 禁用文本选择和设置拖拽光标
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'col-resize';
 
@@ -72,17 +69,15 @@ const ResizablePanels: React.FC<ResizablePanelsProps> = ({
   return (
     <div
       ref={containerRef}
-      className={cn('flex h-full w-full overflow-hidden', className)}
+      className={cn('flex h-full min-h-0 w-full overflow-hidden', className)}
     >
-      {/* 左侧面板 */}
       <div
         style={{ width: `${leftWidth}%` }}
-        className="flex-shrink-0 overflow-hidden"
+        className="flex h-full min-h-0 flex-shrink-0 overflow-hidden"
       >
         {leftPanel}
       </div>
 
-      {/* 分隔条 */}
       <div
         className={cn(
           'flex-shrink-0 w-1 bg-border cursor-col-resize hover:bg-gray-400 transition-colors relative group',
@@ -91,19 +86,15 @@ const ResizablePanels: React.FC<ResizablePanelsProps> = ({
         )}
         onMouseDown={handleMouseDown}
       >
-        {/* 拖拽区域扩展，便于操作 */}
         <div className="absolute inset-y-0 -inset-x-2 z-10" />
-        
-        {/* 悬停时的视觉指示器 */}
         <div className="absolute inset-y-0 left-0 w-full opacity-0 group-hover:opacity-100 transition-opacity">
           <div className="h-full w-full bg-blue-500/20" />
         </div>
       </div>
 
-      {/* 右侧面板 */}
       <div
         style={{ width: `${rightWidth}%` }}
-        className="flex-shrink-0 overflow-hidden"
+        className="flex h-full min-h-0 flex-shrink-0 overflow-hidden"
       >
         {rightPanel}
       </div>
