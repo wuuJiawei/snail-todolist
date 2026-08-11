@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon-park";
 // Keep lucide-react as fallback
-import { Check, Clock, Search, RefreshCw } from "lucide-react";
+import { Check, ChevronRight, Clock, Search, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -15,10 +15,11 @@ import UserMenu from "@/components/UserMenu";
 import { useAuth } from "@/contexts/AuthContext";
 import { Task } from "@/types/task";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSidebar } from "@/contexts/SidebarContext";
 
 const AppSidebar = () => {
-  const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const { collapsed: projectSidebarCollapsed, setCollapsed: setProjectSidebarCollapsed } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const { tasks } = useTaskContext();
@@ -140,10 +141,7 @@ const AppSidebar = () => {
   return (
     <>
       <div
-        className={cn(
-          "flex flex-col h-screen border-r transition-all duration-300",
-          collapsed ? "w-16" : "w-16 md:w-[72px]"
-        )}
+        className="relative z-20 flex h-screen w-16 flex-col border-r md:w-[72px]"
       >
         <div className="flex flex-col items-center gap-4 p-3 flex-1">
           <UserMenu />
@@ -225,6 +223,19 @@ const AppSidebar = () => {
             </div>
           </div>
         </div>
+
+        {location.pathname === "/" && projectSidebarCollapsed && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setProjectSidebarCollapsed(false)}
+            className="absolute right-0 top-1/2 z-30 h-10 w-5 -translate-y-1/2 translate-x-1/2 rounded-full bg-background p-0 shadow-sm"
+            aria-label="展开清单列表"
+            title="展开清单列表"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
 
       <Dialog open={searchOpen && !location.pathname.startsWith('/search')} onOpenChange={setSearchOpen}>
