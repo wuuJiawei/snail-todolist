@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/context-menu";
 import DueDatePickerContent from "./DueDatePickerContent";
 import { Draggable } from "@hello-pangea/dnd";
-import { Loader2 } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
 import { useTaskOperation } from "@/hooks/useTaskOperation";
 import TagSelector from "./TagSelector";
 
@@ -32,9 +32,17 @@ interface TaskItemProps {
   projectName?: string;
   index?: number;
   isDraggable?: boolean;
+  showViewDetailsAction?: boolean;
 }
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectName, index, isDraggable = false }) => {
+const TaskItem: React.FC<TaskItemProps> = ({
+  task,
+  showProject = false,
+  projectName,
+  index,
+  isDraggable = false,
+  showViewDetailsAction = false,
+}) => {
   const { selectTask, updateTask, moveToTrash, selectedTask, addTask, abandonTask, restoreAbandonedTask, getTaskTags, listAllTags, attachTagToTask, detachTagFromTask, createTag } = useTaskContext();
   const { projects } = useProjectContext();
   const [isEditing, setIsEditing] = useState(false);
@@ -59,6 +67,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
   const handleTaskClick = () => {
     selectTask(task.id);
     setIsEditing(true);
+  };
+
+  const handleViewDetails = () => {
+    selectTask(task.id);
+    setIsEditing(false);
+    setIsContextMenuOpen(false);
   };
 
   const handleCompletionToggle = async (e: React.MouseEvent) => {
@@ -329,6 +343,16 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, showProject = false, projectN
 
   const renderContextMenuContent = () => (
     <>
+      {showViewDetailsAction && (
+        <>
+          <ContextMenuItem onClick={handleViewDetails}>
+            <Eye className="mr-2 h-4 w-4" />
+            查看详情
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+        </>
+      )}
+
       {!task.completed && !task.abandoned && (
         <>
           <ContextMenuItem onClick={handleMarkAsCompleted}>

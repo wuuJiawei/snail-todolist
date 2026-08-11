@@ -25,6 +25,7 @@ import CompletedTasksCollapsible from "./CompletedTasksCollapsible";
 import AbandonedTasksCollapsible from "./AbandonedTasksCollapsible";
 import EmptyStateGuide from "./EmptyStateGuide";
 import EditProjectDialog from "@/components/projects/EditProjectDialog";
+import RecentTasksTimeline from "./RecentTasksTimeline";
 
 const createEmptyFilters = (): TaskFilterOptions => ({
   status: [],
@@ -213,6 +214,7 @@ const TaskList: React.FC = () => {
       projectName={isSpecialView ? getProjectName(task.project) : undefined}
       index={index}
       isDraggable={isDraggable}
+      showViewDetailsAction={selectedProject === "recent"}
     />
   );
 
@@ -293,6 +295,34 @@ const TaskList: React.FC = () => {
                   </div>
                 </div>
               </div>
+            ) : selectedProject === "recent" ? (
+              filteredPendingTasks.length === 0 &&
+              filteredCompletedTasks.length === 0 &&
+              activeFilterCount === 0 ? (
+                <EmptyStateGuide
+                  viewType="recent"
+                  onCreateProject={() => setNewProjectDialogOpen(true)}
+                  hasProjects={projects.length > 0}
+                />
+              ) : (
+                <>
+                  <RecentTasksTimeline
+                    tasks={filteredPendingTasks}
+                    renderTask={renderTask}
+                    emptyMessage={activeFilterCount > 0 ? "没有符合筛选条件的待办任务" : undefined}
+                  />
+
+                  {filteredCompletedTasks.length > 0 && (
+                    <div className="mt-4">
+                      <TasksCompleted
+                        tasks={filteredCompletedTasks}
+                        renderTask={renderTask}
+                        allowSorting={false}
+                      />
+                    </div>
+                  )}
+                </>
+              )
             ) : isSpecialView ? (
               <>
                 {filteredExpiredTasks.length === 0 &&

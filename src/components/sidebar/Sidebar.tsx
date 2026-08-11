@@ -12,8 +12,9 @@ import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Project } from "@/types/project";
 import CheckInButton from "@/components/sidebar/CheckInButton";
 import { useToast } from "@/components/ui/use-toast";
-import { isToday, isBefore, startOfDay, addDays, parseISO, isValid, isWithinInterval } from 'date-fns';
+import { isToday, isBefore, startOfDay, parseISO, isValid } from 'date-fns';
 import { Skeleton } from "@/components/ui/skeleton";
+import { isTaskInRecentAgenda } from "@/utils/recentTasks";
 
 const Sidebar: React.FC = () => {
   const { tasks } = useTaskContext();
@@ -28,8 +29,6 @@ const Sidebar: React.FC = () => {
   const { todayCount, recentCount } = useMemo(() => {
     const now = new Date();
     const todayStart = startOfDay(now);
-    const sevenDaysLater = addDays(todayStart, 7);
-
     let today = 0;
     let recent = 0;
 
@@ -53,7 +52,7 @@ const Sidebar: React.FC = () => {
         }
 
         // Count for Recent 7 Days: Overdue or Due within the next 7 days (inclusive of today)
-        if (taskDate && (isBefore(taskDate, todayStart) || isWithinInterval(taskDate, { start: todayStart, end: sevenDaysLater }))) {
+        if (taskDate && isTaskInRecentAgenda(task, now)) {
           recent++;
         }
       }

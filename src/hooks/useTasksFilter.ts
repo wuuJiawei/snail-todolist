@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Task } from "@/types/task";
 import { isToday, isValid } from "date-fns";
 import { groupTasksByDateAndStatus } from "@/utils/taskUtils";
+import { isTaskInRecentAgenda } from "@/utils/recentTasks";
 
 // Define the return type for better type safety
 interface TasksFilterResult {
@@ -20,10 +21,6 @@ export const useTasksFilter = (
 ): TasksFilterResult => {
   // Get tasks based on the selected project
   const projectTasks = useMemo(() => {
-    const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-
     if (selectedProject === "recent") {
       return tasks.filter(task => {
         if (!task.date) return false;
@@ -33,13 +30,7 @@ export const useTasksFilter = (
           return false;
         }
 
-        const taskDate = new Date(task.date);
-        if (!isValid(taskDate)) return false;
-
-        const isWithinLastWeek = taskDate >= weekAgo && taskDate <= now;
-        const isOverdue = !task.completed && taskDate < now;
-
-        return isWithinLastWeek || isOverdue;
+        return isTaskInRecentAgenda(task);
       });
     } else if (selectedProject === "today") {
       // For the "today" project, get tasks for today from all projects
