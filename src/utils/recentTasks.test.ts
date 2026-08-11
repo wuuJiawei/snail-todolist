@@ -21,9 +21,10 @@ describe("recentTasks", () => {
     expect(format(dates[6], "yyyy-MM-dd")).toBe("2026-08-17");
   });
 
-  it("includes overdue pending tasks and tasks due in the seven-day agenda", () => {
+  it("includes overdue pending tasks and both pending and completed tasks due in the seven-day agenda", () => {
     expect(isTaskInRecentAgenda(createTask(dateAt(10)), referenceDate)).toBe(true);
     expect(isTaskInRecentAgenda(createTask(dateAt(11)), referenceDate)).toBe(true);
+    expect(isTaskInRecentAgenda(createTask(dateAt(11), true), referenceDate)).toBe(true);
     expect(isTaskInRecentAgenda(createTask(dateAt(17, 18)), referenceDate)).toBe(true);
   });
 

@@ -83,6 +83,10 @@ const TaskList: React.FC = () => {
   const filteredPendingTasks = filterTasksBySearch(rawFilteredPendingTasks as Task[], searchQuery);
   const filteredCompletedTasks = filterTasksBySearch(rawFilteredCompletedTasks as Task[], searchQuery);
   const filteredExpiredTasks = filterTasksBySearch(rawFilteredExpiredTasks as Task[], searchQuery);
+  const filteredRecentTasks = useMemo(
+    () => [...filteredPendingTasks, ...filteredCompletedTasks],
+    [filteredCompletedTasks, filteredPendingTasks],
+  );
 
   const filteredPendingTasksByDate = useMemo(() => {
     const groupedTasks = rawFilteredPendingTasksByDate as { [key: string]: Task[] };
@@ -304,20 +308,10 @@ const TaskList: React.FC = () => {
               ) : (
                 <>
                   <RecentTasksTimeline
-                    tasks={filteredPendingTasks}
+                    tasks={filteredRecentTasks}
                     renderTask={renderTask}
-                    emptyMessage={totalActiveFilterCount > 0 ? "没有符合筛选条件的待办任务" : undefined}
+                    emptyMessage={totalActiveFilterCount > 0 ? "没有符合筛选条件的任务" : undefined}
                   />
-
-                  {filteredCompletedTasks.length > 0 && (
-                    <div className="mt-4">
-                      <TasksCompleted
-                        tasks={filteredCompletedTasks}
-                        renderTask={renderTask}
-                        allowSorting={false}
-                      />
-                    </div>
-                  )}
                 </>
               )
             ) : isSpecialView ? (

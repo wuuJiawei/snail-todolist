@@ -33,7 +33,7 @@ const OVERDUE_KEY = "overdue";
 const RecentTasksTimeline: React.FC<RecentTasksTimelineProps> = ({
   tasks,
   renderTask,
-  emptyMessage = "最近 7 天没有待办任务",
+  emptyMessage = "最近 7 天没有任务",
 }) => {
   const dates = useMemo(() => getRecentAgendaDates(), []);
   const [selectedDateKey, setSelectedDateKey] = useState(() => format(dates[0], "yyyy-MM-dd"));
