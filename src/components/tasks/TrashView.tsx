@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { format, isBefore, isToday, isTomorrow, isValid, parseISO, startOfDay } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { ArchiveRestore, Loader2, RotateCcw, Trash2 } from "lucide-react";
@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Task } from "@/types/task";
 
-const TRASH_HERO_URL = "/images/trash-hero.webp?v=20260811-2";
+const TRASH_HERO_URL = "/images/trash-hero.webp?v=20260811-3";
 
 const TrashView: React.FC = () => {
   const {
@@ -37,6 +37,8 @@ const TrashView: React.FC = () => {
   const { toast } = useToast();
   const [batchAction, setBatchAction] = useState<"restore" | "clear" | null>(null);
   const [restoringTaskId, setRestoringTaskId] = useState<string | null>(null);
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const heroImageRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     void loadTrashedTasks();
@@ -79,6 +81,92 @@ const TrashView: React.FC = () => {
     return isValid(date) ? format(date, "yyyy年MM月dd日", { locale: zhCN }) : dateStr;
   };
 
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("trashDebug") !== "1") return;
+
+    const scrollViewport = scrollViewportRef.current;
+    const heroImage = heroImageRef.current;
+    if (!scrollViewport) return;
+
+    const collectLayoutChain = (start: HTMLElement) => {
+      const rows: Array<Record<string, string | number>> = [];
+      let element: HTMLElement | null = start;
+      let depth = 0;
+
+      while (element && depth < 8) {
+        const style = window.getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        rows.push({
+          depth,
+          tag: element.tagName.toLowerCase(),
+          className: element.className || "",
+          clientHeight: element.clientHeight,
+          scrollHeight: element.scrollHeight,
+          rectHeight: Math.round(rect.height),
+          cssHeight: style.height,
+          minHeight: style.minHeight,
+          overflowY: style.overflowY,
+          position: style.position,
+          display: style.display,
+          flex: style.flex,
+        });
+        element = element.parentElement;
+        depth += 1;
+      }
+
+      return rows;
+    };
+
+    console.group("[trash-debug] layout");
+    console.log("viewport", {
+      innerHeight: window.innerHeight,
+      clientHeight: scrollViewport.clientHeight,
+      scrollHeight: scrollViewport.scrollHeight,
+      scrollTop: scrollViewport.scrollTop,
+      canScroll: scrollViewport.scrollHeight > scrollViewport.clientHeight,
+      overflowY: window.getComputedStyle(scrollViewport).overflowY,
+    });
+    console.table(collectLayoutChain(scrollViewport));
+    console.log("hero", {
+      src: heroImage?.currentSrc || heroImage?.src,
+      complete: heroImage?.complete,
+      naturalWidth: heroImage?.naturalWidth,
+      naturalHeight: heroImage?.naturalHeight,
+      rect: heroImage?.getBoundingClientRect().toJSON?.(),
+      opacity: heroImage ? window.getComputedStyle(heroImage).opacity : undefined,
+      display: heroImage ? window.getComputedStyle(heroImage).display : undefined,
+      visibility: heroImage ? window.getComputedStyle(heroImage).visibility : undefined,
+      zIndex: heroImage ? window.getComputedStyle(heroImage).zIndex : undefined,
+    });
+    console.groupEnd();
+
+    const handleWheel = (event: WheelEvent) => {
+      const before = scrollViewport.scrollTop;
+      window.requestAnimationFrame(() => {
+        console.log("[trash-debug] wheel", {
+          deltaY: event.deltaY,
+          before,
+          after: scrollViewport.scrollTop,
+          clientHeight: scrollViewport.clientHeight,
+          scrollHeight: scrollViewport.scrollHeight,
+        });
+      });
+    };
+
+    const handleScroll = () => {
+      console.log("[trash-debug] scroll", { scrollTop: scrollViewport.scrollTop });
+    };
+
+    scrollViewport.addEventListener("wheel", handleWheel, { passive: true });
+    scrollViewport.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      scrollViewport.removeEventListener("wheel", handleWheel);
+      scrollViewport.removeEventListener("scroll", handleScroll);
+    };
+  }, [trashedTasks.length]);
+
   const handleRestoreTask = async (id: string) => {
     if (restoringTaskId || batchAction) return;
     setRestoringTaskId(id);
@@ -100,7 +188,6 @@ const TrashView: React.FC = () => {
     if (batchAction || trashedTasks.length === 0) return;
     setBatchAction("restore");
     try {
-      // 串行执行，避免并发更新同一份任务缓存时互相覆盖。
       for (const task of [...trashedTasks]) {
         await restoreFromTrash(task.id);
       }
@@ -124,7 +211,6 @@ const TrashView: React.FC = () => {
     if (batchAction || trashedTasks.length === 0) return;
     setBatchAction("clear");
     try {
-      // deleteTask 会同步更新 Provider 缓存，因此这里同样采用串行删除。
       for (const task of [...trashedTasks]) {
         await deleteTask(task.id);
       }
@@ -156,20 +242,36 @@ const TrashView: React.FC = () => {
   }
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-background scrollbar-hidden">
+    <div
+      ref={scrollViewportRef}
+      data-trash-scroll-root
+      className="absolute inset-0 overflow-y-auto overscroll-contain bg-background scrollbar-hidden"
+    >
       <section className="relative isolate overflow-hidden border-b bg-background">
-        <div
-          className="pointer-events-none absolute inset-0 z-0 bg-no-repeat"
+        <img
+          ref={heroImageRef}
+          src={TRASH_HERO_URL}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0 dark:opacity-30"
           style={{
-            backgroundImage: `url(${TRASH_HERO_URL})`,
-            backgroundPosition: "right center",
-            backgroundSize: "cover",
+            display: "block",
+            width: "100%",
+            height: "100%",
+            maxWidth: "none",
+            objectFit: "cover",
+            objectPosition: "right center",
           }}
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-r from-background via-background/50 to-background/5 dark:via-background/80 dark:to-background/35"
-          aria-hidden="true"
+          onLoad={(event) => {
+            if (typeof window === "undefined") return;
+            if (new URLSearchParams(window.location.search).get("trashDebug") !== "1") return;
+            console.log("[trash-debug] hero loaded", {
+              src: event.currentTarget.currentSrc,
+              naturalWidth: event.currentTarget.naturalWidth,
+              naturalHeight: event.currentTarget.naturalHeight,
+              rect: event.currentTarget.getBoundingClientRect().toJSON(),
+            });
+          }}
         />
 
         <div className="relative z-10 flex min-h-[230px] flex-col justify-between px-8 py-7 lg:px-10">
