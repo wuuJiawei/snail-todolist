@@ -84,7 +84,7 @@ const RecentTasksTimeline: React.FC<RecentTasksTimelineProps> = ({
 
   return (
     <div>
-      <div className="sticky top-0 z-20 border-y border-border/50 bg-background/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 lg:px-6">
+      <div className="sticky top-0 z-20 border-t border-border/50 bg-background/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 lg:px-6">
         <div className="mx-auto flex max-w-5xl items-center gap-1">
           <Button
             type="button"
