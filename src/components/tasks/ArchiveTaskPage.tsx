@@ -11,6 +11,7 @@ import {
 import { zhCN } from "date-fns/locale";
 import { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import TaskPageHero from "@/components/tasks/TaskPageHero";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { cn } from "@/lib/utils";
 import { Task } from "@/types/task";
@@ -104,29 +105,13 @@ const ArchiveTaskPage: React.FC<ArchiveTaskPageProps> = ({
 
   return (
     <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-background scrollbar-hidden">
-      <section className="relative overflow-hidden border-b bg-background">
-        <img
-          src={heroImage}
-          alt=""
-          aria-hidden="true"
-          loading="eager"
-          decoding="sync"
-          fetchPriority="high"
-          className="pointer-events-none absolute inset-0 h-full w-full max-w-none object-cover object-right"
-        />
-
-        <div className="relative flex min-h-[230px] flex-col justify-between px-8 py-7 lg:px-10">
-          <div className="max-w-xl">
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">{title}</h1>
-            <p className="mt-5 text-sm leading-6 text-muted-foreground">{description}</p>
-            <p className="mt-6 text-sm font-medium text-muted-foreground">
-              {recordCountText ?? `共 ${tasks.length} 条记录`}
-            </p>
-          </div>
-
-          {actions && <div className="flex flex-wrap items-center gap-2 self-end">{actions}</div>}
-        </div>
-      </section>
+      <TaskPageHero
+        title={title}
+        description={description}
+        metadata={recordCountText ?? `共 ${tasks.length} 条记录`}
+        heroImage={heroImage}
+        actions={actions}
+      />
 
       {tasks.length === 0 ? (
         <div className="flex min-h-[360px] flex-col items-center justify-center px-6 text-center">

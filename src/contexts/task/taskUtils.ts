@@ -2,6 +2,7 @@ import { Task } from "@/types/task";
 import { format, isToday, isTomorrow, isYesterday, isValid } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { SELECTED_PROJECT_KEY } from "./types";
+import { isTaskInRecentAgenda } from "@/utils/recentTasks";
 
 // Get the saved project from localStorage
 export const getSavedProject = (): string => {
@@ -22,21 +23,7 @@ export const formatDateText = (date: Date | undefined) => {
 // Calculate task count for a specific project
 export const getProjectTaskCount = (tasks: Task[], projectId: string): number => {
   if (projectId === "recent") {
-    // For "recent" project, count tasks with dates in the last 7 days
-    const today = new Date();
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    
-    return tasks.filter(task => {
-      if (!task.date || task.completed) return false;
-      
-      try {
-        const taskDate = new Date(task.date);
-        return isValid(taskDate) && taskDate >= weekAgo && taskDate <= today;
-      } catch (e) {
-        return false;
-      }
-    }).length;
+    return tasks.filter(task => !task.completed && isTaskInRecentAgenda(task)).length;
   } else if (projectId === "today") {
     // For "today" project, count tasks with today's date
     return tasks.filter(task => {
