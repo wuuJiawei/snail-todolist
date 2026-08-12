@@ -26,6 +26,9 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
     return (
       <TaskPageHero
         title={projectName}
+        titleIcon={
+          <ProjectIcon icon={icon} color={iconColor} size={24} className="h-6 w-6" />
+        }
         heroImage={heroImage}
         actions={actions}
         compact={compactHero}
