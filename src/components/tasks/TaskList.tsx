@@ -26,6 +26,8 @@ import EmptyStateGuide from "./EmptyStateGuide";
 import EditProjectDialog from "@/components/projects/EditProjectDialog";
 import RecentTasksTimeline from "./RecentTasksTimeline";
 
+const RECENT_HERO_URL = "/images/recent-hero.webp";
+
 const createEmptyFilters = (): TaskFilterOptions => ({
   status: [],
   deadline: [],
@@ -238,6 +240,9 @@ const TaskList: React.FC = () => {
         projectName={projectDetails.name}
         icon={projectDetails.icon}
         iconColor={projectDetails.color}
+        heroImage={selectedProject === "recent" ? RECENT_HERO_URL : undefined}
+        compactHero={selectedProject === "recent"}
+        heroImagePosition="object-center"
         actions={
           <div className="flex items-center gap-1">
             {!isSpecialView && (
