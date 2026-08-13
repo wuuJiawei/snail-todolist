@@ -26,15 +26,17 @@ export const buildTimelineGroups = (
   const grouped = new Map<string, Task[]>();
 
   tasks.forEach((task) => {
-    if (!task.date) return;
-    const taskDate = parseISO(task.date);
-    if (!isValid(taskDate)) return;
+    const taskDate = task.date ? parseISO(task.date) : undefined;
+    const hasValidDate = taskDate ? isValid(taskDate) : false;
 
-    const key = isBefore(taskDate, today)
+    if (grouping === "date" && (!taskDate || !hasValidDate)) return;
+
+    const isOverdue = taskDate && hasValidDate && !task.completed && isBefore(taskDate, today);
+    const key = isOverdue
       ? OVERDUE_KEY
       : grouping === "project"
         ? task.project || UNASSIGNED_PROJECT_KEY
-        : format(taskDate, "yyyy-MM-dd");
+        : format(taskDate as Date, "yyyy-MM-dd");
     grouped.set(key, [...(grouped.get(key) ?? []), task]);
   });
 

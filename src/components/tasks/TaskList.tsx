@@ -28,6 +28,7 @@ import RecentTasksTimeline from "./RecentTasksTimeline";
 
 const RECENT_HERO_URL = "/images/recent-hero.webp";
 const TODAY_HERO_URL = "/images/today-hero.webp";
+const FLAGGED_HERO_URL = "/images/flagged-hero.webp";
 
 const createEmptyFilters = (): TaskFilterOptions => ({
   status: [],
@@ -228,11 +229,11 @@ const TaskList: React.FC = () => {
     <TaskItem
       key={task.id}
       task={task}
-      showProject={isSpecialView && selectedProject !== "today"}
-      projectName={isSpecialView && selectedProject !== "today" ? getProjectName(task.project) : undefined}
+      showProject={isSpecialView && selectedProject !== "today" && selectedProject !== "flagged"}
+      projectName={isSpecialView && selectedProject !== "today" && selectedProject !== "flagged" ? getProjectName(task.project) : undefined}
       index={index}
       isDraggable={isDraggable}
-      showViewDetailsAction={selectedProject === "today" || selectedProject === "recent"}
+      showViewDetailsAction={selectedProject === "today" || selectedProject === "recent" || selectedProject === "flagged"}
     />
   );
 
@@ -249,11 +250,13 @@ const TaskList: React.FC = () => {
         heroImage={
           selectedProject === "today"
             ? TODAY_HERO_URL
-            : selectedProject === "recent"
-              ? RECENT_HERO_URL
-              : undefined
+            : selectedProject === "flagged"
+              ? FLAGGED_HERO_URL
+              : selectedProject === "recent"
+                ? RECENT_HERO_URL
+                : undefined
         }
-        compactHero={selectedProject === "today" || selectedProject === "recent"}
+        compactHero={selectedProject === "today" || selectedProject === "recent" || selectedProject === "flagged"}
         heroImagePosition="object-center"
         actions={
           <div className="flex items-center gap-1">
@@ -319,7 +322,7 @@ const TaskList: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ) : selectedProject === "today" || selectedProject === "recent" ? (
+            ) : selectedProject === "today" || selectedProject === "recent" || selectedProject === "flagged" ? (
               filteredPendingTasks.length === 0 &&
               filteredCompletedTasks.length === 0 &&
               totalActiveFilterCount === 0 ? (
@@ -334,8 +337,8 @@ const TaskList: React.FC = () => {
                   renderTask={renderTask}
                   emptyMessage={totalActiveFilterCount > 0 ? "没有符合筛选条件的任务" : undefined}
                   showDateStrip={selectedProject === "recent"}
-                  grouping={selectedProject === "today" ? "project" : "date"}
-                  projects={selectedProject === "today" ? projects : undefined}
+                  grouping={selectedProject === "recent" ? "date" : "project"}
+                  projects={selectedProject === "recent" ? undefined : projects}
                 />
               )
             ) : isSpecialView ? (
