@@ -27,6 +27,7 @@ import EditProjectDialog from "@/components/projects/EditProjectDialog";
 import RecentTasksTimeline from "./RecentTasksTimeline";
 
 const RECENT_HERO_URL = "/images/recent-hero.webp";
+const TODAY_HERO_URL = "/images/today-hero.webp";
 
 const createEmptyFilters = (): TaskFilterOptions => ({
   status: [],
@@ -85,9 +86,13 @@ const TaskList: React.FC = () => {
   const filteredPendingTasks = filterTasksBySearch(rawFilteredPendingTasks as Task[], searchQuery);
   const filteredCompletedTasks = filterTasksBySearch(rawFilteredCompletedTasks as Task[], searchQuery);
   const filteredExpiredTasks = filterTasksBySearch(rawFilteredExpiredTasks as Task[], searchQuery);
-  const filteredRecentTasks = useMemo(
+  const filteredTimelineTasks = useMemo(
     () => [...filteredPendingTasks, ...filteredCompletedTasks],
     [filteredCompletedTasks, filteredPendingTasks],
+  );
+  const defaultTaskDate = useMemo(
+    () => selectedProject === "today" ? new Date() : undefined,
+    [selectedProject],
   );
 
   const filteredPendingTasksByDate = useMemo(() => {
@@ -185,16 +190,17 @@ const TaskList: React.FC = () => {
     return projectId;
   };
 
-  const handleAddTask = async (title: string, date?: Date) => {
+  const handleAddTask = async (title: string, date?: Date, projectId?: string) => {
     setIsSubmitting(true);
 
     try {
       const dateString = date ? date.toISOString() : undefined;
+      const targetProject = projectId || selectedProject;
 
       await addTask({
         title: title,
         completed: false,
-        project: selectedProject,
+        project: targetProject,
         date: dateString,
       });
     } catch (error) {
@@ -222,11 +228,11 @@ const TaskList: React.FC = () => {
     <TaskItem
       key={task.id}
       task={task}
-      showProject={isSpecialView}
-      projectName={isSpecialView ? getProjectName(task.project) : undefined}
+      showProject={isSpecialView && selectedProject !== "today"}
+      projectName={isSpecialView && selectedProject !== "today" ? getProjectName(task.project) : undefined}
       index={index}
       isDraggable={isDraggable}
-      showViewDetailsAction={selectedProject === "recent"}
+      showViewDetailsAction={selectedProject === "today" || selectedProject === "recent"}
     />
   );
 
@@ -240,8 +246,14 @@ const TaskList: React.FC = () => {
         projectName={projectDetails.name}
         icon={projectDetails.icon}
         iconColor={projectDetails.color}
-        heroImage={selectedProject === "recent" ? RECENT_HERO_URL : undefined}
-        compactHero={selectedProject === "recent"}
+        heroImage={
+          selectedProject === "today"
+            ? TODAY_HERO_URL
+            : selectedProject === "recent"
+              ? RECENT_HERO_URL
+              : undefined
+        }
+        compactHero={selectedProject === "today" || selectedProject === "recent"}
         heroImagePosition="object-center"
         actions={
           <div className="flex items-center gap-1">
@@ -269,10 +281,16 @@ const TaskList: React.FC = () => {
         }
       />
 
-      {!isSpecialView && (
+      {(!isSpecialView || selectedProject === "today") && (
         <AddTaskForm
+          key={selectedProject}
           onAddTask={handleAddTask}
           isSubmitting={isSubmitting}
+          defaultDate={defaultTaskDate}
+          projectSelection={selectedProject === "today" ? {
+            projects,
+            required: true,
+          } : undefined}
         />
       )}
 
@@ -301,23 +319,24 @@ const TaskList: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ) : selectedProject === "recent" ? (
+            ) : selectedProject === "today" || selectedProject === "recent" ? (
               filteredPendingTasks.length === 0 &&
               filteredCompletedTasks.length === 0 &&
               totalActiveFilterCount === 0 ? (
                 <EmptyStateGuide
-                  viewType="recent"
+                  viewType={selectedProject}
                   onCreateProject={() => setNewProjectDialogOpen(true)}
                   hasProjects={projects.length > 0}
                 />
               ) : (
-                <>
-                  <RecentTasksTimeline
-                    tasks={filteredRecentTasks}
-                    renderTask={renderTask}
-                    emptyMessage={totalActiveFilterCount > 0 ? "没有符合筛选条件的任务" : undefined}
-                  />
-                </>
+                <RecentTasksTimeline
+                  tasks={filteredTimelineTasks}
+                  renderTask={renderTask}
+                  emptyMessage={totalActiveFilterCount > 0 ? "没有符合筛选条件的任务" : undefined}
+                  showDateStrip={selectedProject === "recent"}
+                  grouping={selectedProject === "today" ? "project" : "date"}
+                  projects={selectedProject === "today" ? projects : undefined}
+                />
               )
             ) : isSpecialView ? (
               <>
