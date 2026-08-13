@@ -228,8 +228,8 @@ const TaskList: React.FC = () => {
     <TaskItem
       key={task.id}
       task={task}
-      showProject={isSpecialView}
-      projectName={isSpecialView ? getProjectName(task.project) : undefined}
+      showProject={isSpecialView && selectedProject !== "today"}
+      projectName={isSpecialView && selectedProject !== "today" ? getProjectName(task.project) : undefined}
       index={index}
       isDraggable={isDraggable}
       showViewDetailsAction={selectedProject === "today" || selectedProject === "recent"}
@@ -334,6 +334,8 @@ const TaskList: React.FC = () => {
                   renderTask={renderTask}
                   emptyMessage={totalActiveFilterCount > 0 ? "没有符合筛选条件的任务" : undefined}
                   showDateStrip={selectedProject === "recent"}
+                  grouping={selectedProject === "today" ? "project" : "date"}
+                  projects={selectedProject === "today" ? projects : undefined}
                 />
               )
             ) : isSpecialView ? (

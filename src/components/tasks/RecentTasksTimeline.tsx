@@ -1,78 +1,44 @@
 import React, { ReactNode, useMemo, useRef, useState } from "react";
 import {
   format,
-  isBefore,
   isToday,
   isTomorrow,
-  isValid,
-  parseISO,
-  startOfDay,
 } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { Project } from "@/types/project";
 import { Task } from "@/types/task";
 import { getRecentAgendaDates } from "@/utils/recentTasks";
+import { buildTimelineGroups, type TimelineGroup, type TimelineGrouping } from "@/utils/taskTimelineGroups";
 
 interface RecentTasksTimelineProps {
   tasks: Task[];
   renderTask: (task: Task) => ReactNode;
   emptyMessage?: string;
   showDateStrip?: boolean;
+  grouping?: TimelineGrouping;
+  projects?: Project[];
 }
-
-interface TimelineGroup {
-  key: string;
-  date?: Date;
-  tasks: Task[];
-  overdue?: boolean;
-}
-
-const OVERDUE_KEY = "overdue";
 
 const RecentTasksTimeline: React.FC<RecentTasksTimelineProps> = ({
   tasks,
   renderTask,
   emptyMessage = "最近 7 天没有任务",
   showDateStrip = true,
+  grouping = "date",
+  projects = [],
 }) => {
   const dates = useMemo(() => getRecentAgendaDates(), []);
   const [selectedDateKey, setSelectedDateKey] = useState(() => format(dates[0], "yyyy-MM-dd"));
   const dateStripRef = useRef<HTMLDivElement>(null);
   const groupRefs = useRef(new Map<string, HTMLElement>());
 
-  const groups = useMemo<TimelineGroup[]>(() => {
-    const today = startOfDay(dates[0]);
-    const grouped = new Map<string, Task[]>();
-
-    tasks.forEach((task) => {
-      if (!task.date) return;
-      const taskDate = parseISO(task.date);
-      if (!isValid(taskDate)) return;
-
-      const key = isBefore(taskDate, today) ? OVERDUE_KEY : format(taskDate, "yyyy-MM-dd");
-      grouped.set(key, [...(grouped.get(key) ?? []), task]);
-    });
-
-    const sortTasks = (items: Task[]) => [...items].sort((a, b) =>
-      Date.parse(a.date ?? "") - Date.parse(b.date ?? ""),
-    );
-    const result: TimelineGroup[] = [];
-    const overdueTasks = grouped.get(OVERDUE_KEY);
-
-    if (overdueTasks?.length) {
-      result.push({ key: OVERDUE_KEY, tasks: sortTasks(overdueTasks), overdue: true });
-    }
-
-    dates.forEach((date) => {
-      const key = format(date, "yyyy-MM-dd");
-      const dateTasks = grouped.get(key);
-      if (dateTasks?.length) result.push({ key, date, tasks: sortTasks(dateTasks) });
-    });
-
-    return result;
-  }, [dates, tasks]);
+  const groups = useMemo(
+    () => buildTimelineGroups(tasks, dates, grouping, projects),
+    [dates, grouping, projects, tasks],
+  );
 
   const scrollDateStrip = (direction: -1 | 1) => {
     dateStripRef.current?.scrollBy({ left: direction * 240, behavior: "smooth" });
@@ -201,6 +167,7 @@ const RecentTasksTimeline: React.FC<RecentTasksTimelineProps> = ({
 };
 
 const formatGroupTitle = (group: TimelineGroup) => {
+  if (group.title) return group.title;
   if (group.overdue || !group.date) return "逾期";
   if (isToday(group.date)) return `今天 · ${format(group.date, "M月d日 EEE", { locale: zhCN })}`;
   if (isTomorrow(group.date)) return `明天 · ${format(group.date, "M月d日 EEE", { locale: zhCN })}`;
