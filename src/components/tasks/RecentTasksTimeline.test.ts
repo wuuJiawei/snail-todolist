@@ -9,10 +9,10 @@ const projects: Project[] = [
   { id: "project-a", name: "第一清单", icon: "folder", count: 0, sort_order: 2000 },
 ];
 
-const task = (id: string, project: string, date: string): Task => ({
+const task = (id: string, project: string, date?: string, completed = false): Task => ({
   id,
   title: id,
-  completed: false,
+  completed,
   project,
   date,
 });
@@ -45,5 +45,19 @@ describe("buildTimelineGroups", () => {
     ], dates, "project", projects);
 
     expect(groups.map((group) => group.title)).toEqual(["第一清单"]);
+  });
+
+  it("keeps undated and completed past tasks in their project nodes", () => {
+    const dates = [new Date(2026, 7, 13)];
+    const groups = buildTimelineGroups([
+      task("undated-task", "project-b"),
+      task("completed-past-task", "project-a", new Date(2026, 7, 12, 10).toISOString(), true),
+    ], dates, "project", projects);
+
+    expect(groups.map((group) => group.title)).toEqual(["第二清单", "第一清单"]);
+    expect(groups.map((group) => group.tasks.map((item) => item.id))).toEqual([
+      ["undated-task"],
+      ["completed-past-task"],
+    ]);
   });
 });
