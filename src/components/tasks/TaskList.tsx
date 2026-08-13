@@ -90,6 +90,10 @@ const TaskList: React.FC = () => {
     () => [...filteredPendingTasks, ...filteredCompletedTasks],
     [filteredCompletedTasks, filteredPendingTasks],
   );
+  const defaultTaskDate = useMemo(
+    () => selectedProject === "today" ? new Date() : undefined,
+    [selectedProject],
+  );
 
   const filteredPendingTasksByDate = useMemo(() => {
     const groupedTasks = rawFilteredPendingTasksByDate as { [key: string]: Task[] };
@@ -186,16 +190,17 @@ const TaskList: React.FC = () => {
     return projectId;
   };
 
-  const handleAddTask = async (title: string, date?: Date) => {
+  const handleAddTask = async (title: string, date?: Date, projectId?: string) => {
     setIsSubmitting(true);
 
     try {
       const dateString = date ? date.toISOString() : undefined;
+      const targetProject = projectId || selectedProject;
 
       await addTask({
         title: title,
         completed: false,
-        project: selectedProject,
+        project: targetProject,
         date: dateString,
       });
     } catch (error) {
@@ -276,10 +281,16 @@ const TaskList: React.FC = () => {
         }
       />
 
-      {!isSpecialView && (
+      {(!isSpecialView || selectedProject === "today") && (
         <AddTaskForm
+          key={selectedProject}
           onAddTask={handleAddTask}
           isSubmitting={isSubmitting}
+          defaultDate={defaultTaskDate}
+          projectSelection={selectedProject === "today" ? {
+            projects,
+            required: true,
+          } : undefined}
         />
       )}
 

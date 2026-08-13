@@ -1,21 +1,37 @@
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Calendar, Loader2 } from "lucide-react";
+import { Plus, Calendar, Folder, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isValid, isBefore, startOfDay } from "date-fns";
 import { formatDateText } from "@/utils/taskUtils";
 import { cn } from "@/lib/utils";
+import type { Project } from "@/types/project";
 import DueDatePickerContent from "./DueDatePickerContent";
 
-interface AddTaskFormProps {
-  onAddTask: (title: string, date?: Date) => Promise<void>;
-  isSubmitting: boolean;
+interface ProjectSelectionConfig {
+  projects: Project[];
+  required?: boolean;
 }
 
-const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) => {
+interface AddTaskFormProps {
+  onAddTask: (title: string, date?: Date, projectId?: string) => Promise<void>;
+  isSubmitting: boolean;
+  defaultDate?: Date;
+  projectSelection?: ProjectSelectionConfig;
+}
+
+const AddTaskForm: React.FC<AddTaskFormProps> = ({
+  onAddTask,
+  isSubmitting,
+  defaultDate,
+  projectSelection,
+}) => {
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined);
+  const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(defaultDate);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>();
+  const [projectError, setProjectError] = useState(false);
   const isComposingRef = useRef(false);
 
   const handleAddTask = async (e: React.FormEvent) => {
@@ -23,11 +39,21 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) =>
     if (isComposingRef.current) {
       return;
     }
-    if (newTaskTitle.trim() && !isSubmitting) {
-      await onAddTask(newTaskTitle, newTaskDate);
-      setNewTaskTitle("");
-      setNewTaskDate(undefined);
+    if (!newTaskTitle.trim() || isSubmitting) {
+      return;
     }
+
+    const hasValidProject = !projectSelection || (
+      selectedProjectId && projectSelection.projects.some((project) => project.id === selectedProjectId)
+    );
+    if (projectSelection?.required && !hasValidProject) {
+      setProjectError(true);
+      return;
+    }
+
+    await onAddTask(newTaskTitle, newTaskDate, selectedProjectId);
+    setNewTaskTitle("");
+    setNewTaskDate(defaultDate);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -35,9 +61,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) =>
       const composing = e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229 || isComposingRef.current;
       if (composing) {
         e.preventDefault();
-        return;
       }
-      handleAddTask(e as unknown as React.FormEvent);
     }
   };
 
@@ -65,6 +89,36 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, isSubmitting }) =>
           className="h-6 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm font-medium px-0"
           disabled={isSubmitting}
         />
+        {projectSelection && (
+          <Select
+            value={selectedProjectId}
+            onValueChange={(projectId) => {
+              setSelectedProjectId(projectId);
+              setProjectError(false);
+            }}
+            disabled={isSubmitting || projectSelection.projects.length === 0}
+          >
+            <SelectTrigger
+              aria-label="选择清单"
+              aria-required={projectSelection.required}
+              aria-invalid={projectError}
+              className={cn(
+                "h-7 w-[148px] shrink-0 gap-1 border-0 bg-transparent px-2 text-xs shadow-none focus:ring-1 focus:ring-offset-0",
+                projectError && "text-destructive ring-1 ring-destructive",
+              )}
+            >
+              <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <SelectValue placeholder={projectSelection.projects.length > 0 ? "选择清单" : "暂无清单"} />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {projectSelection.projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Popover>
           <PopoverTrigger asChild>
             <Button 
