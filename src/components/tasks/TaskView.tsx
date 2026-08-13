@@ -6,12 +6,12 @@ import TrashView from "./TrashView";
 import { useTaskContext } from "@/contexts/task";
 
 const TaskView: React.FC = () => {
-  const { selectedProject, tasks, abandonedTasks } = useTaskContext();
+  const { selectedProject, tasks, abandonedTasks, loading } = useTaskContext();
 
   const renderContent = () => {
     switch (selectedProject) {
       case "completed":
-        return <CompletedTasksView tasks={tasks.filter((task) => task.completed)} />;
+        return <CompletedTasksView tasks={tasks.filter((task) => task.completed)} loading={loading} />;
       case "abandoned":
         return <AbandonedTasksView tasks={abandonedTasks} />;
       case "trash":
