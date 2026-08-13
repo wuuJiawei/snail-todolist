@@ -80,6 +80,7 @@ const AbandonedTasksView: React.FC<AbandonedTasksViewProps> = ({ tasks }) => {
       ) : undefined}
       loading={abandonedLoading && !abandonedLoaded}
       loadingLabel="正在加载已放弃任务..."
+      skeletonActionCount={1}
       recordCountText={filterActive
         ? `筛选出 ${filteredTasks.length} / ${tasks.length} 条记录`
         : `共 ${tasks.length} 条记录`}

@@ -103,6 +103,7 @@ const TrashView: React.FC = () => {
       emptyDescription="删除的任务会显示在这里，并保留 30 天。"
       loading={trashedLoading && !trashedLoaded}
       loadingLabel="正在加载垃圾桶..."
+      skeletonActionCount={2}
       showExpiredDeadline
       onSelectTask={(task) => selectTask(task.id)}
       renderTaskAction={(task) => (

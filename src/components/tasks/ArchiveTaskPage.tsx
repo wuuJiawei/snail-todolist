@@ -11,6 +11,7 @@ import {
 import { zhCN } from "date-fns/locale";
 import { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import FixedTaskPageSkeleton from "@/components/tasks/FixedTaskPageSkeleton";
 import TaskPageHero from "@/components/tasks/TaskPageHero";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ interface ArchiveTaskPageProps {
   emptyAction?: ReactNode;
   loading?: boolean;
   loadingLabel?: string;
+  skeletonActionCount?: number;
   recordCountText?: string;
   showExpiredDeadline?: boolean;
   onSelectTask?: (task: Task) => void;
@@ -57,6 +59,7 @@ const ArchiveTaskPage: React.FC<ArchiveTaskPageProps> = ({
   emptyAction,
   loading = false,
   loadingLabel = "正在加载...",
+  skeletonActionCount = 1,
   recordCountText,
   showExpiredDeadline = false,
   onSelectTask,
@@ -97,9 +100,11 @@ const ArchiveTaskPage: React.FC<ArchiveTaskPageProps> = ({
 
   if (loading && tasks.length === 0) {
     return (
-      <div className="flex h-full min-h-0 flex-1 items-center justify-center text-muted-foreground">
-        {loadingLabel}
-      </div>
+      <FixedTaskPageSkeleton
+        variant="archive"
+        actionCount={skeletonActionCount}
+        label={loadingLabel}
+      />
     );
   }
 

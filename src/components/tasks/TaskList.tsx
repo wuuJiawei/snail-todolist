@@ -238,7 +238,7 @@ const TaskList: React.FC = () => {
   );
 
   if (loading) {
-    return <TaskListSkeleton />;
+    return <TaskListSkeleton selectedProject={selectedProject} />;
   }
 
   return (

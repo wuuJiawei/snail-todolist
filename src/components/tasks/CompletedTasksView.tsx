@@ -22,6 +22,7 @@ import { Task } from "@/types/task";
 
 interface CompletedTasksViewProps {
   tasks: Task[];
+  loading?: boolean;
   exportDialogOpen?: boolean;
   onExportDialogChange?: (open: boolean) => void;
 }
@@ -31,6 +32,7 @@ const getCompletedTimestamp = (task: Task) => task.completed_at;
 
 const CompletedTasksView: React.FC<CompletedTasksViewProps> = ({
   tasks,
+  loading = false,
   exportDialogOpen: externalExportDialogOpen,
   onExportDialogChange,
 }) => {
@@ -99,6 +101,9 @@ const CompletedTasksView: React.FC<CompletedTasksViewProps> = ({
         emptyIcon={CheckCircle2}
         emptyTitle={emptyTitle}
         emptyDescription={emptyDescription}
+        loading={loading}
+        loadingLabel="正在加载已完成任务"
+        skeletonActionCount={2}
         emptyAction={filterActive ? (
           <Button variant="outline" size="sm" onClick={clearFilters}>清除筛选</Button>
         ) : undefined}

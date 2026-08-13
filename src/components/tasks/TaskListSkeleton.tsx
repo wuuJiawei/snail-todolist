@@ -1,7 +1,24 @@
 import React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import FixedTaskPageSkeleton from "@/components/tasks/FixedTaskPageSkeleton";
 
-const TaskListSkeleton: React.FC = () => {
+interface TaskListSkeletonProps {
+  selectedProject?: string;
+}
+
+const TaskListSkeleton: React.FC<TaskListSkeletonProps> = ({ selectedProject }) => {
+  if (selectedProject === "today") {
+    return <FixedTaskPageSkeleton variant="timeline" showQuickAdd label="正在加载今日任务" />;
+  }
+
+  if (selectedProject === "recent") {
+    return <FixedTaskPageSkeleton variant="timeline" showDateStrip label="正在加载最近 7 天任务" />;
+  }
+
+  if (selectedProject === "flagged") {
+    return <FixedTaskPageSkeleton variant="timeline" label="正在加载标记任务" />;
+  }
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
@@ -56,4 +73,3 @@ const TaskListSkeleton: React.FC = () => {
 };
 
 export default TaskListSkeleton;
-
