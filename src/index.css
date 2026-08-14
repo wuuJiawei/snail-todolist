@@ -843,3 +843,166 @@
 .dark .milkdown-code-block .cm-editor.cm-focused .cm-selectionBackground {
   background: hsl(var(--ring) / 0.3) !important;
 }
+
+/* Task calendar: FullCalendar layout, product tokens and shadcn surfaces. */
+.task-calendar {
+  --fc-classic-primary: hsl(var(--primary));
+  --fc-classic-primary-foreground: hsl(var(--primary-foreground));
+  --fc-classic-event: hsl(var(--secondary));
+  --fc-classic-event-contrast: hsl(var(--secondary-foreground));
+  --fc-classic-background-event: hsl(var(--muted));
+  --fc-classic-background-event-opacity: 25%;
+  --fc-classic-background-event-foreground-opacity: 65%;
+  --fc-classic-highlight: hsl(var(--accent) / 0.7);
+  --fc-classic-today: hsl(var(--accent) / 0.55);
+  --fc-classic-now: hsl(var(--destructive));
+  --fc-classic-background: hsl(var(--background));
+  --fc-classic-faint: hsl(var(--muted) / 0.28);
+  --fc-classic-muted: hsl(var(--muted) / 0.6);
+  --fc-classic-strong: hsl(var(--muted));
+  --fc-classic-foreground: hsl(var(--foreground));
+  --fc-classic-faint-foreground: hsl(var(--muted-foreground) / 0.55);
+  --fc-classic-muted-foreground: hsl(var(--muted-foreground));
+  --fc-classic-border: hsl(var(--border));
+  --fc-classic-strong-border: hsl(var(--border));
+  color: hsl(var(--foreground));
+  font-size: 0.8125rem;
+}
+
+.task-calendar > div {
+  height: 100%;
+}
+
+.task-calendar__day-header,
+.task-calendar__month-header {
+  background: hsl(var(--background));
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+}
+
+.task-calendar__day-header > * {
+  padding-block: 0.5rem;
+}
+
+.task-calendar__day-number {
+  color: hsl(var(--foreground));
+  display: inline-flex;
+  margin: 0.25rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.task-calendar__day--today .task-calendar__day-number {
+  align-items: center;
+  background: hsl(var(--primary));
+  border-radius: 9999px;
+  color: hsl(var(--primary-foreground));
+  display: inline-flex;
+  height: 1.75rem;
+  justify-content: center;
+  margin: 0.25rem;
+  padding: 0;
+  width: 1.75rem;
+}
+
+.task-calendar__slot {
+  min-height: 2.75rem;
+}
+
+.task-calendar .task-calendar__event {
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
+  border-left: 3px solid hsl(var(--primary));
+  border-radius: calc(var(--radius) - 2px);
+  color: hsl(var(--secondary-foreground));
+  cursor: pointer;
+  min-height: 1.6rem;
+  overflow: hidden;
+}
+
+.task-calendar .task-calendar__event:hover {
+  background: hsl(var(--accent));
+}
+
+.task-calendar .task-calendar__event--completed {
+  opacity: 0.55;
+}
+
+.task-calendar .task-calendar__event--completed .task-calendar__event-title {
+  text-decoration: line-through;
+}
+
+.task-calendar .task-calendar__event--overdue {
+  border-left-color: hsl(var(--destructive));
+}
+
+.task-calendar__event-content {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.375rem;
+  min-width: 0;
+  padding: 0.25rem 0.375rem;
+}
+
+.task-calendar__event-checkbox {
+  height: 0.875rem;
+  margin-top: 0.125rem;
+  width: 0.875rem;
+}
+
+.task-calendar__event-copy,
+.task-calendar__event-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-calendar__event-copy {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.task-calendar__event-time {
+  color: hsl(var(--muted-foreground));
+  flex: none;
+  font-size: 0.75rem;
+}
+
+.task-calendar--year .task-calendar__month-card {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.task-calendar__more-link {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+}
+
+.task-calendar--year .task-calendar__event {
+  background: transparent;
+  border: 0;
+  display: inline-block;
+  min-height: auto;
+  width: auto;
+}
+
+.task-calendar__year-dot {
+  background: hsl(var(--primary));
+  border-radius: 9999px;
+  display: block;
+  height: 0.35rem;
+  width: 0.35rem;
+}
+
+@media (max-width: 767px) {
+  .task-calendar__day-header > *,
+  .task-calendar__day-number {
+    padding: 0.35rem;
+  }
+
+  .task-calendar__slot {
+    min-height: 2.25rem;
+  }
+}

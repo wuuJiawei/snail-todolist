@@ -36,6 +36,22 @@ describe("Supabase row mappers", () => {
     expect(task.attachments?.[0]).toMatchObject({ filename: "stored.txt", size: 1, type: "text/plain" });
   });
 
+  it("maps task date modes and range end values", () => {
+    const task = mapTaskRow({
+      id: "task-1",
+      title: "Range",
+      completed: false,
+      date: "2026-08-14T09:00:00.000Z",
+      date_type: "range",
+      end_date: "2026-08-14T10:30:00.000Z",
+    });
+
+    expect(task).toMatchObject({
+      dateType: "range",
+      endDate: "2026-08-14T10:30:00.000Z",
+    });
+  });
+
   it("maps check-in and pomodoro timestamps to domain names", () => {
     expect(mapCheckInRow({ id: "c1", check_in_time: "start", created_at: "created" })).toEqual({
       id: "c1", checkInTime: "start", createdAt: "created",

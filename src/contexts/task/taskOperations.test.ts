@@ -34,4 +34,28 @@ describe("task operation helpers", () => {
       { action: "task_flagged", metadata: { flagged: true } },
     ]);
   });
+
+  it("records date, datetime and range changes as one task time activity", () => {
+    const previous = {
+      ...task("task-1", 1000),
+      date: "2026-08-14T00:00:00.000Z",
+      date_type: "date" as const,
+    };
+
+    expect(buildTaskActivityDrafts(previous, {
+      date: "2026-08-14T09:00:00.000Z",
+      date_type: "range",
+      end_date: "2026-08-14T10:00:00.000Z",
+    })).toEqual([{
+      action: "task_time_updated",
+      metadata: {
+        from: { date: previous.date, dateType: "date", endDate: null },
+        to: {
+          date: "2026-08-14T09:00:00.000Z",
+          dateType: "range",
+          endDate: "2026-08-14T10:00:00.000Z",
+        },
+      },
+    }]);
+  });
 });

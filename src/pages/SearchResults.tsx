@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/resizable";
 import TaskDetail from "@/components/tasks/TaskDetail";
 import { Input } from "@/components/ui/input";
+import { formatTaskDate } from "@/utils/taskDate";
 
 // 高亮搜索关键词的组件
 const HighlightText: React.FC<{ html: string }> = ({ html }) => {
@@ -63,7 +64,7 @@ const TaskCard: React.FC<{
               {task.date && (
                 <Badge variant="outline">
                   <Clock className="w-3 h-3 mr-1" />
-                  {new Date(task.date).toLocaleDateString("zh-CN")}
+                  {formatTaskDate(task)}
                 </Badge>
               )}
               {task.project && <Badge variant="outline">{task.project}</Badge>}

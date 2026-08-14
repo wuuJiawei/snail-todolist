@@ -1,13 +1,10 @@
 import {
   addDays,
   endOfDay,
-  isBefore,
-  isValid,
-  isWithinInterval,
-  parseISO,
   startOfDay,
 } from "date-fns";
 import { Task } from "@/types/task";
+import { isTaskDateExpired, isTaskWithinDateRange } from "@/utils/taskDate";
 
 export const RECENT_AGENDA_DAY_COUNT = 7;
 
@@ -22,13 +19,10 @@ export const getRecentAgendaDates = (referenceDate = new Date()) => {
 export const isTaskInRecentAgenda = (task: Task, referenceDate = new Date()) => {
   if (!task.date) return false;
 
-  const taskDate = parseISO(task.date);
-  if (!isValid(taskDate)) return false;
-
   const firstDay = startOfDay(referenceDate);
   const lastDay = endOfDay(addDays(firstDay, RECENT_AGENDA_DAY_COUNT - 1));
 
-  if (!task.completed && isBefore(taskDate, firstDay)) return true;
+  if (isTaskDateExpired(task, firstDay)) return true;
 
-  return isWithinInterval(taskDate, { start: firstDay, end: lastDay });
+  return isTaskWithinDateRange(task, firstDay, lastDay);
 };

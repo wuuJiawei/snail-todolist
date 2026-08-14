@@ -6,9 +6,9 @@ import { Icon } from "@/components/ui/icon-park";
 import ProjectIcon from "@/components/ui/project-icon";
 import { Task } from "@/types/task";
 import { Tag } from "@/types/tag";
-import { format, isValid, parseISO, isBefore, startOfDay } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { formatDateText as formatDateTextUtil, getChangedTaskTitle } from "@/utils/taskUtils";
+import { getChangedTaskTitle } from "@/utils/taskUtils";
 import { useToast } from "@/hooks/use-toast";
 import {
   ContextMenu,
@@ -20,11 +20,18 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
-import DueDatePickerContent from "./DueDatePickerContent";
+import TaskDatePickerContent from "./TaskDatePickerContent";
 import { Draggable } from "@hello-pangea/dnd";
 import { Eye, Loader2 } from "lucide-react";
 import { useTaskOperation } from "@/hooks/useTaskOperation";
 import TagSelector from "./TagSelector";
+import {
+  formatTaskDate,
+  isTaskDateExpired,
+  serializeTaskDateValue,
+  toTaskDateValue,
+  type TaskDateValue,
+} from "@/utils/taskDate";
 
 interface TaskItemProps {
   task: Task;
@@ -142,27 +149,6 @@ const TaskItem: React.FC<TaskItemProps> = ({
     }
   };
 
-  const isDeadlineExpired = (dateStr: string) => {
-    try {
-      const date = parseISO(dateStr);
-      if (!isValid(date)) return false;
-      const today = startOfDay(new Date());
-      return isBefore(date, today);
-    } catch (error) {
-      return false;
-    }
-  };
-
-  const formatDateText = (dateStr: string) => {
-    try {
-      const date = parseISO(dateStr);
-      if (!isValid(date)) return "日期无效";
-      return formatDateTextUtil(date);
-    } catch (error) {
-      return "日期无效";
-    }
-  };
-
   const handleDeleteTask = async (e: React.MouseEvent) => {
     e.preventDefault();
     
@@ -209,6 +195,8 @@ const TaskItem: React.FC<TaskItemProps> = ({
           title: task.title,
           completed: false, // 复制的任务默认为未完成状态  
           date: task.date,
+          date_type: task.date_type,
+          end_date: task.end_date,
           project: targetProjectId,
           description: task.description,
           // 不复制 completed_at, updated_at, user_id, sort_order, deleted, deleted_at
@@ -297,44 +285,26 @@ const TaskItem: React.FC<TaskItemProps> = ({
   };
 
 
-  // 从 task.date 解析当前选择日期
-  const getSelectedDate = (): Date | undefined => {
-    try {
-      if (!task.date) return undefined;
-      const parsed = parseISO(task.date);
-      return isValid(parsed) ? parsed : undefined;
-    } catch {
-      return undefined;
-    }
-  };
-
-  // 右键菜单内设置/清除截止日期
-  const handleContextMenuDateChange = async (date: Date | undefined) => {
+  // 右键菜单内设置/清除任务时间
+  const handleContextMenuDateChange = async (value: TaskDateValue) => {
     await startOperation("update", async () => {
-      let dateString: string | undefined = undefined;
-      if (date) {
-        const normalizedDate = new Date(date);
-        normalizedDate.setHours(0, 0, 0, 0);
-        dateString = normalizedDate.toISOString();
-      }
-      await updateTask(task.id, { date: dateString });
+      await updateTask(task.id, serializeTaskDateValue(value));
       setIsContextMenuOpen(false);
     });
   };
 
   const renderDueDateSubmenu = () => {
-    const selectedDate = getSelectedDate();
     return (
       <ContextMenuSub>
         <ContextMenuSubTrigger>
           <Icon icon="calendar" size="16" className="h-4 w-4 mr-2" />
-          设置截止日期
+          设置任务时间
         </ContextMenuSubTrigger>
         <ContextMenuSubContent sideOffset={-4} alignOffset={-2}>
-          <DueDatePickerContent
-            selectedDate={selectedDate}
+          <TaskDatePickerContent
+            value={toTaskDateValue(task)}
             onChange={handleContextMenuDateChange}
-            removeLabel="移除截止日期"
+            removeLabel="移除任务时间"
           />
         </ContextMenuSubContent>
       </ContextMenuSub>
@@ -621,10 +591,10 @@ const TaskItem: React.FC<TaskItemProps> = ({
               {task.date && (
                 <div className={cn(
                   "flex items-center gap-1",
-                  isDeadlineExpired(task.date) ? "text-red-500" : "text-green-600"
+                  isTaskDateExpired(task) ? "text-red-500" : "text-muted-foreground"
                 )}>
                   <Icon icon="calendar" size="12" className="h-3 w-3" />
-                  <span>截止: {formatDateText(task.date)}</span>
+                  <span>{formatTaskDate(task)}</span>
                 </div>
               )}
               {task.completed && task.completed_at && (
@@ -666,7 +636,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
               snapshot.isDragging && "z-10"
             )}
           >
-            <ContextMenu onOpenChange={setIsContextMenuOpen}>
+            <ContextMenu open={isContextMenuOpen} onOpenChange={setIsContextMenuOpen}>
               <ContextMenuTrigger>
                 {renderTaskContent(provided.dragHandleProps, snapshot.isDragging)}
               </ContextMenuTrigger>
@@ -681,7 +651,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
   }
 
   return (
-    <ContextMenu onOpenChange={setIsContextMenuOpen}>
+    <ContextMenu open={isContextMenuOpen} onOpenChange={setIsContextMenuOpen}>
       <ContextMenuTrigger>
         {renderTaskContent()}
       </ContextMenuTrigger>

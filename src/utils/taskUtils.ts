@@ -1,6 +1,7 @@
 import { Task } from "@/types/task";
 import { format, isToday, isTomorrow, isYesterday, isValid } from "date-fns";
 import { zhCN } from "date-fns/locale";
+import { isTaskDateExpired } from "@/utils/taskDate";
 
 // Format date for display in a user-friendly way
 export const formatDateText = (date: Date | undefined) => {
@@ -20,14 +21,7 @@ export const getChangedTaskTitle = (currentTitle: string, editedTitle: string): 
 
 // Check if a task is expired (past date and not completed)
 export const isTaskExpired = (task: Task) => {
-  if (task.completed) return false;
-  if (!task.date) return false;
-  
-  const now = new Date();
-  now.setHours(0, 0, 0, 0); // Reset time to start of day
-  
-  const taskDate = new Date(task.date);
-  return isValid(taskDate) && taskDate < now;
+  return isTaskDateExpired(task);
 };
 
 // Define the return type for the grouping function

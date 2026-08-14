@@ -43,7 +43,7 @@ vi.mock("@/components/ui/project-icon", () => ({
   default: () => null,
 }));
 
-vi.mock("./DueDatePickerContent", () => ({
+vi.mock("./TaskDatePickerContent", () => ({
   default: () => null,
 }));
 

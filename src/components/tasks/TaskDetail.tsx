@@ -12,6 +12,11 @@ import TaskDetailContent, { EditorBridge } from "./TaskDetailContent";
 import TaskActivityDialog from "./TaskActivityDialog";
 import TaskAttachments from "./TaskAttachments";
 import { useTaskOperation } from "@/hooks/useTaskOperation";
+import {
+  serializeTaskDateValue,
+  toTaskDateValue,
+  type TaskDateValue,
+} from "@/utils/taskDate";
 
 const TaskDetail = () => {
   const { selectedTask, updateTask, selectTask, trashedTasks } = useTaskContext();
@@ -20,7 +25,7 @@ const TaskDetail = () => {
   const [title, setTitle] = useState("");
   const [completed, setCompleted] = useState(false);
   const [flagged, setFlagged] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [taskDateValue, setTaskDateValue] = useState<TaskDateValue>(undefined);
   const [editorContent, setEditorContent] = useState("");
   const [isEditorUpdating, setIsEditorUpdating] = useState(false);
   const [blockNoteEditor, setBlockNoteEditor] = useState<EditorBridge | null>(null);
@@ -150,18 +155,7 @@ const TaskDetail = () => {
     setIsEditorUpdating(true);
     setEditorContent(selectedTask.description || '');
     setAttachments(selectedTask.attachments || []);
-    setSelectedDate(undefined);
-
-    if (selectedTask.date) {
-      try {
-        const date = parseISO(selectedTask.date);
-        if (isValid(date)) {
-          setSelectedDate(date);
-        }
-      } catch (error) {
-        console.error('Error parsing date:', error);
-      }
-    }
+    setTaskDateValue(toTaskDateValue(selectedTask));
 
     if (titleTextareaRef.current) {
       requestAnimationFrame(() => {
@@ -274,15 +268,9 @@ const TaskDetail = () => {
     }
   }, [flagged, isTaskInTrash, selectedTask, startOperation, updateTask, toast]);
 
-  const handleDateChange = (date: Date | undefined) => {
-    setSelectedDate(date);
-    let dateString;
-    if (date) {
-      const normalizedDate = new Date(date);
-      normalizedDate.setHours(0, 0, 0, 0);
-      dateString = normalizedDate.toISOString();
-    }
-    saveTask({ date: dateString });
+  const handleDateChange = (value: TaskDateValue) => {
+    setTaskDateValue(value);
+    saveTask(serializeTaskDateValue(value));
   };
 
   useLayoutEffect(() => {
@@ -443,7 +431,7 @@ const TaskDetail = () => {
             deletedAtLabel={deletedAtLabel}
             completed={completed}
             flagged={flagged}
-            selectedDate={selectedDate}
+            taskDateValue={taskDateValue}
             isCompletionLoading={isCompletionLoading}
             onCompletedChange={handleCompletedChange}
             onFlagToggle={handleFlagToggle}

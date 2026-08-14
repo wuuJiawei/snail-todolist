@@ -1,10 +1,14 @@
 import type { Tag } from "./tag";
 
+export type TaskDateType = "date" | "datetime" | "range";
+
 export interface Task {
   id: string;
   title: string;
   completed: boolean;
-  date?: string; // Now represents deadline date: ISO string format: YYYY-MM-DD HH:mm:ss
+  date?: string; // 日期、具体时间或时间段开始时间（ISO string）
+  date_type?: TaskDateType;
+  end_date?: string; // 仅 date_type=range 时使用（ISO string）
   project?: string;
   description?: string;
   icon?: string; // Task icon (emoji)

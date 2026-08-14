@@ -34,13 +34,14 @@ function mapTaskWithTags(row: SupabaseTaskWithTagsRow): DomainTask {
 function mapTaskUpdate(input: UpdateTaskInput, normalizeCompletion = true): TaskWrite {
   const updates: TaskWrite = {};
   const nullableStrings = [
-    ["date", "date"], ["projectId", "project"], ["description", "description"], ["icon", "icon"],
+    ["date", "date"], ["endDate", "end_date"], ["projectId", "project"], ["description", "description"], ["icon", "icon"],
     ["completedAt", "completed_at"], ["updatedAt", "updated_at"], ["deletedAt", "deleted_at"],
     ["abandonedAt", "abandoned_at"],
   ] as const;
   const booleans = ["completed", "deleted", "abandoned", "flagged"] as const;
 
   if (input.title !== undefined) updates.title = input.title;
+  if (input.dateType !== undefined) updates.date_type = input.dateType;
   if (input.sortOrder !== undefined) updates.sort_order = input.sortOrder;
   for (const [field, column] of nullableStrings) {
     if (hasOwn(input, field)) updates[column] = input[field] ?? null;
@@ -62,6 +63,8 @@ function mapTaskForUpsert(task: DomainTask, userId: string): TaskWrite {
     title: task.title,
     completed: task.completed,
     date: task.date ?? null,
+    date_type: task.dateType ?? "date",
+    end_date: task.endDate ?? null,
     project: task.projectId ?? null,
     description: task.description ?? null,
     icon: task.icon ?? null,

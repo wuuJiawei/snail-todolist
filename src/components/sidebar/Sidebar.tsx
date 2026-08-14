@@ -12,9 +12,10 @@ import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Project } from "@/types/project";
 import CheckInButton from "@/components/sidebar/CheckInButton";
 import { useToast } from "@/components/ui/use-toast";
-import { isToday, isBefore, startOfDay, parseISO, isValid } from 'date-fns';
+import { startOfDay } from 'date-fns';
 import { Skeleton } from "@/components/ui/skeleton";
 import { isTaskInRecentAgenda } from "@/utils/recentTasks";
+import { isTaskDateExpired, isTaskOnDate } from "@/utils/taskDate";
 
 const Sidebar: React.FC = () => {
   const { tasks } = useTaskContext();
@@ -34,25 +35,13 @@ const Sidebar: React.FC = () => {
 
     tasks.forEach(task => {
       if (!task.completed) {
-        let taskDate: Date | null = null;
-        if (task.date) {
-          try {
-            const parsed = parseISO(task.date);
-            if (isValid(parsed)) {
-              taskDate = startOfDay(parsed); // Normalize to start of day
-            }
-          } catch (e) {
-            console.error("Invalid date format for task:", task.id, task.date);
-          }
-        }
-
         // Count for Today: Overdue or Due Today
-        if (taskDate && (isToday(taskDate) || isBefore(taskDate, todayStart))) {
+        if (isTaskOnDate(task, now) || isTaskDateExpired(task, todayStart)) {
           today++;
         }
 
         // Count for Recent 7 Days: Overdue or Due within the next 7 days (inclusive of today)
-        if (taskDate && isTaskInRecentAgenda(task, now)) {
+        if (isTaskInRecentAgenda(task, now)) {
           recent++;
         }
       }

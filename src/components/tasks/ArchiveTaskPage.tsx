@@ -1,12 +1,9 @@
 import React, { ReactNode, useMemo } from "react";
 import {
   format,
-  isBefore,
   isToday,
-  isTomorrow,
   isValid,
   parseISO,
-  startOfDay,
 } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { LucideIcon } from "lucide-react";
@@ -16,6 +13,7 @@ import TaskPageHero from "@/components/tasks/TaskPageHero";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { cn } from "@/lib/utils";
 import { Task } from "@/types/task";
+import { formatTaskDate, isTaskDateExpired } from "@/utils/taskDate";
 
 interface ArchiveTaskPageProps {
   title: string;
@@ -189,12 +187,11 @@ const ArchiveTaskRow: React.FC<ArchiveTaskRowProps> = ({
   action,
   onSelect,
 }) => {
-  const deadlineText = useMemo(() => formatDeadline(task.date), [task.date]);
-  const deadlineExpired = useMemo(() => {
-    if (!showExpiredDeadline || !task.date) return false;
-    const date = parseISO(task.date);
-    return isValid(date) && isBefore(startOfDay(date), startOfDay(new Date()));
-  }, [showExpiredDeadline, task.date]);
+  const deadlineText = useMemo(() => task.date ? formatTaskDate(task) : null, [task]);
+  const deadlineExpired = useMemo(
+    () => showExpiredDeadline && isTaskDateExpired(task),
+    [showExpiredDeadline, task],
+  );
 
   return (
     <div
@@ -245,15 +242,6 @@ const formatTimestamp = (timestamp: string | undefined, label: string) => {
     ? `今天 ${format(date, "HH:mm")}`
     : format(date, "MM月dd日 HH:mm", { locale: zhCN });
   return `${dateText} ${label}`;
-};
-
-const formatDeadline = (dateStr: string | undefined) => {
-  if (!dateStr) return null;
-  const date = parseISO(dateStr);
-  if (!isValid(date)) return null;
-  if (isToday(date)) return "今天";
-  if (isTomorrow(date)) return "明天";
-  return format(date, "MM月dd日", { locale: zhCN });
 };
 
 export default ArchiveTaskPage;

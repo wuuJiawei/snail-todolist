@@ -1,10 +1,12 @@
-import type { Task } from "@/types/task";
+import type { Task, TaskDateType } from "@/types/task";
 
 export interface DomainTask {
   id: string;
   title: string;
   completed: boolean;
   date?: string;
+  dateType?: TaskDateType;
+  endDate?: string;
   projectId?: string;
   description?: string;
   icon?: string;
@@ -58,6 +60,7 @@ export interface DomainTag {
 export function toDomainTask(task: Task): DomainTask {
   return {
     id: task.id, title: task.title, completed: task.completed, date: task.date,
+    dateType: task.date_type, endDate: task.end_date,
     projectId: task.project, description: task.description, icon: task.icon,
     completedAt: task.completed_at, updatedAt: task.updated_at, ownerId: task.user_id,
     sortOrder: task.sort_order, deleted: task.deleted, deletedAt: task.deleted_at,
@@ -73,6 +76,7 @@ export function toDomainTask(task: Task): DomainTask {
 export function toLegacyTask(task: DomainTask): Task {
   const legacy: Task = {
     id: task.id, title: task.title, completed: task.completed, date: task.date,
+    date_type: task.dateType, end_date: task.endDate,
     project: task.projectId, description: task.description, icon: task.icon,
     completed_at: task.completedAt, updated_at: task.updatedAt, user_id: task.ownerId,
     sort_order: task.sortOrder, deleted: task.deleted, deleted_at: task.deletedAt,
@@ -92,6 +96,8 @@ export function toDomainTaskUpdate(task: Partial<Task>): Partial<Omit<DomainTask
   if ("title" in task) copy("title", task.title);
   if ("completed" in task) copy("completed", task.completed);
   if ("date" in task) copy("date", task.date);
+  if ("date_type" in task) copy("dateType", task.date_type);
+  if ("end_date" in task) copy("endDate", task.end_date);
   if ("project" in task) copy("projectId", task.project);
   if ("description" in task) copy("description", task.description);
   if ("icon" in task) copy("icon", task.icon);

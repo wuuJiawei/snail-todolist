@@ -210,13 +210,18 @@ export type Database = {
         Row: {
           abandoned: boolean | null
           abandoned_at: string | null
+          anonymous_id: string | null
+          attachments: Json | null
           completed: boolean
           completed_at: string | null
           created_at: string | null
           date: string | null
+          date_type: string
           deleted: boolean | null
           deleted_at: string | null
           description: string | null
+          end_date: string | null
+          flagged: boolean
           icon: string | null
           id: string
           project: string | null
@@ -228,13 +233,18 @@ export type Database = {
         Insert: {
           abandoned?: boolean | null
           abandoned_at?: string | null
+          anonymous_id?: string | null
+          attachments?: Json | null
           completed?: boolean
           completed_at?: string | null
           created_at?: string | null
           date?: string | null
+          date_type?: string
           deleted?: boolean | null
           deleted_at?: string | null
           description?: string | null
+          end_date?: string | null
+          flagged?: boolean
           icon?: string | null
           id?: string
           project?: string | null
@@ -246,13 +256,18 @@ export type Database = {
         Update: {
           abandoned?: boolean | null
           abandoned_at?: string | null
+          anonymous_id?: string | null
+          attachments?: Json | null
           completed?: boolean
           completed_at?: string | null
           created_at?: string | null
           date?: string | null
+          date_type?: string
           deleted?: boolean | null
           deleted_at?: string | null
           description?: string | null
+          end_date?: string | null
+          flagged?: boolean
           icon?: string | null
           id?: string
           project?: string | null

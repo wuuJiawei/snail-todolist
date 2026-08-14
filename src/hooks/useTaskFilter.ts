@@ -2,8 +2,9 @@ import { useMemo } from "react";
 import { Task } from "@/types/task";
 import { Tag } from "@/types/tag";
 import { TaskFilterOptions } from "@/components/tasks/TaskFilter";
-import { isToday, isThisWeek, isPast, parseISO } from "date-fns";
+import { isThisWeek, parseISO } from "date-fns";
 import { useTaskContext } from "@/contexts/task";
+import { isTaskDateExpired, isTaskOnDate } from "@/utils/taskDate";
 
 export const useTaskFilter = (tasks: Task[] | { [key: string]: Task[] }, filters: TaskFilterOptions) => {
   const { getTaskTags } = useTaskContext();
@@ -95,8 +96,8 @@ const getDeadlineCategory = (task: Task): string => {
     const deadline = parseISO(task.date);
     const now = new Date();
 
-    if (isPast(deadline) && !isToday(deadline)) return "overdue";
-    if (isToday(deadline)) return "today";
+    if (isTaskDateExpired(task, now)) return "overdue";
+    if (isTaskOnDate(task, now)) return "today";
     if (isThisWeek(deadline)) return "week";
     
     return "future";

@@ -17,6 +17,7 @@ import { filterTasksBySearch } from "@/utils/taskSearch";
 import TaskHeader from "./TaskHeader";
 import TaskSearch from "./TaskSearch";
 import AddTaskForm from "./AddTaskForm";
+import { serializeTaskDateValue, type TaskDateValue } from "@/utils/taskDate";
 import TasksExpired from "./TasksExpired";
 import TasksByDate from "./TasksByDate";
 import TasksCompleted from "./TasksCompleted";
@@ -191,18 +192,17 @@ const TaskList: React.FC = () => {
     return projectId;
   };
 
-  const handleAddTask = async (title: string, date?: Date, projectId?: string) => {
+  const handleAddTask = async (title: string, date: TaskDateValue, projectId?: string) => {
     setIsSubmitting(true);
 
     try {
-      const dateString = date ? date.toISOString() : undefined;
       const targetProject = projectId || selectedProject;
 
       await addTask({
         title: title,
         completed: false,
         project: targetProject,
-        date: dateString,
+        ...serializeTaskDateValue(date),
       });
     } catch (error) {
       console.error("Failed to add task:", error);
