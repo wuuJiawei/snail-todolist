@@ -976,20 +976,48 @@
   overflow: hidden;
 }
 
-.task-calendar--year .task-calendar__day--completion-1 {
-  background: hsl(var(--primary) / 0.14);
+.task-calendar--year {
+  --task-calendar-heatmap-1: #9be9a8;
+  --task-calendar-heatmap-2: #40c463;
+  --task-calendar-heatmap-3: #30a14e;
+  --task-calendar-heatmap-4: #216e39;
 }
 
-.task-calendar--year .task-calendar__day--completion-2 {
-  background: hsl(var(--primary) / 0.28);
+.dark .task-calendar--year {
+  --task-calendar-heatmap-1: #0e4429;
+  --task-calendar-heatmap-2: #006d32;
+  --task-calendar-heatmap-3: #26a641;
+  --task-calendar-heatmap-4: #39d353;
 }
 
-.task-calendar--year .task-calendar__day--completion-3 {
-  background: hsl(var(--primary) / 0.48);
+.task-calendar--year .task-calendar__day[class*="task-calendar__day--completion-"]::before {
+  border-radius: 4px;
+  content: "";
+  inset: 2px;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
 }
 
-.task-calendar--year .task-calendar__day--completion-4 {
-  background: hsl(var(--primary) / 0.72);
+.task-calendar--year .task-calendar__day[class*="task-calendar__day--completion-"] > * {
+  position: relative;
+  z-index: 1;
+}
+
+.task-calendar--year .task-calendar__day--completion-1::before {
+  background: var(--task-calendar-heatmap-1);
+}
+
+.task-calendar--year .task-calendar__day--completion-2::before {
+  background: var(--task-calendar-heatmap-2);
+}
+
+.task-calendar--year .task-calendar__day--completion-3::before {
+  background: var(--task-calendar-heatmap-3);
+}
+
+.task-calendar--year .task-calendar__day--completion-4::before {
+  background: var(--task-calendar-heatmap-4);
 }
 
 .task-calendar--year .task-calendar__day--today .task-calendar__day-number {
