@@ -137,6 +137,20 @@ const CalendarPage = () => {
     }];
   }), [visibleTasks]);
 
+  const yearHeatmapEvents = useMemo<EventInput[]>(() => (
+    Array.from(completedCountByDate.entries()).map(([date, count]) => {
+      const completionLevel = getCompletionLevel(count);
+      return {
+        id: `completion-${date}`,
+        start: date,
+        allDay: true,
+        display: "background",
+        editable: false,
+        extendedProps: { completionLevel },
+      };
+    })
+  ), [completedCountByDate]);
+
   const changeView = (nextView: CalendarView, date?: Date) => {
     const api = calendarRef.current?.getApi();
     setView(nextView);
@@ -260,7 +274,7 @@ const CalendarPage = () => {
           popoverClass="task-calendar__popover"
           displayEventTime={view === "month"}
           defaultTimedEventDuration="00:30:00"
-          events={view === "year" ? [] : events}
+          events={view === "year" ? yearHeatmapEvents : events}
           datesSet={(info: DatesSetInfo) => setRangeTitle(info.view.title)}
           dateClick={handleDateClick}
           eventClick={handleEventClick}
@@ -268,6 +282,14 @@ const CalendarPage = () => {
           eventResize={(info: EventResizeDoneInfo) => void saveMovedEvent(info)}
           eventContent={renderEvent}
           eventClass={(info) => {
+            const completionLevel = info.event.extendedProps.completionLevel as number | undefined;
+            if (completionLevel) {
+              return [
+                "task-calendar__heatmap-event",
+                `task-calendar__heatmap-event--level-${completionLevel}`,
+              ];
+            }
+
             const task = taskById.get(info.event.id);
             return [
               "task-calendar__event",
@@ -277,17 +299,10 @@ const CalendarPage = () => {
           }}
           dayHeaderClass={() => ["task-calendar__day-header"]}
           dayHeaderContent={(info) => <span>{info.text}</span>}
-          dayCellClass={(info) => {
-            const completionLevel = view === "year" && !info.isOther
-              ? getCompletionLevel(completedCountByDate.get(format(info.date, "yyyy-MM-dd")) ?? 0)
-              : 0;
-
-            return [
-              "task-calendar__day",
-              info.isToday ? "task-calendar__day--today" : "",
-              completionLevel ? `task-calendar__day--completion-${completionLevel}` : "",
-            ].filter(Boolean);
-          }}
+          dayCellClass={(info) => [
+            "task-calendar__day",
+            info.isToday ? "task-calendar__day--today" : "",
+          ].filter(Boolean)}
           dayCellTopContent={(info) => (
             <span className="task-calendar__day-number">{info.dayNumberText}</span>
           )}
