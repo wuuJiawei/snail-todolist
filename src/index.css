@@ -976,25 +976,19 @@
   overflow: hidden;
 }
 
-.task-calendar--year .task-calendar__heatmap-event {
-  border: 0;
-  opacity: 1;
-  pointer-events: none;
-}
-
-.task-calendar--year .task-calendar__heatmap-event--level-1 {
+.task-calendar--year .task-calendar__day--completion-1 {
   background: hsl(var(--primary) / 0.14);
 }
 
-.task-calendar--year .task-calendar__heatmap-event--level-2 {
+.task-calendar--year .task-calendar__day--completion-2 {
   background: hsl(var(--primary) / 0.28);
 }
 
-.task-calendar--year .task-calendar__heatmap-event--level-3 {
+.task-calendar--year .task-calendar__day--completion-3 {
   background: hsl(var(--primary) / 0.48);
 }
 
-.task-calendar--year .task-calendar__heatmap-event--level-4 {
+.task-calendar--year .task-calendar__day--completion-4 {
   background: hsl(var(--primary) / 0.72);
 }
 
