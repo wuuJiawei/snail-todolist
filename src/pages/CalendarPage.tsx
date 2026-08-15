@@ -11,7 +11,6 @@ import FullCalendar, {
 } from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import interactionPlugin from "@fullcalendar/react/interaction";
-import listPlugin from "@fullcalendar/react/list";
 import zhCnLocale from "@fullcalendar/react/locales/zh-cn";
 import multiMonthPlugin from "@fullcalendar/react/multimonth";
 import classicThemePlugin from "@fullcalendar/react/themes/classic";
@@ -47,20 +46,18 @@ import {
   type TaskDateValue,
 } from "@/utils/taskDate";
 
-type CalendarView = "year" | "month" | "week" | "day";
+type CalendarView = "year" | "month" | "week";
 
 const VIEW_STORAGE_KEY = "snail-calendar-view";
 const VIEW_NAMES: Record<CalendarView, string> = {
   year: "年",
   month: "月",
   week: "周",
-  day: "日",
 };
 const FULLCALENDAR_VIEWS: Record<CalendarView, string> = {
   year: "multiMonthYear",
   month: "dayGridMonth",
   week: "dayGridWeek",
-  day: "listDay",
 };
 
 const getInitialView = (): CalendarView => {
@@ -131,13 +128,16 @@ const CalendarPage = () => {
 
   const handleDateClick = (info: DateClickInfo) => {
     if (info.view.type === FULLCALENDAR_VIEWS.year) {
-      changeView("day", info.date);
+      changeView("week", info.date);
       return;
     }
     openCreateDialog({ type: info.allDay ? "date" : "datetime", start: info.date });
   };
 
   const handleEventClick = (info: EventClickInfo) => {
+    const target = info.jsEvent.target;
+    if (!(target instanceof Element) || target.closest("[data-calendar-task-checkbox]")) return;
+    if (!target.closest("[data-calendar-task-title]")) return;
     selectTask(info.event.id);
     setDetailOpen(true);
   };
@@ -177,7 +177,15 @@ const CalendarPage = () => {
     const task = taskById.get(info.event.id);
     if (!task) return null;
     if (view === "year") {
-      return <span className="task-calendar__year-dot" title={task.title} />;
+      return (
+        <span
+          className="task-calendar__year-event-title"
+          data-calendar-task-title
+          title={task.title}
+        >
+          {task.title}
+        </span>
+      );
     }
 
     const handleCompletedChange = async (checked: boolean) => {
@@ -189,7 +197,12 @@ const CalendarPage = () => {
 
     return (
       <div className="task-calendar__event-content" title={task.title}>
-        <span onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+        <span
+          data-calendar-task-checkbox
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+        >
           <Checkbox
             checked={task.completed}
             onCheckedChange={(checked) => void handleCompletedChange(checked === true)}
@@ -199,7 +212,7 @@ const CalendarPage = () => {
         </span>
         <span className="task-calendar__event-copy">
           {info.timeText && <span className="task-calendar__event-time">{info.timeText}</span>}
-          <span className="task-calendar__event-title">{task.title}</span>
+          <span className="task-calendar__event-title" data-calendar-task-title>{task.title}</span>
         </span>
       </div>
     );
@@ -216,7 +229,7 @@ const CalendarPage = () => {
       ) : (
         <FullCalendar
           ref={calendarRef}
-          plugins={[interactionPlugin, dayGridPlugin, listPlugin, multiMonthPlugin, classicThemePlugin]}
+          plugins={[interactionPlugin, dayGridPlugin, multiMonthPlugin, classicThemePlugin]}
           themeSystem="classic"
           locale={zhCnLocale}
           initialView={FULLCALENDAR_VIEWS[view]}
@@ -229,6 +242,7 @@ const CalendarPage = () => {
           eventResizableFromStart
           dayMaxEvents={view === "week" ? false : 3}
           moreLinkClick="popover"
+          moreLinkContent={(info) => `查看更多（${info.num}）`}
           popoverClass="task-calendar__popover"
           displayEventTime={view === "month"}
           defaultTimedEventDuration="00:30:00"
@@ -272,13 +286,19 @@ const CalendarPage = () => {
           <h1 className="truncate text-lg font-semibold">{rangeTitle || "日历"}</h1>
         </div>
 
-        <Button variant="outline" size="icon" onClick={() => openCreateDialog({ type: "date", start: new Date() })} aria-label="新建任务">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={() => openCreateDialog({ type: "date", start: new Date() })}
+          aria-label="新建任务"
+        >
           <Plus className="h-4 w-4" />
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="h-9 gap-2">
               <Filter className="h-4 w-4" />
               <span className="hidden sm:inline">筛选</span>
             </Button>
@@ -315,23 +335,23 @@ const CalendarPage = () => {
           value={view}
           onValueChange={(value) => value && changeView(value as CalendarView)}
           aria-label="日历视图"
-          className="order-last w-full sm:order-none sm:w-auto"
+          className="order-last h-9 w-full sm:order-none sm:w-auto"
         >
           {(Object.keys(VIEW_NAMES) as CalendarView[]).map((key) => (
-            <ToggleGroupItem key={key} value={key} className="flex-1 px-3 sm:flex-none">
+            <ToggleGroupItem key={key} value={key} className="h-9 flex-1 px-3 sm:flex-none">
               {VIEW_NAMES[key]}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
 
-        <div className="flex items-center">
-          <Button variant="outline" size="icon" className="rounded-r-none" onClick={() => calendarRef.current?.getApi().prev()} aria-label="上一时间段">
+        <div className="flex h-9 items-center">
+          <Button variant="outline" size="icon" className="h-9 w-9 rounded-r-none" onClick={() => calendarRef.current?.getApi().prev()} aria-label="上一时间段">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" className="-ml-px rounded-none" onClick={() => calendarRef.current?.getApi().today()}>
+          <Button variant="outline" size="sm" className="-ml-px h-9 rounded-none px-4" onClick={() => calendarRef.current?.getApi().today()}>
             今天
           </Button>
-          <Button variant="outline" size="icon" className="-ml-px rounded-l-none" onClick={() => calendarRef.current?.getApi().next()} aria-label="下一时间段">
+          <Button variant="outline" size="icon" className="-ml-px h-9 w-9 rounded-l-none" onClick={() => calendarRef.current?.getApi().next()} aria-label="下一时间段">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
