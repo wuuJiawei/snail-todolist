@@ -990,34 +990,32 @@
   --task-calendar-heatmap-4: #39d353;
 }
 
-.task-calendar--year .task-calendar__day[class*="task-calendar__day--completion-"]::before {
+.task-calendar--year .task-calendar__day[class*="task-calendar__day--completion-"] {
   border-radius: 4px;
-  content: "";
-  inset: 2px;
-  pointer-events: none;
-  position: absolute;
-  z-index: 0;
+  box-shadow: inset 0 0 0 2px hsl(var(--background));
+  overflow: hidden;
 }
 
-.task-calendar--year .task-calendar__day[class*="task-calendar__day--completion-"] > * {
-  position: relative;
-  z-index: 1;
-}
-
-.task-calendar--year .task-calendar__day--completion-1::before {
+.task-calendar--year .task-calendar__day--completion-1 {
   background: var(--task-calendar-heatmap-1);
 }
 
-.task-calendar--year .task-calendar__day--completion-2::before {
+.task-calendar--year .task-calendar__day--completion-2 {
   background: var(--task-calendar-heatmap-2);
 }
 
-.task-calendar--year .task-calendar__day--completion-3::before {
+.task-calendar--year .task-calendar__day--completion-3 {
   background: var(--task-calendar-heatmap-3);
 }
 
-.task-calendar--year .task-calendar__day--completion-4::before {
+.task-calendar--year .task-calendar__day--completion-4 {
   background: var(--task-calendar-heatmap-4);
+}
+
+.task-calendar--year .task-calendar__day--completion-4 .task-calendar__day-number,
+.dark .task-calendar--year .task-calendar__day--completion-1 .task-calendar__day-number,
+.dark .task-calendar--year .task-calendar__day--completion-2 .task-calendar__day-number {
+  color: #fff;
 }
 
 .task-calendar--year .task-calendar__day--today .task-calendar__day-number {
