@@ -62,7 +62,6 @@ const FULLCALENDAR_VIEWS: Record<CalendarView, string> = {
 const COMPLETION_LEVEL_CLASSES = [1, 2, 3, 4].map(
   (level) => `task-calendar__day--completion-${level}`,
 );
-const HEATMAP_SURFACE_CLASS = "task-calendar__heatmap-surface";
 
 const getCompletionLevel = (count: number) => {
   if (count >= 5) return 4;
@@ -74,20 +73,7 @@ const getCompletionLevel = (count: number) => {
 
 const applyCompletionLevel = (cell: HTMLElement, completionLevel: number) => {
   cell.classList.remove(...COMPLETION_LEVEL_CLASSES);
-  let surface = cell.querySelector<HTMLElement>(`.${HEATMAP_SURFACE_CLASS}`);
-
-  if (!completionLevel) {
-    surface?.remove();
-    return;
-  }
-
-  cell.classList.add(`task-calendar__day--completion-${completionLevel}`);
-  if (!surface) {
-    surface = document.createElement("span");
-    surface.setAttribute("aria-hidden", "true");
-    cell.prepend(surface);
-  }
-  surface.className = `${HEATMAP_SURFACE_CLASS} ${HEATMAP_SURFACE_CLASS}--level-${completionLevel}`;
+  if (completionLevel) cell.classList.add(`task-calendar__day--completion-${completionLevel}`);
 };
 
 const getInitialView = (): CalendarView => {
