@@ -904,11 +904,8 @@
   width: 1.75rem;
 }
 
-.task-calendar__slot {
-  min-height: 2.75rem;
-}
-
-.task-calendar .task-calendar__event {
+.task-calendar .task-calendar__event,
+.task-calendar__popover .task-calendar__event {
   background: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
   border-left: 3px solid hsl(var(--primary));
@@ -919,19 +916,23 @@
   overflow: hidden;
 }
 
-.task-calendar .task-calendar__event:hover {
+.task-calendar .task-calendar__event:hover,
+.task-calendar__popover .task-calendar__event:hover {
   background: hsl(var(--accent));
 }
 
-.task-calendar .task-calendar__event--completed {
+.task-calendar .task-calendar__event--completed,
+.task-calendar__popover .task-calendar__event--completed {
   opacity: 0.55;
 }
 
-.task-calendar .task-calendar__event--completed .task-calendar__event-title {
+.task-calendar .task-calendar__event--completed .task-calendar__event-title,
+.task-calendar__popover .task-calendar__event--completed .task-calendar__event-title {
   text-decoration: line-through;
 }
 
-.task-calendar .task-calendar__event--overdue {
+.task-calendar .task-calendar__event--overdue,
+.task-calendar__popover .task-calendar__event--overdue {
   border-left-color: hsl(var(--destructive));
 }
 
@@ -980,6 +981,42 @@
   font-size: 0.75rem;
 }
 
+.task-calendar__popover {
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px hsl(var(--foreground) / 0.12);
+  color: hsl(var(--popover-foreground));
+  font-size: 0.8125rem;
+  max-width: min(24rem, calc(100vw - 2rem));
+  min-width: min(20rem, calc(100vw - 2rem));
+  overflow: hidden;
+}
+
+.task-calendar__popover > .task-calendar__day-header {
+  background: hsl(var(--muted) / 0.55);
+  border-color: hsl(var(--border));
+  padding-inline: 0.5rem;
+  position: relative;
+}
+
+.task-calendar__popover > .task-calendar__day {
+  background: hsl(var(--popover));
+  max-height: min(26rem, calc(100vh - 8rem));
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.task-calendar--week .task-calendar__day {
+  min-height: 100%;
+}
+
+.task-calendar--day .task-calendar__event-content {
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.625rem 0.75rem;
+}
+
 .task-calendar--year .task-calendar__event {
   background: transparent;
   border: 0;
@@ -1002,7 +1039,7 @@
     padding: 0.35rem;
   }
 
-  .task-calendar__slot {
-    min-height: 2.25rem;
+  .task-calendar__popover {
+    min-width: min(18rem, calc(100vw - 1rem));
   }
 }

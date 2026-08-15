@@ -11,9 +11,9 @@ import FullCalendar, {
 } from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import interactionPlugin from "@fullcalendar/react/interaction";
+import listPlugin from "@fullcalendar/react/list";
 import zhCnLocale from "@fullcalendar/react/locales/zh-cn";
 import multiMonthPlugin from "@fullcalendar/react/multimonth";
-import timeGridPlugin from "@fullcalendar/react/timegrid";
 import classicThemePlugin from "@fullcalendar/react/themes/classic";
 import "@fullcalendar/react/skeleton.css";
 import "@fullcalendar/react/themes/classic/theme.css";
@@ -32,13 +32,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { useTaskContext } from "@/contexts/task";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/types/task";
@@ -61,8 +59,8 @@ const VIEW_NAMES: Record<CalendarView, string> = {
 const FULLCALENDAR_VIEWS: Record<CalendarView, string> = {
   year: "multiMonthYear",
   month: "dayGridMonth",
-  week: "timeGridWeek",
-  day: "timeGridDay",
+  week: "dayGridWeek",
+  day: "listDay",
 };
 
 const getInitialView = (): CalendarView => {
@@ -75,7 +73,6 @@ const CalendarPage = () => {
   const { tasks, loading, selectedTask, selectTask, updateTask } = useTaskContext();
   const { projects } = useProjectContext();
   const { toast } = useToast();
-  const isMobile = useIsMobile();
   const [view, setView] = useState<CalendarView>(getInitialView);
   const [rangeTitle, setRangeTitle] = useState("");
   const [hiddenProjectIds, setHiddenProjectIds] = useState<Set<string>>(new Set());
@@ -219,7 +216,7 @@ const CalendarPage = () => {
       ) : (
         <FullCalendar
           ref={calendarRef}
-          plugins={[interactionPlugin, dayGridPlugin, timeGridPlugin, multiMonthPlugin, classicThemePlugin]}
+          plugins={[interactionPlugin, dayGridPlugin, listPlugin, multiMonthPlugin, classicThemePlugin]}
           themeSystem="classic"
           locale={zhCnLocale}
           initialView={FULLCALENDAR_VIEWS[view]}
@@ -230,13 +227,10 @@ const CalendarPage = () => {
           navLinks={false}
           editable
           eventResizableFromStart
-          dayMaxEvents={3}
+          dayMaxEvents={view === "week" ? false : 3}
           moreLinkClick="popover"
-          slotMinTime="00:00:00"
-          slotMaxTime="24:00:00"
-          scrollTime="08:00:00"
-          slotDuration="00:30:00"
-          slotMinHeight={44}
+          popoverClass="task-calendar__popover"
+          displayEventTime={view === "month"}
           defaultTimedEventDuration="00:30:00"
           events={events}
           datesSet={(info: DatesSetInfo) => setRangeTitle(info.view.title)}
@@ -262,7 +256,6 @@ const CalendarPage = () => {
           dayCellTopContent={(info) => (
             <span className="task-calendar__day-number">{info.dayNumberText}</span>
           )}
-          slotLaneClass={() => ["task-calendar__slot"]}
           moreLinkClass={() => ["task-calendar__more-link"]}
           singleMonthClass={() => ["task-calendar__month-card"]}
           singleMonthHeaderClass={() => ["task-calendar__month-header"]}
@@ -344,27 +337,16 @@ const CalendarPage = () => {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1">
-        {isMobile ? calendar : (
-          <ResizablePanelGroup direction="horizontal">
-            <ResizablePanel defaultSize={detailOpen ? 66 : 100} minSize={45}>{calendar}</ResizablePanel>
-            {detailOpen && selectedTask && (
-              <>
-                <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={34} minSize={28} className="bg-background">
-                  <TaskDetail />
-                </ResizablePanel>
-              </>
-            )}
-          </ResizablePanelGroup>
-        )}
-      </main>
+      <main className="min-h-0 flex-1">{calendar}</main>
 
-      <Sheet open={isMobile && detailOpen} onOpenChange={(open) => {
+      <Sheet open={detailOpen} onOpenChange={(open) => {
         setDetailOpen(open);
         if (!open) selectTask(null);
       }}>
-        <SheetContent side="right" className="w-full max-w-none p-0 sm:max-w-none">
+        <SheetContent
+          side="right"
+          className="w-full max-w-none p-0 sm:w-[min(42rem,90vw)] sm:max-w-[min(42rem,90vw)] [&>button]:hidden"
+        >
           <SheetHeader className="sr-only"><SheetTitle>任务详情</SheetTitle></SheetHeader>
           <TaskDetail />
         </SheetContent>
