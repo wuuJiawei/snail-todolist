@@ -976,6 +976,30 @@
   overflow: hidden;
 }
 
+.task-calendar--year .task-calendar__day {
+  transition: background-color 150ms ease;
+}
+
+.task-calendar--year .task-calendar__day--completion-1 {
+  background: hsl(var(--primary) / 0.14);
+}
+
+.task-calendar--year .task-calendar__day--completion-2 {
+  background: hsl(var(--primary) / 0.28);
+}
+
+.task-calendar--year .task-calendar__day--completion-3 {
+  background: hsl(var(--primary) / 0.48);
+}
+
+.task-calendar--year .task-calendar__day--completion-4 {
+  background: hsl(var(--primary) / 0.72);
+}
+
+.task-calendar--year .task-calendar__day--today .task-calendar__day-number {
+  box-shadow: 0 0 0 2px hsl(var(--background));
+}
+
 .task-calendar__more-link {
   align-items: center;
   border-radius: calc(var(--radius) - 2px);
@@ -1071,33 +1095,6 @@
 
 .task-calendar--week .task-calendar__day {
   min-height: 100%;
-}
-
-.task-calendar--year .task-calendar__event {
-  background: hsl(var(--muted) / 0.55);
-  border: 0;
-  border-radius: calc(var(--radius) - 3px);
-  display: block;
-  min-height: 1.125rem;
-  min-width: 0;
-  width: 100%;
-}
-
-.task-calendar__year-event-title {
-  color: hsl(var(--foreground));
-  display: block;
-  font-size: 0.6875rem;
-  line-height: 1.125rem;
-  overflow: hidden;
-  padding-inline: 0.25rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-calendar__popover .task-calendar__year-event-title {
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  padding: 0.5rem;
 }
 
 @media (max-width: 767px) {

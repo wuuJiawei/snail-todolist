@@ -60,6 +60,14 @@ const FULLCALENDAR_VIEWS: Record<CalendarView, string> = {
   week: "dayGridWeek",
 };
 
+const getCompletionLevel = (count: number) => {
+  if (count >= 5) return 4;
+  if (count >= 3) return 3;
+  if (count >= 2) return 2;
+  if (count >= 1) return 1;
+  return 0;
+};
+
 const getInitialView = (): CalendarView => {
   const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
   return stored && stored in FULLCALENDAR_VIEWS ? stored as CalendarView : "month";
@@ -89,6 +97,23 @@ const CalendarPage = () => {
     && (showCompleted || !task.completed)
     && (!task.project || !hiddenProjectIds.has(task.project))
   )), [hiddenProjectIds, showCompleted, tasks]);
+
+  const completedCountByDate = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    tasks.forEach((task) => {
+      if (!task.completed || !task.date || task.deleted || task.abandoned) return;
+      if (task.project && hiddenProjectIds.has(task.project)) return;
+
+      const value = toTaskDateValue(task);
+      if (!value) return;
+
+      const dateKey = format(value.start, "yyyy-MM-dd");
+      counts.set(dateKey, (counts.get(dateKey) ?? 0) + 1);
+    });
+
+    return counts;
+  }, [hiddenProjectIds, tasks]);
 
   const taskById = useMemo(
     () => new Map(visibleTasks.map((task) => [task.id, task])),
@@ -176,17 +201,6 @@ const CalendarPage = () => {
   const renderEvent = (info: EventDisplayInfo) => {
     const task = taskById.get(info.event.id);
     if (!task) return null;
-    if (view === "year") {
-      return (
-        <span
-          className="task-calendar__year-event-title"
-          data-calendar-task-title
-          title={task.title}
-        >
-          {task.title}
-        </span>
-      );
-    }
 
     const handleCompletedChange = async (checked: boolean) => {
       await updateTask(task.id, {
@@ -246,7 +260,7 @@ const CalendarPage = () => {
           popoverClass="task-calendar__popover"
           displayEventTime={view === "month"}
           defaultTimedEventDuration="00:30:00"
-          events={events}
+          events={view === "year" ? [] : events}
           datesSet={(info: DatesSetInfo) => setRangeTitle(info.view.title)}
           dateClick={handleDateClick}
           eventClick={handleEventClick}
@@ -263,10 +277,17 @@ const CalendarPage = () => {
           }}
           dayHeaderClass={() => ["task-calendar__day-header"]}
           dayHeaderContent={(info) => <span>{info.text}</span>}
-          dayCellClass={(info) => [
-            "task-calendar__day",
-            info.isToday ? "task-calendar__day--today" : "",
-          ].filter(Boolean)}
+          dayCellClass={(info) => {
+            const completionLevel = view === "year" && !info.isOther
+              ? getCompletionLevel(completedCountByDate.get(format(info.date, "yyyy-MM-dd")) ?? 0)
+              : 0;
+
+            return [
+              "task-calendar__day",
+              info.isToday ? "task-calendar__day--today" : "",
+              completionLevel ? `task-calendar__day--completion-${completionLevel}` : "",
+            ].filter(Boolean);
+          }}
           dayCellTopContent={(info) => (
             <span className="task-calendar__day-number">{info.dayNumberText}</span>
           )}
