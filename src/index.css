@@ -904,8 +904,7 @@
   width: 1.75rem;
 }
 
-.task-calendar .task-calendar__event,
-.task-calendar__popover .task-calendar__event {
+.task-calendar .task-calendar__event {
   background: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
   border-left: 3px solid hsl(var(--primary));
@@ -916,23 +915,19 @@
   overflow: hidden;
 }
 
-.task-calendar .task-calendar__event:hover,
-.task-calendar__popover .task-calendar__event:hover {
+.task-calendar .task-calendar__event:hover {
   background: hsl(var(--accent));
 }
 
-.task-calendar .task-calendar__event--completed,
-.task-calendar__popover .task-calendar__event--completed {
+.task-calendar .task-calendar__event--completed {
   opacity: 0.55;
 }
 
-.task-calendar .task-calendar__event--completed .task-calendar__event-title,
-.task-calendar__popover .task-calendar__event--completed .task-calendar__event-title {
+.task-calendar .task-calendar__event--completed .task-calendar__event-title {
   text-decoration: line-through;
 }
 
-.task-calendar .task-calendar__event--overdue,
-.task-calendar__popover .task-calendar__event--overdue {
+.task-calendar .task-calendar__event--overdue {
   border-left-color: hsl(var(--destructive));
 }
 
@@ -1061,83 +1056,6 @@
   color: hsl(var(--accent-foreground));
 }
 
-.task-calendar__popover {
-  background: hsl(var(--popover));
-  border: 1px solid hsl(var(--border));
-  border-radius: calc(var(--radius) + 2px);
-  box-shadow: 0 16px 40px hsl(var(--foreground) / 0.14);
-  color: hsl(var(--popover-foreground));
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  max-width: min(22rem, calc(100vw - 2rem));
-  min-width: min(20rem, calc(100vw - 2rem));
-  overflow: hidden;
-}
-
-.task-calendar__popover > .task-calendar__day-header {
-  align-items: center;
-  background: hsl(var(--popover));
-  border-color: hsl(var(--border));
-  flex-direction: row;
-  font-size: 0.875rem;
-  font-weight: 600;
-  justify-content: space-between;
-  min-height: 2.75rem;
-  padding-inline: 0.75rem;
-  position: relative;
-}
-
-.task-calendar__popover > .task-calendar__day-header > div:first-child {
-  flex: 1;
-  min-width: 0;
-}
-
-.task-calendar__popover > .task-calendar__day-header > div:first-child > * {
-  overflow: hidden;
-  padding: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-calendar__popover > .task-calendar__day-header > button {
-  align-items: center;
-  border-radius: calc(var(--radius) - 2px);
-  color: hsl(var(--muted-foreground));
-  display: inline-flex;
-  flex: none;
-  height: 1.75rem;
-  justify-content: center;
-  position: static;
-  width: 1.75rem;
-}
-
-.task-calendar__popover > .task-calendar__day-header > button:hover {
-  background: hsl(var(--accent));
-  color: hsl(var(--accent-foreground));
-}
-
-.task-calendar__popover > .task-calendar__day {
-  background: hsl(var(--popover));
-  max-height: min(26rem, calc(100vh - 8rem));
-  overflow-y: auto;
-  padding: 0.5rem;
-}
-
-.task-calendar__popover .task-calendar__event {
-  background: transparent;
-  border: 0;
-  border-radius: calc(var(--radius) - 2px);
-  margin-block: 0.125rem;
-  min-height: 2.25rem;
-  width: 100%;
-}
-
-.task-calendar__popover .task-calendar__event-content {
-  align-items: center;
-  min-height: 2.25rem;
-  padding: 0.5rem;
-}
-
 .task-calendar--week .task-calendar__day {
   min-height: 100%;
 }
@@ -1148,7 +1066,4 @@
     padding: 0.35rem;
   }
 
-  .task-calendar__popover {
-    min-width: min(18rem, calc(100vw - 1rem));
-  }
 }

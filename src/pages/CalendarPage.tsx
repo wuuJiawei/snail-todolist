@@ -8,6 +8,7 @@ import FullCalendar, {
   type EventDropInfo,
   type EventInput,
   type EventResizeDoneInfo,
+  type MoreLinkInfo,
 } from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import interactionPlugin from "@fullcalendar/react/interaction";
@@ -20,6 +21,7 @@ import { addMilliseconds, format } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight, Filter, Plus } from "lucide-react";
 
 import CalendarTaskDialog from "@/components/calendar/CalendarTaskDialog";
+import CalendarMoreDialog from "@/components/calendar/CalendarMoreDialog";
 import TaskDetail from "@/components/tasks/TaskDetail";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -94,6 +96,7 @@ const CalendarPage = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createDate, setCreateDate] = useState<TaskDateValue>({ type: "date", start: new Date() });
+  const [moreDialog, setMoreDialog] = useState<{ date: Date; taskIds: string[] }>();
 
   useEffect(() => {
     if (!selectedTask) setDetailOpen(false);
@@ -146,6 +149,13 @@ const CalendarPage = () => {
     [visibleTasks],
   );
 
+  const moreDialogTasks = useMemo(() => (
+    moreDialog?.taskIds.flatMap((id) => {
+      const task = taskById.get(id);
+      return task ? [task] : [];
+    }) ?? []
+  ), [moreDialog, taskById]);
+
   const events = useMemo<EventInput[]>(() => visibleTasks.flatMap((task) => {
     const value = toTaskDateValue(task);
     if (!value) return [];
@@ -193,6 +203,33 @@ const CalendarPage = () => {
     setDetailOpen(true);
   };
 
+  const handleMoreLinkClick = (info: MoreLinkInfo) => {
+    setMoreDialog({
+      date: info.date,
+      taskIds: [...new Set(info.allSegs.map((segment) => segment.event.id))],
+    });
+
+    // FullCalendar opens its own popover when a handler returns nothing.
+    return info.view.type;
+  };
+
+  const handleCompletedChange = async (task: Task, completed: boolean) => {
+    try {
+      await updateTask(task.id, {
+        completed,
+        completed_at: completed ? new Date().toISOString() : undefined,
+      });
+    } catch (error) {
+      toast({ title: "更新失败", description: "无法更新任务状态，请稍后重试。", variant: "destructive" });
+    }
+  };
+
+  const openTaskDetail = (task: Task) => {
+    setMoreDialog(undefined);
+    selectTask(task.id);
+    setDetailOpen(true);
+  };
+
   const saveMovedEvent = async (info: EventDropInfo | EventResizeDoneInfo) => {
     const task = taskById.get(info.event.id);
     const start = info.event.start;
@@ -228,13 +265,6 @@ const CalendarPage = () => {
     const task = taskById.get(info.event.id);
     if (!task) return null;
 
-    const handleCompletedChange = async (checked: boolean) => {
-      await updateTask(task.id, {
-        completed: checked,
-        completed_at: checked ? new Date().toISOString() : undefined,
-      });
-    };
-
     return (
       <div className="task-calendar__event-content" title={task.title}>
         <span
@@ -245,7 +275,7 @@ const CalendarPage = () => {
         >
           <Checkbox
             checked={task.completed}
-            onCheckedChange={(checked) => void handleCompletedChange(checked === true)}
+            onCheckedChange={(checked) => void handleCompletedChange(task, checked === true)}
             aria-label={task.completed ? "标记为未完成" : "标记为已完成"}
             className="task-calendar__event-checkbox"
           />
@@ -281,9 +311,8 @@ const CalendarPage = () => {
           editable
           eventResizableFromStart
           dayMaxEvents={view === "week" ? false : 3}
-          moreLinkClick="popover"
+          moreLinkClick={handleMoreLinkClick}
           moreLinkContent={(info) => `查看更多（${info.num}）`}
-          popoverClass="task-calendar__popover"
           displayEventTime={view === "month"}
           defaultTimedEventDuration="00:30:00"
           events={view === "year" ? [] : events}
@@ -405,6 +434,15 @@ const CalendarPage = () => {
       </header>
 
       <main className="min-h-0 flex-1">{calendar}</main>
+
+      <CalendarMoreDialog
+        open={Boolean(moreDialog)}
+        date={moreDialog?.date}
+        tasks={moreDialogTasks}
+        onOpenChange={(open) => !open && setMoreDialog(undefined)}
+        onOpenTask={openTaskDetail}
+        onToggleTask={handleCompletedChange}
+      />
 
       <Sheet open={detailOpen} onOpenChange={(open) => {
         setDetailOpen(open);
