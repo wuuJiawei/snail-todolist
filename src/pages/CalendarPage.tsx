@@ -62,6 +62,7 @@ const FULLCALENDAR_VIEWS: Record<CalendarView, string> = {
 const COMPLETION_LEVEL_CLASSES = [1, 2, 3, 4].map(
   (level) => `task-calendar__day--completion-${level}`,
 );
+const HEATMAP_SURFACE_CLASS = "task-calendar__heatmap-surface";
 
 const getCompletionLevel = (count: number) => {
   if (count >= 5) return 4;
@@ -69,6 +70,24 @@ const getCompletionLevel = (count: number) => {
   if (count >= 2) return 2;
   if (count >= 1) return 1;
   return 0;
+};
+
+const applyCompletionLevel = (cell: HTMLElement, completionLevel: number) => {
+  cell.classList.remove(...COMPLETION_LEVEL_CLASSES);
+  let surface = cell.querySelector<HTMLElement>(`.${HEATMAP_SURFACE_CLASS}`);
+
+  if (!completionLevel) {
+    surface?.remove();
+    return;
+  }
+
+  cell.classList.add(`task-calendar__day--completion-${completionLevel}`);
+  if (!surface) {
+    surface = document.createElement("span");
+    surface.setAttribute("aria-hidden", "true");
+    cell.prepend(surface);
+  }
+  surface.className = `${HEATMAP_SURFACE_CLASS} ${HEATMAP_SURFACE_CLASS}--level-${completionLevel}`;
 };
 
 const getInitialView = (): CalendarView => {
@@ -124,15 +143,15 @@ const CalendarPage = () => {
     if (!root) return;
 
     root.querySelectorAll<HTMLElement>(".task-calendar__day[data-date]").forEach((cell) => {
-      cell.classList.remove(...COMPLETION_LEVEL_CLASSES);
-      if (view !== "year") return;
+      if (view !== "year") {
+        applyCompletionLevel(cell, 0);
+        return;
+      }
 
       const date = cell.dataset.date;
       if (!date) return;
       const completionLevel = getCompletionLevel(completedCountByDate.get(date) ?? 0);
-      if (completionLevel) {
-        cell.classList.add(`task-calendar__day--completion-${completionLevel}`);
-      }
+      applyCompletionLevel(cell, completionLevel);
     });
   }, [completedCountByDate, rangeTitle, view]);
 
@@ -307,9 +326,7 @@ const CalendarPage = () => {
             const completionLevel = getCompletionLevel(
               completedCountByDate.get(format(info.date, "yyyy-MM-dd")) ?? 0,
             );
-            if (completionLevel) {
-              info.el.classList.add(`task-calendar__day--completion-${completionLevel}`);
-            }
+            applyCompletionLevel(info.el, completionLevel);
           }}
           dayCellTopContent={(info) => (
             <span className="task-calendar__day-number">{info.dayNumberText}</span>
