@@ -48,8 +48,27 @@ export const buildTaskActivityDrafts = (
       metadata: { flagged: updates.flagged ?? false },
     });
   }
-  if (hasProp(updates, "date") && updates.date !== previous.date) {
-    drafts.push({ action: "due_date_updated", metadata: { from: previous.date ?? null, to: updates.date ?? null } });
+  const timeChanged = (
+    (hasProp(updates, "date") && updates.date !== previous.date)
+    || (hasProp(updates, "date_type") && updates.date_type !== previous.date_type)
+    || (hasProp(updates, "end_date") && updates.end_date !== previous.end_date)
+  );
+  if (timeChanged) {
+    drafts.push({
+      action: "task_time_updated",
+      metadata: {
+        from: {
+          date: previous.date ?? null,
+          dateType: previous.date_type ?? "date",
+          endDate: previous.end_date ?? null,
+        },
+        to: {
+          date: hasProp(updates, "date") ? updates.date ?? null : previous.date ?? null,
+          dateType: hasProp(updates, "date_type") ? updates.date_type ?? "date" : previous.date_type ?? "date",
+          endDate: hasProp(updates, "end_date") ? updates.end_date ?? null : previous.end_date ?? null,
+        },
+      },
+    });
   }
   if (hasProp(updates, "project") && updates.project !== previous.project) {
     drafts.push({ action: "project_changed", metadata: { from: previous.project ?? null, to: updates.project ?? null } });

@@ -3,6 +3,7 @@ import { format, isToday, isTomorrow, isYesterday, isValid } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { SELECTED_PROJECT_KEY } from "./types";
 import { isTaskInRecentAgenda } from "@/utils/recentTasks";
+import { isTaskDateExpired, isTaskOnDate } from "@/utils/taskDate";
 
 // Get the saved project from localStorage
 export const getSavedProject = (): string => {
@@ -30,8 +31,7 @@ export const getProjectTaskCount = (tasks: Task[], projectId: string): number =>
       if (!task.date || task.completed) return false;
       
       try {
-        const taskDate = new Date(task.date);
-        return isValid(taskDate) && isToday(taskDate);
+        return isTaskOnDate(task, new Date());
       } catch (e) {
         return false;
       }
@@ -52,18 +52,7 @@ export const getProjectTaskCount = (tasks: Task[], projectId: string): number =>
 
 // Check if a task is expired (past date and not completed)
 export const isTaskExpired = (task: Task) => {
-  if (task.completed) return false;
-  if (!task.date) return false;
-  
-  const now = new Date();
-  now.setHours(0, 0, 0, 0); // Reset time to start of day
-  
-  try {
-    const taskDate = new Date(task.date);
-    return isValid(taskDate) && taskDate < now;
-  } catch (e) {
-    return false;
-  }
+  return isTaskDateExpired(task);
 };
 
 // Group tasks by their completion status and date

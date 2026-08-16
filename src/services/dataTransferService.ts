@@ -65,7 +65,7 @@ interface BackupData {
 // Constants
 // ============================================
 
-const BACKUP_VERSION = '1.0';
+const BACKUP_VERSION = '1.1';
 const APP_VERSION = '1.0.0';
 
 // ============================================

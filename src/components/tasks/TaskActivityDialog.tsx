@@ -23,6 +23,21 @@ const formatDateLabel = (iso: string | null | undefined) => {
   return format(parsed, "yyyy年M月d日", { locale: zhCN });
 };
 
+const formatTaskTimeLabel = (value: unknown) => {
+  if (!value || typeof value !== "object") return "未设置";
+  const item = value as { date?: unknown; dateType?: unknown; endDate?: unknown };
+  const date = typeof item.date === "string" ? item.date : null;
+  if (!date) return "未设置";
+  const start = parseISO(date);
+  if (!isValid(start)) return date;
+  const type = item.dateType === "datetime" || item.dateType === "range" ? item.dateType : "date";
+  if (type === "date") return format(start, "yyyy年M月d日", { locale: zhCN });
+  const startText = format(start, "yyyy年M月d日 HH:mm", { locale: zhCN });
+  if (type !== "range" || typeof item.endDate !== "string") return startText;
+  const end = parseISO(item.endDate);
+  return isValid(end) ? `${startText} 至 ${format(end, "yyyy年M月d日 HH:mm", { locale: zhCN })}` : startText;
+};
+
 const formatTimestamp = (iso: string) => {
   const parsed = parseISO(iso);
   if (!isValid(parsed)) return iso;
@@ -52,6 +67,8 @@ const describeActivity = (activity: TaskActivity): string => {
     }
     case "due_date_updated":
       return `截止日期从「${formatDateLabel(text("from") || null)}」变更为「${formatDateLabel(text("to") || null)}」`;
+    case "task_time_updated":
+      return `任务时间从「${formatTaskTimeLabel(metadata.from)}」变更为「${formatTaskTimeLabel(metadata.to)}」`;
     case "project_changed":
       return "更新了所属项目";
     case "attachments_updated":

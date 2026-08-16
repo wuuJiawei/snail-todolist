@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AddTaskForm from "./AddTaskForm";
 import type { Project } from "@/types/project";
 
-vi.mock("./DueDatePickerContent", () => ({
+vi.mock("./TaskDatePickerContent", () => ({
   default: () => null,
 }));
 
@@ -63,7 +63,11 @@ describe("AddTaskForm", () => {
     await enterTitle(rendered, "整理今日计划");
     await submit(rendered);
 
-    expect(onAddTask).toHaveBeenCalledWith("整理今日计划", defaultDate, undefined);
+    expect(onAddTask).toHaveBeenCalledWith(
+      "整理今日计划",
+      { type: "date", start: defaultDate },
+      undefined,
+    );
   });
 
   it("blocks submission when a required project has not been selected", async () => {

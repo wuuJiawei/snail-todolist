@@ -15,6 +15,7 @@ import Settings from "./pages/Settings";
 import SearchResults from "./pages/SearchResults";
 import JoinSharedProject from "./pages/JoinSharedProject";
 import Chat from "./pages/Chat";
+import CalendarPage from "./pages/CalendarPage";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { TaskProvider } from "@/contexts/task";
@@ -57,6 +58,17 @@ const App = () => {
                             <AppSidebar />
                             <div className="flex-1 overflow-hidden">
                               <Index />
+                            </div>
+                          </div>
+                        }
+                      />
+                      <Route
+                        path="/calendar"
+                        element={
+                          <div className="flex h-screen overflow-hidden">
+                            <AppSidebar />
+                            <div className="flex-1 overflow-hidden">
+                              <CalendarPage />
                             </div>
                           </div>
                         }

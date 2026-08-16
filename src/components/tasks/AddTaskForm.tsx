@@ -5,10 +5,10 @@ import { Plus, Calendar, Folder, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isValid, isBefore, startOfDay } from "date-fns";
-import { formatDateText } from "@/utils/taskUtils";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/types/project";
-import DueDatePickerContent from "./DueDatePickerContent";
+import TaskDatePickerContent from "./TaskDatePickerContent";
+import { formatTaskDateValue, type TaskDateValue } from "@/utils/taskDate";
 
 interface ProjectSelectionConfig {
   projects: Project[];
@@ -16,9 +16,10 @@ interface ProjectSelectionConfig {
 }
 
 interface AddTaskFormProps {
-  onAddTask: (title: string, date?: Date, projectId?: string) => Promise<void>;
+  onAddTask: (title: string, date: TaskDateValue, projectId?: string) => Promise<void>;
   isSubmitting: boolean;
   defaultDate?: Date;
+  defaultDateValue?: TaskDateValue;
   projectSelection?: ProjectSelectionConfig;
 }
 
@@ -26,12 +27,17 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
   onAddTask,
   isSubmitting,
   defaultDate,
+  defaultDateValue,
   projectSelection,
 }) => {
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(defaultDate);
+  const initialDateValue: TaskDateValue = defaultDateValue ?? (
+    defaultDate ? { type: "date", start: defaultDate } : undefined
+  );
+  const [newTaskDate, setNewTaskDate] = useState<TaskDateValue>(initialDateValue);
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
   const [projectError, setProjectError] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const isComposingRef = useRef(false);
 
   const handleAddTask = async (e: React.FormEvent) => {
@@ -53,7 +59,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
 
     await onAddTask(newTaskTitle, newTaskDate, selectedProjectId);
     setNewTaskTitle("");
-    setNewTaskDate(defaultDate);
+    setNewTaskDate(initialDateValue);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -65,7 +71,8 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
     }
   };
 
-  const isDateExpired = (date?: Date) => {
+  const isDateExpired = (value: TaskDateValue) => {
+    const date = value?.type === "range" ? value.end : value?.start;
     if (!date || !isValid(date)) return false;
     const today = startOfDay(new Date());
     return isBefore(date, today);
@@ -119,29 +126,32 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
             </SelectContent>
           </Select>
         )}
-        <Popover>
+        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
           <PopoverTrigger asChild>
             <Button 
               variant="ghost" 
               size="sm" 
               className={cn(
                 "h-6 px-2 text-xs hover:bg-transparent flex items-center gap-1",
-                newTaskDate && (isDateExpired(newTaskDate) ? "text-red-500" : "text-green-600"),
+                newTaskDate && (isDateExpired(newTaskDate) ? "text-destructive" : "text-foreground"),
                 !newTaskDate && "text-gray-500"
               )}
               disabled={isSubmitting}
             >
               <Calendar className="h-4 w-4" />
               {newTaskDate && (
-                <span>{formatDateText(newTaskDate)}</span>
+                <span>{formatTaskDateValue(newTaskDate)}</span>
               )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end">
-            <DueDatePickerContent
-              selectedDate={newTaskDate}
-              onChange={setNewTaskDate}
-              removeLabel="移除日期"
+            <TaskDatePickerContent
+              value={newTaskDate}
+              onChange={(value) => {
+                setNewTaskDate(value);
+                setDatePickerOpen(false);
+              }}
+              removeLabel="移除任务时间"
             />
           </PopoverContent>
         </Popover>

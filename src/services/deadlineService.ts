@@ -2,6 +2,7 @@ import { Task } from "@/types/task";
 import { toast } from "@/hooks/use-toast";
 import { ensureNotificationPermission, sendNotification as sendUnifiedNotification } from "@/utils/notifications";
 import * as storageOps from "@/data/operations";
+import { getTaskEffectiveDeadline } from "@/utils/taskDate";
 
 interface DeadlineNotificationConfig {
   enabled: boolean;
@@ -70,7 +71,8 @@ export const checkUpcomingDeadlines = (
       return false;
     }
 
-    const deadline = new Date(task.date);
+    const deadline = getTaskEffectiveDeadline(task);
+    if (!deadline) return false;
     
     // 检查是否在提醒时间范围内
     return deadline > now && deadline <= checkTime;
@@ -79,7 +81,7 @@ export const checkUpcomingDeadlines = (
 
 // 发送浏览器通知
 export const sendBrowserNotification = async (task: Task) => {
-  const deadline = task.date ? new Date(task.date) : null;
+  const deadline = getTaskEffectiveDeadline(task) ?? null;
   const deadlineText = deadline
     ? deadline.toLocaleString('zh-CN', {
         month: '2-digit',
@@ -161,7 +163,8 @@ export const checkAndNotify = async (
     // 显示应用内通知
     if (upcomingTasks.length === 1) {
       const task = upcomingTasks[0];
-      const timeLeft = formatTimeUntilDeadline(task.date!);
+      const deadline = getTaskEffectiveDeadline(task);
+      const timeLeft = deadline ? formatTimeUntilDeadline(deadline.toISOString()) : "";
       
       toast({
         title: "任务即将截止",

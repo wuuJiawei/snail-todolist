@@ -4,6 +4,7 @@ export type TaskActivityAction =
   | "description_updated"
   | "status_updated"
   | "due_date_updated"
+  | "task_time_updated"
   | "project_changed"
   | "attachments_updated"
   | "tag_added"

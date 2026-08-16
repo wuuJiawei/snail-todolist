@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Task } from "@/types/task";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { formatTaskDate } from "@/utils/taskDate";
 
 const AppSidebar = () => {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -157,6 +158,20 @@ const AppSidebar = () => {
                 )}
               >
                 <Icon icon="plan" size="20" className="h-5 w-5" />
+              </Button>
+            </Link>
+
+            <Link to="/calendar" className="w-full">
+              <Button
+                variant={location.pathname === "/calendar" ? "secondary" : "ghost"}
+                size="icon"
+                title="日历"
+                className={cn(
+                  "w-full h-10 rounded-lg",
+                  location.pathname === "/calendar" && "bg-brand-orange bg-opacity-10 text-brand-orange hover:bg-brand-orange hover:bg-opacity-20"
+                )}
+              >
+                <Icon icon="calendar" size="20" className="h-5 w-5" />
               </Button>
             </Link>
 
@@ -316,7 +331,7 @@ const AppSidebar = () => {
                                 {task.date && (
                                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                                     <Clock className="h-3 w-3" />
-                                    {new Date(task.date).toLocaleDateString('zh-CN')}
+                                    {formatTaskDate(task)}
                                   </span>
                                 )}
                                 {task.project && (

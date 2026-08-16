@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Calendar as CalendarIcon, Copy, MoreHorizontal, X, History, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon-park";
 import { cn } from "@/lib/utils";
-import { formatDateText } from "@/utils/taskUtils";
 import TagSelector from "./TagSelector";
-import DueDatePickerContent from "./DueDatePickerContent";
+import TaskDatePickerContent from "./TaskDatePickerContent";
 import type { Task } from "@/types/task";
+import { formatTaskDateValue, type TaskDateValue } from "@/utils/taskDate";
 
 export interface TaskDetailTitleSectionProps {
   title: string;
@@ -24,11 +24,11 @@ export interface TaskDetailTitleSectionProps {
   deletedAtLabel: string;
   completed: boolean;
   flagged: boolean;
-  selectedDate: Date | undefined;
+  taskDateValue: TaskDateValue;
   isCompletionLoading: boolean;
   onCompletedChange: (checked: boolean | "indeterminate") => void;
   onFlagToggle: () => void;
-  onDateChange: (date: Date | undefined) => void;
+  onDateChange: (value: TaskDateValue) => void;
   onCopyAsMarkdown: () => void;
   onClose: () => void;
   onShowActivityLog: () => void;
@@ -46,7 +46,7 @@ const TaskDetailTitleSection: React.FC<TaskDetailTitleSectionProps> = ({
   deletedAtLabel,
   completed,
   flagged,
-  selectedDate,
+  taskDateValue,
   isCompletionLoading,
   onCompletedChange,
   onFlagToggle,
@@ -55,6 +55,8 @@ const TaskDetailTitleSection: React.FC<TaskDetailTitleSectionProps> = ({
   onClose,
   onShowActivityLog,
 }) => {
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+
   useEffect(() => {
     if (titleRef.current) {
       const el = titleRef.current;
@@ -140,33 +142,36 @@ const TaskDetailTitleSection: React.FC<TaskDetailTitleSectionProps> = ({
       <div className="flex flex-wrap items-center gap-2 pl-8">
         {/* 截止日期 */}
         {isTaskInTrash ? (
-          selectedDate && (
+          taskDateValue && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <CalendarIcon className="h-3 w-3" />
-              {formatDateText(selectedDate)}
+              {formatTaskDateValue(taskDateValue)}
             </span>
           )
         ) : (
-          <Popover>
+          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
             <PopoverTrigger asChild>
               <button
                 className={cn(
                   "text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-colors",
-                  selectedDate 
+                  taskDateValue
                     ? "text-foreground bg-muted hover:bg-muted/80" 
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
                 disabled={isCompletionLoading}
               >
                 <CalendarIcon className="h-3 w-3" />
-                {selectedDate ? formatDateText(selectedDate) : "截止日期"}
+                {taskDateValue ? formatTaskDateValue(taskDateValue) : "任务时间"}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <DueDatePickerContent
-                selectedDate={selectedDate}
-                onChange={onDateChange}
-                removeLabel="移除截止日期"
+              <TaskDatePickerContent
+                value={taskDateValue}
+                onChange={(value) => {
+                  onDateChange(value);
+                  setDatePickerOpen(false);
+                }}
+                removeLabel="移除任务时间"
               />
             </PopoverContent>
           </Popover>
@@ -200,7 +205,7 @@ const TaskDetailTitleSection: React.FC<TaskDetailTitleSectionProps> = ({
         )}
 
         {/* 分隔符 */}
-        {(selectedDate || flagged || !isTaskInTrash) && (
+        {(taskDateValue || flagged || !isTaskInTrash) && (
           <span className="text-border">|</span>
         )}
 

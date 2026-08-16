@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { Task } from "@/types/task";
-import { isToday, isValid } from "date-fns";
 import { groupTasksByDateAndStatus } from "@/utils/taskUtils";
 import { isTaskInRecentAgenda } from "@/utils/recentTasks";
+import { isTaskDateExpired, isTaskOnDate } from "@/utils/taskDate";
 
 // Define the return type for better type safety
 interface TasksFilterResult {
@@ -43,17 +43,8 @@ export const useTasksFilter = (
           return false;
         }
 
-        const taskDate = new Date(task.date);
-        if (!isValid(taskDate)) return false;
-
-        // Include today's tasks
-        if (isToday(taskDate)) return true;
-
-        // Include all expired tasks that are not completed
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Beginning of today
-
-        return !task.completed && taskDate < today;
+        return isTaskOnDate(task, today) || isTaskDateExpired(task, today);
       });
     } else if (selectedProject === "flagged") {
       return tasks.filter(task => {

@@ -3,12 +3,15 @@ import type { CheckInRecord } from "@/data/contracts/checkInRepository";
 import type { PomodoroSession } from "@/data/contracts/pomodoroRepository";
 import type { DomainProject, DomainTag, DomainTask, DomainTaskAttachment, FileUploadResult } from "@/data/models";
 import type { Session, User } from "@supabase/supabase-js";
+import type { TaskDateType } from "@/types/task";
 
 export type SupabaseTaskRow = {
   id: string;
   title: string;
   completed: boolean;
   date?: string | null;
+  date_type?: TaskDateType | null;
+  end_date?: string | null;
   project?: string | null;
   description?: string | null;
   icon?: string | null;
@@ -110,6 +113,9 @@ export function mapTaskRow(row: SupabaseTaskRow): DomainTask {
     attachments: parseAttachments(row.attachments),
   };
   if (row.date != null) task.date = row.date;
+  if (row.date_type != null) task.dateType = row.date_type;
+  else if (row.date != null) task.dateType = "date";
+  if (row.end_date != null) task.endDate = row.end_date;
   if (row.project != null) task.projectId = row.project;
   if (row.description != null) task.description = row.description;
   if (row.icon != null) task.icon = row.icon;

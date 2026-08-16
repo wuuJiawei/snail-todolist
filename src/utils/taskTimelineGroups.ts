@@ -1,7 +1,8 @@
-import { format, isBefore, isValid, parseISO, startOfDay } from "date-fns";
+import { format, isValid, parseISO, startOfDay } from "date-fns";
 
 import type { Project } from "@/types/project";
 import type { Task } from "@/types/task";
+import { isTaskDateExpired } from "@/utils/taskDate";
 
 export type TimelineGrouping = "date" | "project";
 
@@ -31,7 +32,7 @@ export const buildTimelineGroups = (
 
     if (grouping === "date" && (!taskDate || !hasValidDate)) return;
 
-    const isOverdue = taskDate && hasValidDate && !task.completed && isBefore(taskDate, today);
+    const isOverdue = taskDate && hasValidDate && isTaskDateExpired(task, today);
     const key = isOverdue
       ? OVERDUE_KEY
       : grouping === "project"

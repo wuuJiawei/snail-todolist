@@ -65,7 +65,14 @@ describe("SupabaseTaskRepository", () => {
     const from = vi.fn().mockReturnValueOnce(orderQuery).mockReturnValueOnce(insertQuery);
     const repository = new SupabaseTaskRepository(authenticatedClient(from));
 
-    await repository.create({ title: "Task", completed: false, attachments: [] });
+    await repository.create({
+      title: "Task",
+      completed: false,
+      attachments: [],
+      date: "2026-08-14T09:00:00.000Z",
+      dateType: "range",
+      endDate: "2026-08-14T10:00:00.000Z",
+    });
 
     expect(orderQuery.is).toHaveBeenCalledWith("project", null);
     expect(insertQuery.insert).toHaveBeenCalledWith(expect.objectContaining({
@@ -73,6 +80,9 @@ describe("SupabaseTaskRepository", () => {
       user_id: "user-1",
       sort_order: 0,
       attachments: "[]",
+      date: "2026-08-14T09:00:00.000Z",
+      date_type: "range",
+      end_date: "2026-08-14T10:00:00.000Z",
     }));
   });
 
@@ -99,8 +109,16 @@ describe("SupabaseTaskRepository", () => {
       .mockReturnValueOnce(updateQuery);
     const repository = new SupabaseTaskRepository(authenticatedClient(from));
 
-    await expect(repository.update("task-1", { title: "Next" })).resolves.toMatchObject({ title: "Next" });
-    expect(updateQuery.update).toHaveBeenCalledWith({ title: "Next" });
+    await expect(repository.update("task-1", {
+      title: "Next",
+      dateType: "datetime",
+      endDate: undefined,
+    })).resolves.toMatchObject({ title: "Next" });
+    expect(updateQuery.update).toHaveBeenCalledWith({
+      title: "Next",
+      date_type: "datetime",
+      end_date: null,
+    });
   });
 
   it("clears trash metadata when restoring a task", async () => {
