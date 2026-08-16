@@ -6,7 +6,6 @@ import FullCalendar, {
   type EventClickInfo,
   type EventDisplayInfo,
   type EventDropInfo,
-  type EventInput,
   type EventResizeDoneInfo,
   type MoreLinkInfo,
 } from "@fullcalendar/react";
@@ -14,6 +13,7 @@ import dayGridPlugin from "@fullcalendar/react/daygrid";
 import interactionPlugin from "@fullcalendar/react/interaction";
 import zhCnLocale from "@fullcalendar/react/locales/zh-cn";
 import multiMonthPlugin from "@fullcalendar/react/multimonth";
+import timeGridPlugin from "@fullcalendar/react/timegrid";
 import classicThemePlugin from "@fullcalendar/react/themes/classic";
 import "@fullcalendar/react/skeleton.css";
 import "@fullcalendar/react/themes/classic/theme.css";
@@ -29,6 +29,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -42,24 +43,31 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/types/task";
 import {
+  buildCalendarEvents,
+  canMoveCalendarEvent,
+  formatCalendarEventTime,
+} from "@/utils/calendarEvents";
+import {
   isTaskDateExpired,
   serializeTaskDateValue,
   toTaskDateValue,
   type TaskDateValue,
 } from "@/utils/taskDate";
 
-type CalendarView = "year" | "month" | "week";
+type CalendarView = "year" | "month" | "week" | "day";
 
 const VIEW_STORAGE_KEY = "snail-calendar-view";
 const VIEW_NAMES: Record<CalendarView, string> = {
   year: "年",
   month: "月",
   week: "周",
+  day: "日",
 };
 const FULLCALENDAR_VIEWS: Record<CalendarView, string> = {
   year: "multiMonthYear",
   month: "dayGridMonth",
-  week: "dayGridWeek",
+  week: "timeGridWeek",
+  day: "timeGridDay",
 };
 const COMPLETION_LEVEL_CLASSES = [1, 2, 3, 4].map(
   (level) => `task-calendar__day--completion-${level}`,
@@ -95,6 +103,7 @@ const CalendarPage = () => {
   const [showCompleted, setShowCompleted] = useState(true);
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [unscheduledOpen, setUnscheduledOpen] = useState(false);
   const [createDate, setCreateDate] = useState<TaskDateValue>({ type: "date", start: new Date() });
   const [moreDialog, setMoreDialog] = useState<{ date: Date; taskIds: string[] }>();
 
@@ -102,13 +111,21 @@ const CalendarPage = () => {
     if (!selectedTask) setDetailOpen(false);
   }, [selectedTask]);
 
-  const visibleTasks = useMemo(() => tasks.filter((task) => (
-    task.date
-    && !task.deleted
+  const filteredTasks = useMemo(() => tasks.filter((task) => (
+    !task.deleted
     && !task.abandoned
     && (showCompleted || !task.completed)
     && (!task.project || !hiddenProjectIds.has(task.project))
   )), [hiddenProjectIds, showCompleted, tasks]);
+
+  const visibleTasks = useMemo(
+    () => filteredTasks.filter((task) => task.date),
+    [filteredTasks],
+  );
+  const unscheduledTasks = useMemo(
+    () => filteredTasks.filter((task) => !task.date),
+    [filteredTasks],
+  );
 
   const completedCountByDate = useMemo(() => {
     const counts = new Map<string, number>();
@@ -156,22 +173,7 @@ const CalendarPage = () => {
     }) ?? []
   ), [moreDialog, taskById]);
 
-  const events = useMemo<EventInput[]>(() => visibleTasks.flatMap((task) => {
-    const value = toTaskDateValue(task);
-    if (!value) return [];
-    const allDay = value.type === "date";
-
-    return [{
-      id: task.id,
-      title: task.title,
-      start: allDay ? format(value.start, "yyyy-MM-dd") : value.start,
-      end: value.type === "range" ? value.end : undefined,
-      allDay,
-      editable: true,
-      durationEditable: value.type === "range",
-      extendedProps: { taskId: task.id },
-    }];
-  }), [visibleTasks]);
+  const events = useMemo(() => buildCalendarEvents(visibleTasks), [visibleTasks]);
 
   const changeView = (nextView: CalendarView, date?: Date) => {
     const api = calendarRef.current?.getApi();
@@ -226,6 +228,7 @@ const CalendarPage = () => {
 
   const openTaskDetail = (task: Task) => {
     setMoreDialog(undefined);
+    setUnscheduledOpen(false);
     selectTask(task.id);
     setDetailOpen(true);
   };
@@ -264,6 +267,7 @@ const CalendarPage = () => {
   const renderEvent = (info: EventDisplayInfo) => {
     const task = taskById.get(info.event.id);
     if (!task) return null;
+    const timeText = formatCalendarEventTime(task);
 
     return (
       <div className="task-calendar__event-content" title={task.title}>
@@ -281,7 +285,7 @@ const CalendarPage = () => {
           />
         </span>
         <span className="task-calendar__event-copy">
-          {info.timeText && <span className="task-calendar__event-time">{info.timeText}</span>}
+          {timeText && <span className="task-calendar__event-time">{timeText}</span>}
           <span className="task-calendar__event-title" data-calendar-task-title>{task.title}</span>
         </span>
       </div>
@@ -299,7 +303,7 @@ const CalendarPage = () => {
       ) : (
         <FullCalendar
           ref={calendarRef}
-          plugins={[interactionPlugin, dayGridPlugin, multiMonthPlugin, classicThemePlugin]}
+          plugins={[interactionPlugin, dayGridPlugin, timeGridPlugin, multiMonthPlugin, classicThemePlugin]}
           themeSystem="classic"
           locale={zhCnLocale}
           initialView={FULLCALENDAR_VIEWS[view]}
@@ -310,15 +314,30 @@ const CalendarPage = () => {
           navLinks={false}
           editable
           eventResizableFromStart
-          dayMaxEvents={view === "week" ? false : 3}
+          dayMaxEvents={view === "month" ? 3 : false}
           moreLinkClick={handleMoreLinkClick}
           moreLinkContent={(info) => `查看更多（${info.num}）`}
-          displayEventTime={view === "month"}
+          displayEventTime={view !== "year"}
+          allDayText="全天"
+          slotMinTime="00:00:00"
+          slotMaxTime="24:00:00"
+          slotDuration="00:30:00"
+          snapDuration="00:05:00"
+          scrollTime="08:00:00"
+          scrollTimeReset={false}
+          eventMinHeight={24}
+          eventShortHeight={20}
+          slotEventOverlap={false}
+          eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
           defaultTimedEventDuration="00:30:00"
           events={view === "year" ? [] : events}
           datesSet={(info: DatesSetInfo) => setRangeTitle(info.view.title)}
           dateClick={handleDateClick}
           eventClick={handleEventClick}
+          eventAllow={(dropInfo, event) => {
+            const task = taskById.get(event.id);
+            return task ? canMoveCalendarEvent(task, dropInfo.allDay) : false;
+          }}
           eventDrop={(info: EventDropInfo) => void saveMovedEvent(info)}
           eventResize={(info: EventResizeDoneInfo) => void saveMovedEvent(info)}
           eventContent={renderEvent}
@@ -347,6 +366,9 @@ const CalendarPage = () => {
             <span className="task-calendar__day-number">{info.dayNumberText}</span>
           )}
           moreLinkClass={() => ["task-calendar__more-link"]}
+          allDayHeaderClass={() => ["task-calendar__all-day-header"]}
+          slotLaneClass={() => ["task-calendar__time-slot"]}
+          slotHeaderClass={() => ["task-calendar__time-label"]}
           singleMonthClass={() => ["task-calendar__month-card"]}
           singleMonthHeaderClass={() => ["task-calendar__month-header"]}
         />
@@ -381,6 +403,10 @@ const CalendarPage = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuLabel>显示范围</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => setUnscheduledOpen(true)}>
+              <span className="flex-1">未安排任务</span>
+              <span className="text-xs tabular-nums text-muted-foreground">{unscheduledTasks.length}</span>
+            </DropdownMenuItem>
             <DropdownMenuCheckboxItem checked={showCompleted} onCheckedChange={(checked) => setShowCompleted(checked === true)}>
               已完成任务
             </DropdownMenuCheckboxItem>
@@ -440,6 +466,15 @@ const CalendarPage = () => {
         date={moreDialog?.date}
         tasks={moreDialogTasks}
         onOpenChange={(open) => !open && setMoreDialog(undefined)}
+        onOpenTask={openTaskDetail}
+        onToggleTask={handleCompletedChange}
+      />
+
+      <CalendarMoreDialog
+        open={unscheduledOpen}
+        title="未安排任务"
+        tasks={unscheduledTasks}
+        onOpenChange={setUnscheduledOpen}
         onOpenTask={openTaskDetail}
         onToggleTask={handleCompletedChange}
       />

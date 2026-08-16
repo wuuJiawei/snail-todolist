@@ -958,6 +958,19 @@
   gap: 0.25rem;
 }
 
+.task-calendar--week .task-calendar__event-copy,
+.task-calendar--day .task-calendar__event-copy {
+  align-items: baseline;
+  flex-wrap: wrap;
+  row-gap: 0;
+  white-space: normal;
+}
+
+.task-calendar--week .task-calendar__event-title,
+.task-calendar--day .task-calendar__event-title {
+  white-space: normal;
+}
+
 .task-calendar__event-time {
   color: hsl(var(--muted-foreground));
   flex: none;
@@ -1056,8 +1069,30 @@
   color: hsl(var(--accent-foreground));
 }
 
-.task-calendar--week .task-calendar__day {
-  min-height: 100%;
+.task-calendar__all-day-header,
+.task-calendar__time-label {
+  background: hsl(var(--background));
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.task-calendar__time-slot {
+  background: hsl(var(--background));
+}
+
+.task-calendar--week .task-calendar__event,
+.task-calendar--day .task-calendar__event {
+  border-left-width: 2px;
+  min-height: 1.25rem;
+}
+
+.task-calendar--week .task-calendar__event-content,
+.task-calendar--day .task-calendar__event-content {
+  gap: 0.25rem;
+  height: 100%;
+  overflow: hidden;
+  padding: 0.2rem 0.3rem;
 }
 
 @media (max-width: 767px) {

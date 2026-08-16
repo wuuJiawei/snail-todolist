@@ -15,6 +15,7 @@ import type { Task } from "@/types/task";
 
 interface CalendarMoreDialogProps {
   date?: Date;
+  title?: string;
   open: boolean;
   tasks: Task[];
   onOpenChange: (open: boolean) => void;
@@ -24,6 +25,7 @@ interface CalendarMoreDialogProps {
 
 const CalendarMoreDialog = ({
   date,
+  title,
   open,
   tasks,
   onOpenChange,
@@ -34,7 +36,7 @@ const CalendarMoreDialog = ({
     <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg">
       <DialogHeader className="border-b px-6 py-5 pr-12">
         <DialogTitle>
-          {date ? format(date, "M月d日 EEEE", { locale: zhCN }) : "当日任务"}
+          {title ?? (date ? format(date, "M月d日 EEEE", { locale: zhCN }) : "任务")}
         </DialogTitle>
         <DialogDescription>共 {tasks.length} 项任务</DialogDescription>
       </DialogHeader>
